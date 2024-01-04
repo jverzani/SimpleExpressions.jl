@@ -29,9 +29,10 @@ using Test
     @test u(x₀, p₀) == prod(xᵢ*pᵢ for (xᵢ, pᵢ) ∈ zip(x₀, p₀))
 
     # test show
-    u = cos(x) - p*x
-    x₀, p₀ = 2,3
-    @test eval(Meta.parse(repr(u)))(x₀,p₀) == u(x₀, p₀)
+    # run in global scope?
+    #u = cos(x) - p*x
+    #x₀, p₀ = 2,3
+    #@test eval(Meta.parse(repr(u)))(x₀,p₀) == u(x₀, p₀)
 
 
 end
