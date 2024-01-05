@@ -7,7 +7,7 @@ The [`@symbolic`](@ref) macro, the lone export, can create a symbolic variable a
 
 The expressions subtype `Function` so are intended to be useful with `Julia`'s higher-order functions. The expressions can be called either as `u(x)` or `u(x, p)` to substitute in for the symbolic value (and parameter).
 
-There are no performance claims, this package is all about convenience. Similar convenience is available in some form with `SymPy`, `SymEngine, `Symbolics`, etc. This package only has value in that it is very lightweight.
+There are no performance claims, this package is all about convenience. Similar convenience is available in some form with `SymPy`, `SymEngine, `Symbolics`, etc. As well, placeholder syntax is available in `Underscores.jl`, `Chain.jl`, `DataPipes.jl` etc., This package only has value in that it is very lightweight and, hopefully, intuitively simple.
 
 An extension is provided for functions in `SpecialFunctions`.
 
@@ -188,37 +188,31 @@ Base.show(io::IO, ::MIME"text/plain", x::AbstractSymbolic) = show(io, x)
 Base.show(io::IO, x::Symbolic) = print(io, x.x)
 Base.show(io::IO, p::SymbolicParameter) = print(io, p.p)
 function Base.show(io::IO, x::SymbolicExpression)
-    if x.op ∈ (^,)
-        join(io, x.arguments, string(x.op))
-    elseif x.op ∈ (/,)
-        print(io, "(")
-        show(io, first(x.arguments))
-        print(io, ") / (")
-        show(io, last(x.arguments))
-        print(io, ")")
-    elseif x.op ∈ (+,-,*,^) && length(x.arguments) > 1
-        join(io, x.arguments, " " * string(x.op) * " ")
-    elseif x.op == Base.broadcasted && first(x.arguments) == ^
-        op, a, b = x.arguments
-        if isa(a, SymbolicExpression)
-            print(io, "(")
-            show(io, a)
-            print(io, ")")
-        else
-            show(io, a)
-        end
-        print(io, ".^")
-        if isa(b, SymbolicExpression)
-            print(io, "(")
-            show(io, b)
-            print(io, ")")
-        else
-            show(io, b)
-        end
+    broadcast = ""
+    if x.op == Base.broadcasted
+        broadcast= "."
+        op, arguments... = x.arguments
     else
-        print(io, x.op, "(")
-        join(io, x.arguments, ", ", ", ")
+        op, arguments = x.op, x.arguments
+    end
+
+    infix_ops = (+,-,*,/,//,^) # infix
+    if op ∈ infix_ops
+        a, b = arguments
+        isa(a, SymbolicExpression) && a.op ∈ infix_ops && print(io, "(")
+        show(io, first(arguments))
+        isa(a, SymbolicExpression) && a.op ∈ infix_ops && print(io, ")")
+        print(io, " ", broadcast, string(op), " ")
+        isa(b, SymbolicExpression) && b.op ∈ infix_ops && print(io, "(")
+        show(io, b)
+        isa(b, SymbolicExpression) && b.op ∈ infix_ops && print(io, ")")
+
+    else
+
+        print(io, op, broadcast, "(")
+        join(io, arguments, ", ", ", ")
         print(io, ")")
+
     end
 end
 Base.show(io::IO, ::MIME"text/plain", x::SymbolicEquation) = show(io, x)

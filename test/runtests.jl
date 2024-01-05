@@ -50,10 +50,18 @@ using Test
     @test u(x₀, p₀) == prod(xᵢ*pᵢ for (xᵢ, pᵢ) ∈ zip(x₀, p₀))
 
     # test show
-    # run in global scope?
-    #u = cos(x) - p*x
-    #x₀, p₀ = 2,3
-    #@test eval(Meta.parse(repr(u)))(x₀,p₀) == u(x₀, p₀)
+    @symbolic x p
 
+    @test repr(2x) == "2 * x"
+    @test repr(x*2) == "x * 2"
+
+    @test repr(x*(1+x)) == "x * (1 + x)"
+    @test repr(x / 2) == "x / 2"
+    @test repr((x+2) / 2) == "(x + 2) / 2"
+    @test repr(x / (x+2)) == "x / (x + 2)"
+    @test repr(x .- sum(x)/length(x)) == "x .- (sum(x) / length(x))" # parens around expressions, like `sum(x)`.
+
+    @test_broken repr((1+x)^2) == "(1 + x) ^ 2"
+    @test repr((1+x)^2) == "(1 + x) .^ 2" # idiosyncratic
 
 end
