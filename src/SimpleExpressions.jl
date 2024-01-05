@@ -7,7 +7,7 @@ The [`@symbolic`](@ref) macro, the lone export, can create a symbolic variable a
 
 The expressions subtype `Function` so are intended to be useful with `Julia`'s higher-order functions. The expressions can be called either as `u(x)` or `u(x, p)` to substitute in for the symbolic value (and parameter).
 
-There are no performance claims, this package is all about convenience. Similar convenience is available in some form with `SymPy`, `SymEngine, `Symbolics`, etc. This package only has value in that it is very lightweight.
+There are no performance claims, this package is all about convenience. Similar convenience is available in some form with `SymPy`, `SymEngine, `Symbolics`, etc. As well, placeholder syntax is available in `Underscores.jl`, `Chain.jl`, `DataPipes.jl` etc., This package only has value in that it is very lightweight and, hopefully, intuitively simple.
 
 An extension is provided for functions in `SpecialFunctions`.
 
@@ -196,16 +196,16 @@ function Base.show(io::IO, x::SymbolicExpression)
         op, arguments = x.op, x.arguments
     end
 
-    if op ∈ (+,-,*,/,//,^) # infix
-
+    infix_ops = (+,-,*,/,//,^) # infix
+    if op ∈ infix_ops
         a, b = arguments
-        isa(a, SymbolicExpression) && print(io, "(")
+        isa(a, SymbolicExpression) && a.op ∈ infix_ops && print(io, "(")
         show(io, first(arguments))
-        isa(a, SymbolicExpression) && print(io, ")")
+        isa(a, SymbolicExpression) && a.op ∈ infix_ops && print(io, ")")
         print(io, " ", broadcast, string(op), " ")
-        isa(b, SymbolicExpression) && print(io, "(")
+        isa(b, SymbolicExpression) && b.op ∈ infix_ops && print(io, "(")
         show(io, b)
-        isa(b, SymbolicExpression) && print(io, ")")
+        isa(b, SymbolicExpression) && b.op ∈ infix_ops && print(io, ")")
 
     else
 
