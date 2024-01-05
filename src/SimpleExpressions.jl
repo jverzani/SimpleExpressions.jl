@@ -5,13 +5,14 @@ A *very* lightweight means to create callable functions using expressions.
 
 The [`@symbolic`](@ref) macro, the lone export, can create a symbolic variable and optional symbolic parameter. When expressions are created with these variables, evaluation is deferred.
 
-The expressions subtype `Function` so are intended to be useful with `Julia`'s higher-order functions. The expressions can be called either as `u(x)` or `u(x, p)` to substitute in for the symbolic values.
+The expressions subtype `Function` so are intended to be useful with `Julia`'s higher-order functions. The expressions can be called either as `u(x)` or `u(x, p)` to substitute in for the symbolic value (and parameter).
 
 There are no performance claims, this package is all about convenience. Similar convenience is available in some form with `SymPy`, `SymEngine, `Symbolics`, etc. This package only has value in that it is very lightweight.
 
 An extension is provided for functions in `SpecialFunctions`.
 
 An exension is provided for `TermInterface` which allows the use of `Metatheory` to rewrite terms.
+
 
 """
 module SimpleExpressions
@@ -24,7 +25,9 @@ export @symbolic
 
 Create a symbolic variable and optional symbolic parameter.
 
-Expressions created using the variable subclass `Function` so may be used where functions are expected.
+# Expressions and equations
+
+Expressions created using these variables subclass `Function` so may be used where functions are expected.
 
 The  `~` infix operator can be used to create equations, which are treated as `lhs - rhs` when used as functions.
 
@@ -49,15 +52,21 @@ u(nothing, 2)  # cos(x) - 2 * x
 u(pi, nothing) # -1.0 - p * π
 ```
 
-The main use is as an easier to type replacement for anonymous functions:
+The main use is as an easier-to-type replacement for anonymous functions, though with differences:
+
+```
+1 |> sin(x) |> x^2  # sin(1)^2
+```
 
 ```
 map(x^2, (1, 2)) # (1,4)
 ```
 
+Can be used with other packages, to simplify some function calls at the expense of being non-idiomatic:
+
 ```
 using Roots
-@symbolics x p
+@symbolic x p
 find_zero(x^5 - x - 1, 1)     # 1.167...
 find_zero(x^5 - x ~ p, 1, 4)  # 1.401...
 
@@ -70,6 +79,54 @@ find_zero((u,u'), 1, Roots.Newton()) # 1.167...
 ```
 using Plots
 plot(x^5 - x - 1, 0, 1.5)
+```
+
+# Extended help
+
+Using this is a convenience for *simple* cases. It is easy to run into idiosyncracies.
+
+## Expressions are not functions in terms of scope
+
+Unlike functions, expressions are defined with variables at the time of definition, not when called. For example, with a clean environment:
+
+```
+@symbolic x
+u = m*x + b    # errors, `m` not defined
+f(x) = m*x + b # ok
+m, b = 1, 2
+u = m*x + b    # defined using `m` amd `b` at time of assignment
+u(3)           # 1 * 3 + 2
+f(3)           # 1 * 3 + 2 values of `m` and `b` when called
+m, b = 3, 4
+u(3)           # still computing 1 * 3 + 2
+f(3)           # computing 3 * 3 + 4, using values of `m` and `b` when called
+```
+
+
+
+## Symbolic values are really singletons
+
+Though one can make different symbolic variables, they are all indistinguishable for purposes of evaluation:
+
+```
+@symbolic x
+@symbolic y    # both x, y are `Symbolic` type
+u = x + 2y
+u(3)           # 9 or 3 + 2*3
+```
+
+Similarly for symbolic parameters.
+
+## Broadcasting with `literal_pow`
+
+The treatment of literal integer powers is not caught properly by this package. A hack, whereby broadcasting is always used is introduced.
+
+```
+@symbolic x
+u = x ^ 2      # prints as x.^2, as broadcasting will be used
+v = x .^ 2     # explicitly uses broadcasting
+u([1,2])       # broken, should throw an error, but [1,2] .^ 2 employed
+v([1,2])       # [1, 4]
 ```
 
 """
@@ -141,6 +198,23 @@ function Base.show(io::IO, x::SymbolicExpression)
         print(io, ")")
     elseif x.op ∈ (+,-,*,^) && length(x.arguments) > 1
         join(io, x.arguments, " " * string(x.op) * " ")
+    elseif x.op == Base.broadcasted && first(x.arguments) == ^
+        op, a, b = x.arguments
+        if isa(a, SymbolicExpression)
+            print(io, "(")
+            show(io, a)
+            print(io, ")")
+        else
+            show(io, a)
+        end
+        print(io, ".^")
+        if isa(b, SymbolicExpression)
+            print(io, "(")
+            show(io, b)
+            print(io, ")")
+        else
+            show(io, b)
+        end
     else
         print(io, x.op, "(")
         join(io, x.arguments, ", ", ", ")
@@ -172,13 +246,15 @@ subs(x, y, p=nothing) = x
 Base.:-(x::AbstractSymbolic) = SymbolicExpression(-, (x, ))
 
 # binary
-for op ∈ (:+, :-, :*, :/, :\, :^, :(==), :(!=), :<, :(<=), :>, :(>=), :≈)
+for op ∈ (:+, :-, :*, :/, ://, :\, :^, :(==), :(!=), :<, :(<=), :>, :(>=), :≈)
     @eval begin
         import Base: $op
         Base.$op(x::AbstractSymbolic, y::Number) = SymbolicExpression($op, (x,y))
         Base.$op(x::Number, y::AbstractSymbolic) = SymbolicExpression($op, (x,y))
         Base.$op(x::AbstractSymbolic, y::AbstractSymbolic) = SymbolicExpression($op, (x,y))    end
 end
+
+Base.:^(x::AbstractSymbolic, y::Integer) = SymbolicExpression(Base.broadcasted, (^, x, y))
 
 # lists from AbstractNumbers.jl
 for fn ∈ (
@@ -207,8 +283,8 @@ end
 # for generic programming
 for fn ∈ (:sum, :prod,
           :getindex,
-          :eachindex, :enumerate, :zip,
-          :first, :last, :only
+          :eachindex, :enumerate, :zip,:length,
+          :first, :last, :only,
           )
         @eval begin
         import Base: $fn
@@ -217,6 +293,14 @@ for fn ∈ (:sum, :prod,
 end
 
 Base.Generator(f, iter::AbstractSymbolic) = SymbolicExpression(Base.Generator, (f, iter))
+
+Base.broadcasted(op, a::AbstractSymbolic, as...) = SymbolicExpression(Base.broadcasted, (op, a, as...))
+
+function _subs(::typeof(Base.broadcasted), args, y, p=nothing)
+    op, as... = args
+    u = Base.broadcast(op, subs.(as, Ref(y), Ref(p))...)
+    Base.materialize(u)
+end
 
 
 end
