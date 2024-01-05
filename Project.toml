@@ -1,7 +1,7 @@
 name = "SimpleExpressions"
 uuid = "deba94f7-f32a-40ad-b45e-be020a5ded2f"
 authors = ["jverzani <jverzani@gmail.com> and contributors"]
-version = "1.0.0"
+version = "1.0.1"
 
 [compat]
 TermInterface = "0.3.3"
