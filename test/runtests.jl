@@ -5,8 +5,29 @@ using Test
 
     @symbolic x p
 
+    # basic arithemtic
+    x₀ = 3
+    @test (x + 2)(x₀)  == x₀ + 2
+    @test (-x)(x₀)  == -x₀
+    @test (x * 2)(x₀)  == x₀ * 2
+    @test (x / 2)(x₀) == x₀ / 2
+    @test (x // 2)(x₀) == x₀ // 2
+    @test (x ^ 2)(x₀)  == x₀ ^ 2
+
+    # in a pipeline
+    @test 1 |> x^2 |> x - 3 == 1^2 - 3
+
     # simple map
     @test map(x^2, (1,2)) == (1^2, 2^2)
+
+    # broadcasting
+    x₀ = [1,2,3]
+    @test x₀ |> (x .- sum(x)/length(x)) |> x .* x  == (x₀ .- sum(x₀)/length(x₀)).^2
+    @test x₀ |> x.^2 == x₀.^2
+    @test x₀ |> x.^2.0 == x₀.^2.0
+    @test_skip @test_throws MethodError x₀ |> x^2
+
+
 
     # using a parameter
     u = cos(x) - p*x
