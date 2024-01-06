@@ -1,6 +1,6 @@
-module SimpleSymbolicsSpecialFunctionsExt
+module SimpleExpressionsSpecialFunctionsExt
 
-import SimpleSymbolics
+import SimpleExpressions
 import SpecialFunctions
 
 # special_funcs
@@ -20,7 +20,7 @@ for fn ∈ (:airy,
           :hankelh1, :hankelh1x, :hankelh2, :hankelh2x,
           :zeta)
     @eval begin
-        SpecialFunctions.$fn(x::SimpleSymbolics.AbstractSymbolic, as...) = SimpleSymbolics.SymbolicExpression(SpecialFunctions.$fn, (x, as...))
+        SpecialFunctions.$fn(x::SimpleExpressions.AbstractSymbolic, as...) = SimpleExpressions.SymbolicExpression(SpecialFunctions.$fn, (x, as...))
     end
 end
 

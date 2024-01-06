@@ -136,7 +136,7 @@ There is a difference -- which needs to be corrected -- where it is best to wrap
 ```
 @symbolic x
 map(x^2, [1,2])    # [1, 4]
-map.(x^2,[1,2])    # map.(x .^ 2, [1, 2]) ... not desirable
+map.(x^2, [1,2])   # map.(x .^ 2, [1, 2]) ... not desirable
 map.([x^2], [1,2]) # [1, 4]
 ```
 
@@ -239,7 +239,7 @@ function subs(X::SymbolicExpression, y, p=nothing)
     _subs(X.op, X.arguments, y, p)
 end
 function _subs(op::Any, args, y, p=nothing)
-   op(subs.(args, Ref(y), Ref(p))...) # recurse
+    op(subs.(args, Ref(y), Ref(p))...) # recurse
 end
 
 subs(x::Symbolic, y, p=nothing) = something(y, x)
@@ -306,9 +306,7 @@ end
 Base.:^(x::AbstractSymbolic, y::Integer) = x.^y  # hacky
 
 function Base.broadcasted(style::Base.Broadcast.BroadcastStyle, f::AbstractSymbolic, args...)
-    op, as = f.op, f.arguments
-    u = Base.broadcast(op, subs.(as, Ref.(args)...)...)
-    Base.materialize(u)
+    subs.([f], args...)
 end
 
 function _subs(::typeof(Base.broadcasted), args, y, p=nothing)

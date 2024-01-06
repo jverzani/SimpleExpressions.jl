@@ -1,8 +1,8 @@
-module SimpleSymbolicsTermInterfaceExt
+module SimpleExpressionsTermInterfaceExt
 
-using SimpleSymbolics
+using SimpleExpressions
 
-import SimpleSymbolics: AbstractSymbolic, Symbolic, SymbolicParameter, SymbolicExpression, SymbolicEquation
+import SimpleExpressions: AbstractSymbolic, Symbolic, SymbolicParameter, SymbolicExpression, SymbolicEquation
 
 using TermInterface
 
