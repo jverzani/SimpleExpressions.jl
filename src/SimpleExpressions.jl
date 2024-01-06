@@ -129,6 +129,17 @@ u([1,2])       # broken, should throw an error, but [1,2] .^ 2 employed
 v([1,2])       # [1, 4]
 ```
 
+## Broadcasting as a function
+
+There is a difference -- which needs to be corrected -- where it is best to wrap the expression in a container for broadcasting. We can see it here in this artificial example:
+
+```
+@symbolic x
+map(x^2, [1,2])    # [1, 4]
+map.(x^2, [1,2])   # map.(x .^ 2, [1, 2]) ... not desirable
+map.([x^2], [1,2]) # [1, 4]
+```
+
 """
 macro symbolic(x...)
     q=Expr(:block)
@@ -228,7 +239,7 @@ function subs(X::SymbolicExpression, y, p=nothing)
     _subs(X.op, X.arguments, y, p)
 end
 function _subs(op::Any, args, y, p=nothing)
-   op(subs.(args, Ref(y), Ref(p))...) # recurse
+    op(subs.(args, Ref(y), Ref(p))...) # recurse
 end
 
 subs(x::Symbolic, y, p=nothing) = something(y, x)
@@ -247,8 +258,6 @@ for op ∈ (:+, :-, :*, :/, ://, :\, :^, :(==), :(!=), :<, :(<=), :>, :(>=), :�
         Base.$op(x::Number, y::AbstractSymbolic) = SymbolicExpression($op, (x,y))
         Base.$op(x::AbstractSymbolic, y::AbstractSymbolic) = SymbolicExpression($op, (x,y))    end
 end
-
-Base.:^(x::AbstractSymbolic, y::Integer) = SymbolicExpression(Base.broadcasted, (^, x, y))
 
 # lists from AbstractNumbers.jl
 for fn ∈ (
@@ -288,7 +297,17 @@ end
 
 Base.Generator(f, iter::AbstractSymbolic) = SymbolicExpression(Base.Generator, (f, iter))
 
-Base.broadcasted(op, a::AbstractSymbolic, as...) = SymbolicExpression(Base.broadcasted, (op, a, as...))
+Base.broadcastable(x::AbstractSymbolic) = Ref(x)
+
+function Base.broadcasted(op, a::AbstractSymbolic, as...)
+     SymbolicExpression(Base.broadcasted, (op, a, as...))
+end
+
+Base.:^(x::AbstractSymbolic, y::Integer) = x.^y  # hacky
+
+function Base.broadcasted(style::Base.Broadcast.BroadcastStyle, f::AbstractSymbolic, args...)
+    subs.([f], args...)
+end
 
 function _subs(::typeof(Base.broadcasted), args, y, p=nothing)
     op, as... = args
