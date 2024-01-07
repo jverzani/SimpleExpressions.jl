@@ -209,15 +209,20 @@ function Base.show(io::IO, x::SymbolicExpression)
 
     infix_ops = (+,-,*,/,//,^) # infix
     if op ∈ infix_ops
-        a, b = arguments
-        isa(a, SymbolicExpression) && a.op ∈ infix_ops && print(io, "(")
-        show(io, first(arguments))
-        isa(a, SymbolicExpression) && a.op ∈ infix_ops && print(io, ")")
-        print(io, " ", broadcast, string(op), " ")
-        isa(b, SymbolicExpression) && b.op ∈ infix_ops && print(io, "(")
-        show(io, b)
-        isa(b, SymbolicExpression) && b.op ∈ infix_ops && print(io, ")")
-
+        if length(arguments) == 1
+            print(io, string(op), "(")
+            show(io, only(arguments))
+            print(io, ")")
+        else
+            a, b = arguments
+            isa(a, SymbolicExpression) && a.op ∈ infix_ops && print(io, "(")
+            show(io, first(arguments))
+            isa(a, SymbolicExpression) && a.op ∈ infix_ops && print(io, ")")
+            print(io, " ", broadcast, string(op), " ")
+            isa(b, SymbolicExpression) && b.op ∈ infix_ops && print(io, "(")
+            show(io, b)
+            isa(b, SymbolicExpression) && b.op ∈ infix_ops && print(io, ")")
+            end
     else
 
         print(io, op, broadcast, "(")
