@@ -33,7 +33,7 @@ The  `~` infix operator can be used to create equations, which are treated as `l
 
 # Example
 
-```
+```julia
 using SimpleExpressions
 @symbolics x
 u = x^5 - x - 1
@@ -46,7 +46,7 @@ u(2, [1,2]) # 6  call is u(x, p)
 
 Calling with `nothing` in a slot leaves the variable
 
-```
+```julia
 u = cos(x) - p*x
 u(nothing, 2)  # cos(x) - 2 * x
 u(pi, nothing) # -1.0 - p * π
@@ -54,17 +54,17 @@ u(pi, nothing) # -1.0 - p * π
 
 The main use is as an easier-to-type replacement for anonymous functions, though with differences:
 
-```
+```julia
 1 |> sin(x) |> x^2  # sin(1)^2
 ```
 
-```
+```julia
 map(x^2, (1, 2)) # (1,4)
 ```
 
 Can be used with other packages, to simplify some function calls at the expense of being non-idiomatic:
 
-```
+```julia
 using Roots
 @symbolic x p
 find_zero(x^5 - x - 1, 1)     # 1.167...
@@ -76,7 +76,7 @@ u = x^5 - x - 1
 find_zero((u,u'), 1, Roots.Newton()) # 1.167...
 ```
 
-```
+```julia
 using Plots
 plot(x^5 - x - 1, 0, 1.5)
 ```
@@ -89,7 +89,7 @@ Using this is a convenience for *simple* cases. It is easy to run into idiosyncr
 
 Unlike functions, expressions are defined with variables at the time of definition, not when called. For example, with a clean environment:
 
-```
+```julia
 @symbolic x
 u = m*x + b    # errors, `m` not defined
 f(x) = m*x + b # ok
@@ -108,7 +108,7 @@ f(3)           # computing 3 * 3 + 4, using values of `m` and `b` when called
 
 Though one can make different symbolic variables, they are all indistinguishable for purposes of evaluation:
 
-```
+```julia
 @symbolic x
 @symbolic y    # both x, y are `Symbolic` type
 u = x + 2y
@@ -121,7 +121,7 @@ Similarly for symbolic parameters.
 
 The treatment of literal integer powers is not caught properly by this package. A hack, whereby broadcasting is always used is introduced.
 
-```
+```julia
 @symbolic x
 u = x ^ 2      # prints as x.^2, as broadcasting will be used
 v = x .^ 2     # explicitly uses broadcasting
@@ -133,7 +133,7 @@ v([1,2])       # [1, 4]
 
 There is a difference -- which needs to be corrected -- where it is best to wrap the expression in a container for broadcasting. We can see it here in this artificial example:
 
-```
+```julia
 @symbolic x
 map(x^2, [1,2])    # [1, 4]
 map.(x^2, [1,2])   # map.(x .^ 2, [1, 2]) ... not desirable
@@ -209,15 +209,20 @@ function Base.show(io::IO, x::SymbolicExpression)
 
     infix_ops = (+,-,*,/,//,^) # infix
     if op ∈ infix_ops
-        a, b = arguments
-        isa(a, SymbolicExpression) && a.op ∈ infix_ops && print(io, "(")
-        show(io, first(arguments))
-        isa(a, SymbolicExpression) && a.op ∈ infix_ops && print(io, ")")
-        print(io, " ", broadcast, string(op), " ")
-        isa(b, SymbolicExpression) && b.op ∈ infix_ops && print(io, "(")
-        show(io, b)
-        isa(b, SymbolicExpression) && b.op ∈ infix_ops && print(io, ")")
-
+        if length(arguments) == 1
+            print(io, string(op), "(")
+            show(io, only(arguments))
+            print(io, ")")
+        else
+            a, b = arguments
+            isa(a, SymbolicExpression) && a.op ∈ infix_ops && print(io, "(")
+            show(io, first(arguments))
+            isa(a, SymbolicExpression) && a.op ∈ infix_ops && print(io, ")")
+            print(io, " ", broadcast, string(op), " ")
+            isa(b, SymbolicExpression) && b.op ∈ infix_ops && print(io, "(")
+            show(io, b)
+            isa(b, SymbolicExpression) && b.op ∈ infix_ops && print(io, ")")
+            end
     else
 
         print(io, op, broadcast, "(")
@@ -315,5 +320,5 @@ function _subs(::typeof(Base.broadcasted), args, y, p=nothing)
     Base.materialize(u)
 end
 
-
+include("scalar-derivative.jl")
 end
