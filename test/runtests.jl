@@ -65,3 +65,21 @@ using Test
     @test repr((1+x)^2) == "(1 + x) .^ 2" # idiosyncratic
 
 end
+
+@testset "derivatives" begin
+    D = SimpleExpressions.D
+    ∂(u,x) = (h = 1e-6; (u(x+h)-u(x))/h)
+
+    @symbolic x
+    x₀ = 2
+
+    ex = cos(x)*sin(x^2+x)
+    @test D(ex)(x₀) ≈ ∂(ex, x₀) atol=1e-4
+
+    ex = exp(x^2 - 2) * log(x + sin(x))
+    @test D(ex)(x₀) ≈ ∂(ex, x₀) atol=1e-4
+
+    ex = log1p(x^2) * sqrt(1 + sin(x)^2)
+    @test D(ex)(x₀) ≈ ∂(ex, x₀) atol=1e-4
+
+end
