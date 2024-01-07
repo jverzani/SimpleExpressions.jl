@@ -67,6 +67,11 @@ function D(::typeof(Base.broadcasted), args)
     D(SymbolicExpression(op, as))
 end
 
+D(::typeof(abs2), args)   = (𝑥 = only(args); D(𝑥) * 2𝑥)
+D(::typeof(deg2rad), args)   = (𝑥 = only(args); D(𝑥) * pi / 180)
+D(::typeof(rad2deg), args)   = (𝑥 = only(args); D(𝑥) * 180 / pi)
+
+
 D(::typeof(exp), args)   = (𝑥 = only(args); D(𝑥) * exp(𝑥))
 D(::typeof(exp2), args)  = (𝑥 = only(args); D(𝑥) * exp2(𝑥) * log(2))
 D(::typeof(exp10), args) = (𝑥 = only(args); D(𝑥) * exp10(𝑥) * log(10))
