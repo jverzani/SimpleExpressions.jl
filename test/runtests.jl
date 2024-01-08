@@ -1,7 +1,7 @@
 using SimpleExpressions
 using Test
 
-@testset "SimpleSymbolics.jl" begin
+@testset "SimpleExpressions.jl" begin
 
     @symbolic x p
 
