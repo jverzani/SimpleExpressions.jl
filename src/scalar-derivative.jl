@@ -82,7 +82,7 @@ D(::typeof(prod), args) = D(SymbolicExpression(*, args))
 
 function D(::typeof(/), args)
     u,v = args
-    ((u ⊗ D(v)) ⊖ (D(u) ⊗ v)) / v^2
+    ((D(u) ⊗ v) ⊖ (u ⊗ D(v))) / v^2
 end
 
 function D(::typeof(^), args)
