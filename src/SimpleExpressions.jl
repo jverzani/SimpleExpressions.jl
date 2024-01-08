@@ -1,5 +1,5 @@
 """
-    SimpleSymbolics
+    SimpleExpressions
 
 A *very* lightweight means to create callable functions using expressions.
 

@@ -2,7 +2,7 @@
 
 [![Docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://jverzani.github.io/SimpleExpressions.jl/dev)
 
-[![Build Status](https://github.com/jverzani/SimpleExpressions.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/jverzani/SimpleSymbolics.jl/actions/workflows/CI.yml?query=branch%3Amain)
+[![Build Status](https://github.com/jverzani/SimpleExpressions.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/jverzani/SimpleExpressions.jl/actions/workflows/CI.yml?query=branch%3Amain)
 
 
 A very lightweight package to create expressions involving a symbolic variable and optional parameter. These are convenient with higher-order functions expecting mathematical functions.
