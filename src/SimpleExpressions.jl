@@ -5,7 +5,7 @@ A *very* lightweight means to create callable functions using expressions.
 
 The [`@symbolic`](@ref) macro, the lone export, can create a symbolic variable and optional symbolic parameter. When expressions are created with these variables, evaluation is deferred.
 
-The expressions subtype `Function` so are intended to be useful with `Julia`'s higher-order functions. The expressions can be called either as `u(x)` or `u(x, p)` to substitute in for the symbolic value (and parameter).
+The expressions subtype `Function` so are intended to be useful with `Julia`'s higher-order functions. The expressions can be called either as `u(x)` or `u(x, p)`, a typical means to pass a function to a numeric routing. These calls substitute in for the symbolic value (and parameter) when not specified as `nothing`..
 
 There are no performance claims, this package is all about convenience. Similar convenience is available in some form with `SymPy`, `SymEngine, `Symbolics`, etc. As well, placeholder syntax is available in `Underscores.jl`, `Chain.jl`, `DataPipes.jl` etc., This package only has value in that it is very lightweight and, hopefully, intuitively simple.
 
@@ -102,8 +102,6 @@ u(3)           # still computing 1 * 3 + 2
 f(3)           # computing 3 * 3 + 4, using values of `m` and `b` when called
 ```
 
-
-
 ## Symbolic values are really singletons
 
 Though one can make different symbolic variables, they are all indistinguishable for purposes of evaluation:
@@ -115,7 +113,7 @@ u = x + 2y
 u(3)           # 9 or 3 + 2*3
 ```
 
-Similarly for symbolic parameters.
+Similarly for symbolic parameters. The variables may be used as containers though, e.g. `u=sum(xi*pi for (xi, pi) in zip(x,p)); u((1,2),(3,4))`.
 
 ## Broadcasting with `literal_pow`
 
