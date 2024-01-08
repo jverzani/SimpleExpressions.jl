@@ -308,7 +308,22 @@ function Base.broadcasted(op, a::AbstractSymbolic, as...)
      SymbolicExpression(Base.broadcasted, (op, a, as...))
 end
 
-Base.:^(x::AbstractSymbolic, y::Integer) = x.^y  # hacky
+# handle integer powers
+Base.literal_pow(::typeof(^), x::AbstractSymbolic, ::Val{0}) = 1
+Base.literal_pow(::typeof(^), x::AbstractSymbolic, ::Val{1}) = x
+Base.literal_pow(::typeof(^), x::AbstractSymbolic, ::Val{2}) = SymbolicExpression(^,(x,2))
+Base.literal_pow(::typeof(^), x::AbstractSymbolic, ::Val{3}) = SymbolicExpression(^,(x,3))
+Base.literal_pow(::typeof(^), x::AbstractSymbolic, ::Val{-1}) = 1/x
+Base.literal_pow(::typeof(^), x::AbstractSymbolic, ::Val{-2}) = 1/x^2
+function Base.literal_pow(::typeof(^), x::AbstractSymbolic, ::Val{p}) where {p}
+    u = SymbolicExpression(^,(x,abs(p)))
+    p < 0 ? 1 / u : u
+end
+function Base.broadcasted(::typeof(Base.literal_pow), u, a::AbstractSymbolic,
+                          p::Val{N}) where {N}
+    SymbolicExpression(Base.broadcasted, (^, a,N))
+end
+
 
 function Base.broadcasted(style::Base.Broadcast.BroadcastStyle, f::AbstractSymbolic, args...)
     subs.([f], args...)

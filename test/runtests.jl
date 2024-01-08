@@ -61,8 +61,7 @@ using Test
     @test repr(x / (x+2)) == "x / (x + 2)"
     @test repr(x .- sum(x)/length(x)) == "x .- (sum(x) / length(x))" # parens around expressions, like `sum(x)`.
 
-    @test_broken repr((1+x)^2) == "(1 + x) ^ 2"
-    @test repr((1+x)^2) == "(1 + x) .^ 2" # idiosyncratic
+    @test repr((1+x)^2) == "(1 + x) ^ 2"
 
 end
 
