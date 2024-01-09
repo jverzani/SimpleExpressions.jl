@@ -5,7 +5,7 @@ using Test
 
     @symbolic x p
 
-    # basic arithemtic
+    # basic arithmetic
     x₀ = 3
     @test (x + 2)(x₀)  == x₀ + 2
     @test (-x)(x₀)  == -x₀

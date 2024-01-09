@@ -11,7 +11,7 @@ There are no performance claims, this package is all about convenience. Similar 
 
 An extension is provided for functions in `SpecialFunctions`.
 
-An exension is provided for `TermInterface` which allows the use of `Metatheory` to rewrite terms.
+An extension is provided for `TermInterface` which allows the use of `Metatheory` to rewrite terms.
 
 
 """
@@ -83,7 +83,7 @@ plot(x^5 - x - 1, 0, 1.5)
 
 # Extended help
 
-Using this is a convenience for *simple* cases. It is easy to run into idiosyncracies.
+Using this is a convenience for *simple* cases. It is easy to run into idiosyncrasies.
 
 ## Expressions are not functions in terms of scope
 
