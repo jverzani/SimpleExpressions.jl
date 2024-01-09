@@ -25,7 +25,7 @@ using Test
     @test x₀ |> (x .- sum(x)/length(x)) |> x .* x  == (x₀ .- sum(x₀)/length(x₀)).^2
     @test x₀ |> x.^2 == x₀.^2
     @test x₀ |> x.^2.0 == x₀.^2.0
-    @test_skip @test_throws MethodError x₀ |> x^2
+    @test_throws MethodError x₀ |> x^2
 
 
 

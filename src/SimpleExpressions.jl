@@ -115,17 +115,6 @@ u(3)           # 9 or 3 + 2*3
 
 Similarly for symbolic parameters. The variables may be used as containers though, e.g. `u=sum(xi*pi for (xi, pi) in zip(x,p)); u((1,2),(3,4))`.
 
-## Broadcasting with `literal_pow`
-
-The treatment of literal integer powers is not caught properly by this package. A hack, whereby broadcasting is always used is introduced.
-
-```julia
-@symbolic x
-u = x ^ 2      # prints as x.^2, as broadcasting will be used
-v = x .^ 2     # explicitly uses broadcasting
-u([1,2])       # broken, should throw an error, but [1,2] .^ 2 employed
-v([1,2])       # [1, 4]
-```
 
 ## Broadcasting as a function
 
@@ -134,7 +123,7 @@ There is a difference -- which needs to be corrected -- where it is best to wrap
 ```julia
 @symbolic x
 map(x^2, [1,2])    # [1, 4]
-map.(x^2, [1,2])   # map.(x .^ 2, [1, 2]) ... not desirable
+map.(x^2, [1,2])   # map.(x^2, [1, 2]) ... not desirable
 map.([x^2], [1,2]) # [1, 4]
 ```
 
@@ -159,13 +148,13 @@ abstract type AbstractSymbolic <: Function end
 struct Symbolic <: AbstractSymbolic
     x::Symbol
 end
-(X::Symbolic)(y, p=nothing) = y
+(X::Symbolic)(y, p=nothing) = something(y, X)
 
 # optional parameter
 struct SymbolicParameter <: AbstractSymbolic
     p::Symbol
 end
-(X::SymbolicParameter)(y , p) = p
+(X::SymbolicParameter)(y , p) = something(p, X)
 
 # don't specialize for faster first usage
 struct SymbolicExpression <: AbstractSymbolic
@@ -190,6 +179,12 @@ Base.:~(a::Real, b::AbstractSymbolic) = SymbolicEquation(a,b)
 Base.:~(a::AbstractSymbolic, b::AbstractSymbolic) = SymbolicEquation(a,b)
 
 (X::SymbolicEquation)(x, p=nothing) = subs(X.lhs, x,p) - subs(X.rhs,x, p)
+
+
+## ----
+issymbolic(x::AbstractSymbolic) = true
+issymbolic(::Any) = false
+
 
 ## ----
 

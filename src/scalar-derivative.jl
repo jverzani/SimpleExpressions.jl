@@ -3,7 +3,7 @@
 
 Finds derivative of symbolic expression.
 
-* *assumes* a symbolic value is a scalar and takes derivative with respect to that
+* *assumes* a symbolic value is a scalar and takes derivative with respect to that; symbolic parameters are assumed to be constants
 * There is no simplification, so the output is not necessarily friendly
 * limited to a select set of functions
 
@@ -16,8 +16,8 @@ julia> @symbolic x p
 julia> D(exp(sin(x)))
 (1 * cos(x)) * exp(sin(x))
 
-julia> D(sin(x)*cos(x-p)) # no simplification!
-((1 * cos(x)) * cos(x - p)) + (sin(x) * (((-(0)) + 1) * (-(sin(x - p)))))
+julia> D(D(sin(x))) + sin(x) # no simplification!
+(-(sin(x))) + sin(x)
 ```
 
 ```
