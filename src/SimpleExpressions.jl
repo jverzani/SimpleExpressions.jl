@@ -5,13 +5,13 @@ A *very* lightweight means to create callable functions using expressions.
 
 The [`@symbolic`](@ref) macro, the lone export, can create a symbolic variable and optional symbolic parameter. When expressions are created with these variables, evaluation is deferred.
 
-The expressions subtype `Function` so are intended to be useful with `Julia`'s higher-order functions. The expressions can be called either as `u(x)` or `u(x, p)`, a typical means to pass a function to a numeric routing. These calls substitute in for the symbolic value (and parameter) when not specified as `nothing`..
+The expressions subtype `Function` so are intended to be useful with `Julia`'s higher-order functions. The expressions can be called either as `u(x)` or `u(x, p)`, a typical means to pass a function to a numeric routine. These calls substitute in for the symbolic value (and parameter) when not specified as `nothing`. (To substitute in for just the parameter, either `u(nothing, value)` *or* `u(:,value)` is permissible.)
 
 There are no performance claims, this package is all about convenience. Similar convenience is available in some form with `SymPy`, `SymEngine, `Symbolics`, etc. As well, placeholder syntax is available in `Underscores.jl`, `Chain.jl`, `DataPipes.jl` etc., This package only has value in that it is very lightweight and, hopefully, intuitively simple.
 
 An extension is provided for functions in `SpecialFunctions`.
 
-An extension is provided for `TermInterface` which allows the use of `Metatheory` to rewrite terms.
+An extension is provided for `TermInterface` which should allow the use of `Metatheory` to rewrite terms.
 
 
 """
@@ -29,7 +29,7 @@ Create a symbolic variable and optional symbolic parameter.
 
 Expressions created using these variables subclass `Function` so may be used where functions are expected.
 
-The  `~` infix operator can be used to create equations, which are treated as `lhs - rhs` when used as functions.
+The  `~` infix operator can be used to create equations, which, by default, are treated as `lhs - rhs` when used as functions.
 
 # Example
 
@@ -47,8 +47,10 @@ u(2, [1,2]) # 6  call is u(x, p)
 Calling with `nothing` in a slot leaves the variable
 
 ```julia
+@symbolic x p
 u = cos(x) - p*x
 u(nothing, 2)  # cos(x) - 2 * x
+u(:, 2)        #  cos(x) - 2 * x, alternate calling form
 u(pi, nothing) # -1.0 - p * π
 ```
 
@@ -56,6 +58,8 @@ The main use is as an easier-to-type replacement for anonymous functions, though
 
 ```julia
 1 |> sin(x) |> x^2  # sin(1)^2
+u = cos(x) - p*x
+2 |> u(:, 3) # u(2,3) alternative
 ```
 
 ```julia
@@ -148,13 +152,13 @@ abstract type AbstractSymbolic <: Function end
 struct Symbolic <: AbstractSymbolic
     x::Symbol
 end
-(X::Symbolic)(y, p=nothing) = something(y, X)
+(X::Symbolic)(y, p=nothing) = subs(X,y,p)
 
 # optional parameter
 struct SymbolicParameter <: AbstractSymbolic
     p::Symbol
 end
-(X::SymbolicParameter)(y , p) = something(p, X)
+(X::SymbolicParameter)(y , p) = subs(X,y,p)
 
 # don't specialize for faster first usage
 struct SymbolicExpression <: AbstractSymbolic
@@ -234,13 +238,14 @@ end
 
 ## -----
 function subs(X::SymbolicExpression, y, p=nothing)
-    _subs(X.op, X.arguments, y, p)
+    y′ = (y == :) ? nothing : y
+    _subs(X.op, X.arguments, y′, p)
 end
 function _subs(op::Any, args, y, p=nothing)
     op(subs.(args, Ref(y), Ref(p))...) # recurse
 end
 
-subs(x::Symbolic, y, p=nothing) = something(y, x)
+subs(x::Symbolic, y, p=nothing) = something((y == :) ? nothing : y, x)
 subs(x::SymbolicParameter, y, p=nothing) = something(p, x)
 subs(x, y, p=nothing) = x
 

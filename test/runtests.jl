@@ -27,11 +27,11 @@ using Test
     @test x₀ |> x.^2.0 == x₀.^2.0
     @test_throws MethodError x₀ |> x^2
 
-
-
     # using a parameter
     u = cos(x) - p*x
     @test u(1,2) == cos(1) - 2*1
+    x₀ = rand()
+    @test (u(nothing,2)(x₀) == u(:,2)(x₀) == cos(x₀) - 2*x₀) # replace parameter
 
     # basic generators
     x₀, p₀ = 2, (1,2,3)
@@ -79,6 +79,9 @@ end
     @test D(ex)(x₀) ≈ ∂(ex, x₀) atol=1e-4
 
     ex = log1p(x^2) * sqrt(1 + sin(x)^2)
+    @test D(ex)(x₀) ≈ ∂(ex, x₀) atol=1e-4
+
+    ex = (x^2 + 1) / (x^2 - x)
     @test D(ex)(x₀) ≈ ∂(ex, x₀) atol=1e-4
 
 end
