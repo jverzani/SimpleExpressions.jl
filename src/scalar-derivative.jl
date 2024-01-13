@@ -103,18 +103,21 @@ function D(::typeof(Base.broadcasted), args)
     D(SymbolicExpression(op, as))
 end
 
-D(::typeof(abs2), args)   = (𝑥 = only(args); D(𝑥) ⊗ 2𝑥)
-D(::typeof(deg2rad), args)   = (𝑥 = only(args); D(𝑥) ⊗ pi / 180)
-D(::typeof(rad2deg), args)   = (𝑥 = only(args); D(𝑥) ⊗ 180 / pi)
+# (prefer NaN over error for technical reasons)
+D(::typeof(inv), args)     = (𝑥 = only(args); D(𝑥) ⊗ -abs2(inv(𝑥)) ⊗ ifelse(𝑥==0, NaN, 1))
+D(::typeof(abs), args)     = (𝑥 = only(args); D(𝑥) ⊗ ifelse(𝑥==0, NaN, sign(𝑥)))
+D(::typeof(abs2), args)    = (𝑥 = only(args); D(𝑥) ⊗ 2𝑥)
+D(::typeof(deg2rad), args) = (𝑥 = only(args); D(𝑥) ⊗ pi / 180)
+D(::typeof(rad2deg), args) = (𝑥 = only(args); D(𝑥) ⊗ 180 / pi)
 
 
 D(::typeof(exp), args)   = (𝑥 = only(args); D(𝑥) ⊗ exp(𝑥))
 D(::typeof(exp2), args)  = (𝑥 = only(args); D(𝑥) ⊗ exp2(𝑥) ⊗ log(2))
 D(::typeof(exp10), args) = (𝑥 = only(args); D(𝑥) ⊗ exp10(𝑥) ⊗ log(10))
 D(::typeof(expm1), args) = (𝑥 = only(args); D(𝑥) ⊗ exp(𝑥))
-D(::typeof(log), args)   = (𝑥 = only(args); D(𝑥) ⊗ 1/𝑥)
-D(::typeof(log2), args)  = (𝑥 = only(args); D(𝑥) ⊗ 1/𝑥/log(2))
-D(::typeof(log10), args) = (𝑥 = only(args); D(𝑥) ⊗ 1/𝑥/log(10))
+D(::typeof(log), args)   = (𝑥 = only(args); D(𝑥) ⊗ 1/𝑥 * ifelse(𝑥>0, 1, NaN))
+D(::typeof(log2), args)  = (𝑥 = only(args); D(𝑥) ⊗ 1/𝑥/log(2) * ifelse(𝑥>0, 1, NaN))
+D(::typeof(log10), args) = (𝑥 = only(args); D(𝑥) ⊗ 1/𝑥/log(10) * ifelse(𝑥>0, 1, NaN))
 D(::typeof(log1p), args) = (𝑥 = only(args); D(𝑥) ⊗ 1/(1 + 𝑥))
 
 D(::typeof(sin), args) = (𝑥 = only(args); D(𝑥) ⊗  cos(𝑥))

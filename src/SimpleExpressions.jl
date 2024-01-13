@@ -287,7 +287,7 @@ for fn ∈ (
 end
 
 # for generic programming
-for fn ∈ (:sum, :prod,
+for fn ∈ (:sum, :prod,:inv,
           :getindex,
           :eachindex, :enumerate, :zip,:length,
           :first, :last, :only,
@@ -332,6 +332,9 @@ function _subs(::typeof(Base.broadcasted), args, y, p=nothing)
     u = Base.broadcast(op, subs.(as, Ref(y), Ref(p))...)
     Base.materialize(u)
 end
+
+Base.ifelse(p::AbstractSymbolic, a, b) = SymbolicExpression(ifelse, (p,a,b))
+
 
 include("scalar-derivative.jl")
 end
