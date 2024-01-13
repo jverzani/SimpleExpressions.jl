@@ -84,4 +84,7 @@ end
     ex = (x^2 + 1) / (x^2 - x)
     @test D(ex)(x₀) ≈ ∂(ex, x₀) atol=1e-4
 
+    ex = abs(inv(x))
+    @test D(ex)(x₀) ≈ ∂(ex, x₀) atol=1e-4
+
 end
