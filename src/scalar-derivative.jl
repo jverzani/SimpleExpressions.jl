@@ -1,7 +1,7 @@
 """
     D(::AbstractSymbolic)
 
-Finds derivative of symbolic expression.
+Finds derivative of a symbolic expression.
 
 * *assumes* a symbolic value is a scalar and takes derivative with respect to that; symbolic parameters are assumed to be constants
 * There is no simplification, so the output is not necessarily friendly
@@ -22,11 +22,13 @@ julia> D(D(sin(x))) + sin(x) # no simplification!
 
 ```
 """
+D(ex::SymbolicExpression) = D(ex.op, ex.arguments)
+
 D(::Any) = 0
 D(::Symbolic) = 1
 D(::SymbolicParameter) = 0
+D(ex::SymbolicEquation) = D(ex.lhs) ~ D(ex.rhs)
 
-D(ex::SymbolicExpression) = D(ex.op, ex.arguments)
 
 
 # slight simplifications here
@@ -58,7 +60,6 @@ function D(::typeof(+), args)
     D(a) ⊕ D(b)
 end
 D(::typeof(sum), args) = SymbolicExpression(+, D.(args))
-
 
 function D(::typeof(-), args)
     ∂b = D(last(args))
@@ -94,7 +95,9 @@ function D(::typeof(^), args)
     end
     return D(exp(b * log(a)))
 end
+
 D(::typeof(sqrt), args) = (𝑥 = only(args); D(𝑥) / sqrt(𝑥) * (1//2))
+
 D(::typeof(cbrt), args) = (𝑥 = only(args); D(𝑥) / cbrt(𝑥)^2 * (1//3))
 
 # idiosyncratic, x is a scalar for D
@@ -103,21 +106,31 @@ function D(::typeof(Base.broadcasted), args)
     D(SymbolicExpression(op, as))
 end
 
-# (prefer NaN over error for technical reasons)
-D(::typeof(inv), args)     = (𝑥 = only(args); D(𝑥) ⊗ -abs2(inv(𝑥)) ⊗ ifelse(𝑥==0, NaN, 1))
-D(::typeof(abs), args)     = (𝑥 = only(args); D(𝑥) ⊗ ifelse(𝑥==0, NaN, sign(𝑥)))
-D(::typeof(abs2), args)    = (𝑥 = only(args); D(𝑥) ⊗ 2𝑥)
-D(::typeof(deg2rad), args) = (𝑥 = only(args); D(𝑥) ⊗ pi / 180)
-D(::typeof(rad2deg), args) = (𝑥 = only(args); D(𝑥) ⊗ 180 / pi)
+# idiosyncratic, ifelse only used for domain restrictions
+# expected to be multiplied by other expressions
+# use `&` or `|` to combine deferred logical expressions
+𝕀(pred::AbstractSymbolic) = ifelse(pred, 1, NaN)
 
+# ifelse is *assumed* to be a step function (1 or NaN, so has derivative 0)
+# which works as 𝕀 is expected to be *multiplied* so
+# (u ⋅ 𝕀)' = (u' ⋅ 𝕀 ) + U ⋅ 0 = u′ ⋅ 𝕀 which is what is desired.
+D(::typeof(ifelse), args) = 0
+
+# (prefer NaN over error for technical reasons)
+D(::typeof(inv), args)     = (𝑥 = only(args); D(𝑥) ⊗ -1/𝑥^2 ⊗ 𝕀(𝑥 != 0))
+D(::typeof(abs), args)     = (𝑥 = only(args); D(𝑥) ⊗ sign(𝑥) ⊗ 𝕀(𝑥 != 0))
+D(::typeof(sign), args)    = (𝑥 = only(args); 0 ⊗ 𝕀(𝑥 != 0))
+D(::typeof(abs2), args)    = (𝑥 = only(args); D(𝑥) ⊗ 2𝑥)
+D(::typeof(deg2rad), args) = (𝑥 = only(args); D(𝑥) ⊗ (pi / 180))
+D(::typeof(rad2deg), args) = (𝑥 = only(args); D(𝑥) ⊗ (180 / pi))
 
 D(::typeof(exp), args)   = (𝑥 = only(args); D(𝑥) ⊗ exp(𝑥))
 D(::typeof(exp2), args)  = (𝑥 = only(args); D(𝑥) ⊗ exp2(𝑥) ⊗ log(2))
 D(::typeof(exp10), args) = (𝑥 = only(args); D(𝑥) ⊗ exp10(𝑥) ⊗ log(10))
 D(::typeof(expm1), args) = (𝑥 = only(args); D(𝑥) ⊗ exp(𝑥))
-D(::typeof(log), args)   = (𝑥 = only(args); D(𝑥) ⊗ 1/𝑥 * ifelse(𝑥>0, 1, NaN))
-D(::typeof(log2), args)  = (𝑥 = only(args); D(𝑥) ⊗ 1/𝑥/log(2) * ifelse(𝑥>0, 1, NaN))
-D(::typeof(log10), args) = (𝑥 = only(args); D(𝑥) ⊗ 1/𝑥/log(10) * ifelse(𝑥>0, 1, NaN))
+D(::typeof(log), args)   = (𝑥 = only(args); D(𝑥) ⊗ (1/𝑥) ⊗ 𝕀(𝑥 > 0))
+D(::typeof(log2), args)  = (𝑥 = only(args); D(𝑥) ⊗ (1/𝑥/log(2)) ⊗ 𝕀(𝑥 > 0))
+D(::typeof(log10), args) = (𝑥 = only(args); D(𝑥) ⊗ (1/𝑥/log(10)) ⊗ 𝕀(𝑥 > 0))
 D(::typeof(log1p), args) = (𝑥 = only(args); D(𝑥) ⊗ 1/(1 + 𝑥))
 
 D(::typeof(sin), args) = (𝑥 = only(args); D(𝑥) ⊗  cos(𝑥))
