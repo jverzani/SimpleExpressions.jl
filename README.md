@@ -23,8 +23,14 @@ An extension is provided for `TermInterface` which should allow the use of `Meta
 ```julia
 using SimpleExpressions
 @symbolic x
-map(x^2, (1,2))  # (1,4)
+map(x^2, (1, 2))
 
+# output
+
+(1, 4)
+```
+
+```
 using Plots
 @symbolic x p
 u = x^5 - x - p
