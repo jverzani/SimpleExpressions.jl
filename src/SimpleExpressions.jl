@@ -161,12 +161,19 @@ struct Symbolic <: AbstractSymbolic
     x::Symbol
 end
 (X::Symbolic)(y, p=nothing) = subs(X,y,p)
+(X::Symbolic)() = X(nothing)
 
 # optional parameter
 struct SymbolicParameter <: AbstractSymbolic
     p::Symbol
 end
 (X::SymbolicParameter)(y , p) = subs(X,y,p)
+
+struct SymbolicNumber <: AbstractSymbolic
+    x::Number
+end
+(X::SymbolicNumber)(y,p=nothing) = subs(X,y,p)
+(X::SymbolicNumber)() = X(nothing)
 
 # don't specialize for faster first usage
 struct SymbolicExpression <: AbstractSymbolic
@@ -182,12 +189,18 @@ function (X::SymbolicExpression)(x, p=nothing)
     X
 end
 
+(X::SymbolicExpression)() = X(nothing)
+
+function (X::SymbolicExpression)(x::SymbolicNumber, p=nothing)
+    X = subs(X, x, p)
+end
+
 struct SymbolicEquation
     lhs
     rhs
 end
-Base.:~(a::AbstractSymbolic, b::Real) = SymbolicEquation(a,b)
-Base.:~(a::Real, b::AbstractSymbolic) = SymbolicEquation(a,b)
+Base.:~(a::AbstractSymbolic, b::Number) = SymbolicEquation(a, SymbolicNumber(b))
+Base.:~(a::Number, b::AbstractSymbolic) = SymbolicEquation(SymbolicNumber(a),b)
 Base.:~(a::AbstractSymbolic, b::AbstractSymbolic) = SymbolicEquation(a,b)
 
 (X::SymbolicEquation)(x, p=nothing) = subs(X.lhs, x,p) - subs(X.rhs,x, p)
@@ -197,12 +210,21 @@ Base.:~(a::AbstractSymbolic, b::AbstractSymbolic) = SymbolicEquation(a,b)
 issymbolic(x::AbstractSymbolic) = true
 issymbolic(::Any) = false
 
+# has a Symbolic term in expression
+hassymbolic(x::Number) = false
+hassymbolic(x::Symbolic) = true
+hassymbolic(x::SymbolicParameter) = false
+hassymbolic(x::SymbolicNumber) = false
+hassymbolic(x::SymbolicExpression) = any(hassymbolic.(x.arguments))
+
+
 
 ## ----
 
 Base.show(io::IO, ::MIME"text/plain", x::AbstractSymbolic) = show(io, x)
 Base.show(io::IO, x::Symbolic) = print(io, x.x)
 Base.show(io::IO, p::SymbolicParameter) = print(io, p.p)
+Base.show(io::IO, x::SymbolicNumber) = print(io, x.x)
 function Base.show(io::IO, x::SymbolicExpression)
     broadcast = ""
     if x.op == Base.broadcasted
@@ -233,6 +255,12 @@ function Base.show(io::IO, x::SymbolicExpression)
         print(io, "𝕀(")
         show(io, p)
         print(io, ")")
+    elseif op == getindex
+        a, idx = arguments
+        show(io, a)
+        print(io, "[")
+        show(io, idx)
+        print(io, "]")
     else
         print(io, op, broadcast, "(")
         join(io, arguments, ", ", ", ")
@@ -259,7 +287,10 @@ end
 
 subs(x::Symbolic, y, p=nothing) = something((y == :) ? nothing : y, x)
 subs(x::SymbolicParameter, y, p=nothing) = something(p, x)
+subs(x::SymbolicNumber, y=nothing, p=nothing) = x.x
 subs(x, y, p=nothing) = x
+
+subs(x::Symbolic, y::SymbolicNumber, p) = y
 
 ## -----
 # unary
@@ -297,6 +328,7 @@ for fn ∈ (
         $fn(x::AbstractSymbolic, as...) = SymbolicExpression($fn, (x, as...))
     end
 end
+Base.log(a::Number, x::AbstractSymbolic) = log(x) / log(SymbolicNumber(a))
 
 # for generic programming
 for fn ∈ (:sum, :prod,:inv,
