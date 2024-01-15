@@ -1,18 +1,9 @@
 """
     SimpleExpressions
 
-A *very* lightweight means to create callable functions using expressions.
-
-The [`@symbolic`](@ref) macro, the lone export, can create a symbolic variable and optional symbolic parameter. When expressions are created with these variables, evaluation is deferred.
-
-The expressions subtype `Function` so are intended to be useful with `Julia`'s higher-order functions. The expressions can be called either as `u(x)` or `u(x, p)`, a typical means to pass a function to a numeric routine. These calls substitute in for the symbolic value (and parameter) when not specified as `nothing`. (To substitute in for just the parameter, either `u(nothing, value)` *or* `u(:,value)` is permissible.)
-
-There are no performance claims, this package is all about convenience. Similar convenience is available in some form with `SymPy`, `SymEngine, `Symbolics`, etc. As well, placeholder syntax is available in `Underscores.jl`, `Chain.jl`, `DataPipes.jl` etc., This package only has value in that it is very lightweight and, hopefully, intuitively simple.
-
-An extension is provided for functions in `SpecialFunctions`.
-
-An extension is provided for `TermInterface` which should allow the use of `Metatheory` to rewrite terms.
-
+$(joinpath(@__DIR__, "..", "README.md") |>
+  x -> join(Base.Iterators.drop(readlines(x), 5), "\n") |>
+  u -> replace(u, "```julia" => "```jldoctest readme"))
 
 """
 module SimpleExpressions
@@ -30,6 +21,8 @@ Create a symbolic variable and optional symbolic parameter.
 Expressions created using these variables subclass `Function` so may be used where functions are expected.
 
 The  `~` infix operator can be used to create equations, which, by default, are treated as `lhs - rhs` when used as functions.
+
+# Extended help
 
 # Example
 
@@ -80,10 +73,25 @@ u = x^5 - x - 1
 find_zero((u,u'), 1, Roots.Newton()) # 1.167...
 ```
 
+Or
+
 ```julia
 using Plots
 plot(x^5 - x - 1, 0, 1.5)
 ```
+
+Symbolic derivatives can be taken with respect to the symbolic value, symbolic parameters are treated as constant.
+
+```julia
+@symbolic x p
+D = SimpleExpressions.D  # not exported
+u = x^5 - p*x - 1
+D(u)           # (5 * (x ^ 4)) - p
+u = u(:, 1)    # set parameter
+a, b = 1, 2
+find_zeros(D(u) ~ (u(b)-u(a)) / (b-a), (a,b)) # [1.577…]
+```
+
 
 # Extended help
 
@@ -153,12 +161,19 @@ struct Symbolic <: AbstractSymbolic
     x::Symbol
 end
 (X::Symbolic)(y, p=nothing) = subs(X,y,p)
+(X::Symbolic)() = X(nothing)
 
 # optional parameter
 struct SymbolicParameter <: AbstractSymbolic
     p::Symbol
 end
 (X::SymbolicParameter)(y , p) = subs(X,y,p)
+
+struct SymbolicNumber <: AbstractSymbolic
+    x::Number
+end
+(X::SymbolicNumber)(y,p=nothing) = subs(X,y,p)
+(X::SymbolicNumber)() = X(nothing)
 
 # don't specialize for faster first usage
 struct SymbolicExpression <: AbstractSymbolic
@@ -174,12 +189,18 @@ function (X::SymbolicExpression)(x, p=nothing)
     X
 end
 
+(X::SymbolicExpression)() = X(nothing)
+
+function (X::SymbolicExpression)(x::SymbolicNumber, p=nothing)
+    X = subs(X, x, p)
+end
+
 struct SymbolicEquation
     lhs
     rhs
 end
-Base.:~(a::AbstractSymbolic, b::Real) = SymbolicEquation(a,b)
-Base.:~(a::Real, b::AbstractSymbolic) = SymbolicEquation(a,b)
+Base.:~(a::AbstractSymbolic, b::Number) = SymbolicEquation(a, SymbolicNumber(b))
+Base.:~(a::Number, b::AbstractSymbolic) = SymbolicEquation(SymbolicNumber(a),b)
 Base.:~(a::AbstractSymbolic, b::AbstractSymbolic) = SymbolicEquation(a,b)
 
 (X::SymbolicEquation)(x, p=nothing) = subs(X.lhs, x,p) - subs(X.rhs,x, p)
@@ -189,12 +210,21 @@ Base.:~(a::AbstractSymbolic, b::AbstractSymbolic) = SymbolicEquation(a,b)
 issymbolic(x::AbstractSymbolic) = true
 issymbolic(::Any) = false
 
+# has a Symbolic term in expression
+hassymbolic(x::Number) = false
+hassymbolic(x::Symbolic) = true
+hassymbolic(x::SymbolicParameter) = false
+hassymbolic(x::SymbolicNumber) = false
+hassymbolic(x::SymbolicExpression) = any(hassymbolic.(x.arguments))
+
+
 
 ## ----
 
 Base.show(io::IO, ::MIME"text/plain", x::AbstractSymbolic) = show(io, x)
 Base.show(io::IO, x::Symbolic) = print(io, x.x)
 Base.show(io::IO, p::SymbolicParameter) = print(io, p.p)
+Base.show(io::IO, x::SymbolicNumber) = print(io, x.x)
 function Base.show(io::IO, x::SymbolicExpression)
     broadcast = ""
     if x.op == Base.broadcasted
@@ -204,7 +234,7 @@ function Base.show(io::IO, x::SymbolicExpression)
         op, arguments = x.op, x.arguments
     end
 
-    infix_ops = (+,-,*,/,//,^) # infix
+    infix_ops = (+,-,*,/,//,^, >=, >, ==, !=, <, <=) # infix
     if op ∈ infix_ops
         if length(arguments) == 1
             print(io, string(op), "(")
@@ -219,9 +249,19 @@ function Base.show(io::IO, x::SymbolicExpression)
             isa(b, SymbolicExpression) && b.op ∈ infix_ops && print(io, "(")
             show(io, b)
             isa(b, SymbolicExpression) && b.op ∈ infix_ops && print(io, ")")
-            end
+        end
+    elseif op == ifelse
+        p,a,b = arguments
+        print(io, "𝕀(")
+        show(io, p)
+        print(io, ")")
+    elseif op == getindex
+        a, idx = arguments
+        show(io, a)
+        print(io, "[")
+        show(io, idx)
+        print(io, "]")
     else
-
         print(io, op, broadcast, "(")
         join(io, arguments, ", ", ", ")
         print(io, ")")
@@ -247,7 +287,10 @@ end
 
 subs(x::Symbolic, y, p=nothing) = something((y == :) ? nothing : y, x)
 subs(x::SymbolicParameter, y, p=nothing) = something(p, x)
+subs(x::SymbolicNumber, y=nothing, p=nothing) = x.x
 subs(x, y, p=nothing) = x
+
+subs(x::Symbolic, y::SymbolicNumber, p) = y
 
 ## -----
 # unary
@@ -285,6 +328,7 @@ for fn ∈ (
         $fn(x::AbstractSymbolic, as...) = SymbolicExpression($fn, (x, as...))
     end
 end
+Base.log(a::Number, x::AbstractSymbolic) = log(x) / log(SymbolicNumber(a))
 
 # for generic programming
 for fn ∈ (:sum, :prod,:inv,
@@ -333,7 +377,8 @@ function _subs(::typeof(Base.broadcasted), args, y, p=nothing)
     Base.materialize(u)
 end
 
-Base.ifelse(p::AbstractSymbolic, a, b) = SymbolicExpression(ifelse, (p,a,b))
+# only used for domain restrictions
+Base.ifelse(p::AbstractSymbolic, a::Real, b::Real) = SymbolicExpression(ifelse, (p,a,b))
 
 
 include("scalar-derivative.jl")

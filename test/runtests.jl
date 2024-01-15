@@ -87,4 +87,9 @@ end
     ex = abs(inv(x))
     @test D(ex)(x₀) ≈ ∂(ex, x₀) atol=1e-4
 
+    ex = log(x)
+    u = D(D(ex)) - D(1/x)
+    @test u(x₀) == 0
+    @test isnan(u(-x₀))
+
 end
