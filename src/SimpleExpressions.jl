@@ -217,6 +217,22 @@ hassymbolic(x::SymbolicParameter) = false
 hassymbolic(x::SymbolicNumber) = false
 hassymbolic(x::SymbolicExpression) = any(hassymbolic.(x.arguments))
 
+# find free symbol in an expression or nothing
+free_symbol(u::SymbolicEquation) = free_symbol(u.lhs - u.rhs)
+free_symbol(u::Symbolic) = u
+free_symbol(::Any) = nothing
+function free_symbol(u::SymbolicExpression)
+    args = u.arguments
+    for a ∈ u.arguments
+        a′ = free_symbol(a)
+        isa(a′, Symbolic) && return a′
+        if isa(a′, SymbolicEquation)
+            u = free_symbol(a′)
+            isa(a′′, Symbolic) && return a′′
+        end
+    end
+    return nothing
+end
 
 
 ## ----
