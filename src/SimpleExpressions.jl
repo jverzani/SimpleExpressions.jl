@@ -387,12 +387,10 @@ Base.Generator(f, iter::AbstractSymbolic) = SymbolicExpression(Base.Generator, (
 
 Base.broadcastable(x::AbstractSymbolic) = Ref(x)
 
+# not symmetrically defined so 1 .+ u might be different than
+# u .+ 1
 function Base.broadcasted(op, a::AbstractSymbolic, as...)
      SymbolicExpression(Base.broadcasted, (op, a, as...))
-end
-
-function Base.broadcasted(op, a, b::AbstractSymbolic, as...)
-     SymbolicExpression(Base.broadcasted, (op, a, b, as...))
 end
 
 # handle integer powers
