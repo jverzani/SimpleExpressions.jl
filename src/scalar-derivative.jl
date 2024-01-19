@@ -63,7 +63,7 @@ D(::typeof(sum), args) = SymbolicExpression(+, D.(args))
 
 function D(::typeof(-), args)
     ∂b = D(last(args))
-    length(args) == 1 && return ∂b
+    length(args) == 1 && return -∂b
 
     ∂a = D(first(args))
     iszero(∂a) && return -∂b
