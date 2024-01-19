@@ -1,6 +1,8 @@
 using SimpleExpressions
 using Test
 
+import SimpleExpressions: @symbolic_expression
+
 @testset "SimpleExpressions.jl" begin
 
     @symbolic x p
@@ -63,6 +65,9 @@ using Test
 
     @test repr((1+x)^2) == "(1 + x) ^ 2"
 
+    # make new symbolic expressions
+    u = @symbolic_expression foldl(=>, @symbolic_expression(1:x))
+    @test u(4) == (((1 => 2) => 3) => 4)
 end
 
 @testset "derivatives" begin

@@ -150,6 +150,31 @@ macro symbolic(x...)
     q
 end
 
+"""
+    @symbolic_expression expr
+
+Take a function call and return a symbolic (delayed) expression.
+
+# Example
+```
+@symbolic x
+u = @symbolic_expression quadgk(sin, 0, x)
+
+# from ?foldl
+u = @symbolic_expression foldl(=>, @symbolic_expression(1:x))
+u(4) # ((1 => 2) => 3) => 4
+```
+
+Not exported
+"""
+macro symbolic_expression(expr)
+    @assert expr.head === :call
+    op = expr.args[1]
+    args = expr.args[2:end]
+    Expr(:call, SymbolicExpression, esc(op),  Expr(:tuple, map(esc,args)...))
+end
+
+
 
 # An AbstractSymbolic instance is like a thunk from Thunks.jl
 # or a delayed function.
@@ -362,6 +387,8 @@ Base.Generator(f, iter::AbstractSymbolic) = SymbolicExpression(Base.Generator, (
 
 Base.broadcastable(x::AbstractSymbolic) = Ref(x)
 
+# not symmetrically defined so 1 .+ u might be different than
+# u .+ 1
 function Base.broadcasted(op, a::AbstractSymbolic, as...)
      SymbolicExpression(Base.broadcasted, (op, a, as...))
 end
