@@ -15,6 +15,7 @@ TermInterface.operation(X::AbstractSymbolic) = () -> nothing
 TermInterface.arguments(X::SymbolicExpression) = X.arguments
 TermInterface.arguments(X::AbstractSymbolic) = ()
 
+TermInterface.exprhead(X::AbstractSymbolic) = :call
 TermInterface.exprhead(X::SymbolicExpression) = _exprhead(X.op, X)
 _exprhead(::typeof(getindex), X) = :ref
 _exprhead(::Any, X) = :call

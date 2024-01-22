@@ -336,7 +336,9 @@ subs(x::Symbolic, y::SymbolicNumber, p) = y
 ## -----
 # unary
 Base.:-(x::AbstractSymbolic) = SymbolicExpression(-, (x, ))
-
+Base.isequal(x::AbstractSymbolic, y::AbstractSymbolic) = hash(x) == hash(y)
+Base.isequal(x::AbstractSymbolic, y::Real) = hash(x) == hash(y)
+Base.isequal(x::Real, y::AbstractSymbolic) = hash(x) == hash(y)
 # binary
 for op ∈ (:+, :-, :*, :/, ://, :\, :^, :(==), :(!=), :<, :(<=), :>, :(>=), :≈)
     @eval begin
