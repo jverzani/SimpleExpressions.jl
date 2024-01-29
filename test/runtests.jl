@@ -57,13 +57,17 @@ import SimpleExpressions: @symbolic_expression
     @test repr(2x) == "2 * x"
     @test repr(x*2) == "x * 2"
 
-    @test repr(x*(1+x)) == "x * (1 + x)"
     @test repr(x / 2) == "x / 2"
     @test repr((x+2) / 2) == "(x + 2) / 2"
     @test repr(x / (x+2)) == "x / (x + 2)"
     @test repr(x .- sum(x)/length(x)) == "x .- (sum(x) / length(x))" # parens around expressions, like `sum(x)`.
 
     @test repr((1+x)^2) == "(1 + x) ^ 2"
+
+    # test repr after simplifying
+    @test repr(x + x - x) == "x"
+    @test repr(x*(1+x)) == "x + (x ^ 2)"
+    @test repr(sin(x) + sin(-x)) == "0"
 
     # make new symbolic expressions
     u = @symbolic_expression foldl(=>, @symbolic_expression(1:x))

@@ -35,11 +35,7 @@ D(ex::SymbolicEquation) = D(ex.lhs) ~ D(ex.rhs)
 Base.iszero(::AbstractSymbolic) = false
 Base.isone(::AbstractSymbolic) = false
 
-function ⊕(x,y)
-    iszero(x) && return y
-    iszero(y) && return x
-    return x + y
-end
+⊕(x,y) = x + y
 
 function ⊖(x,y)
     iszero(x) && return -y
@@ -47,13 +43,7 @@ function ⊖(x,y)
     return x - y
 end
 
-function ⊗(x,y)
-    iszero(x) && return x
-    iszero(y) && return y
-    isone(x) && return y
-    isone(y) && return x
-    return x * y
-end
+⊗(x,y) = x * y
 
 function D(::typeof(+), args)
     a, b= args
