@@ -339,25 +339,29 @@ subs(x::Symbolic, y::SymbolicNumber, p) = y
 ## -----
 # unary
 Base.:-(x::AbstractSymbolic) = SymbolicExpression(-, (x, ))
-Base.isequal(x::AbstractSymbolic, y::AbstractSymbolic) = hash(x) == hash(y)
-Base.isequal(x::AbstractSymbolic, y::Real) = hash(x) == hash(y)
-Base.isequal(x::Real, y::AbstractSymbolic) = hash(x) == hash(y)
-
 #
-function _communtative_op(x, y, op=+)
-    pred = (op == +) ? iszero : isone
-    pred(x) && return y
-    pred(y) && return x
-    (op == *) && (iszero(x) || iszero(y)) && return 0
-    SymbolicExpression(op, isless(x, y) ? (x,y) : (y,x))
+function _commutative_op(op::typeof(+), x, y)
+    iszero(x) && return y
+    iszero(y) && return x
+    SymbolicExpression(+, isless(x, y) ? (x,y) : (y,x))
 end
 
+function _commutative_op(op::typeof(*), x, y)
+    isone(x) && return y
+    isone(y) && return x
+    (iszero(x) || iszero(y)) && return 0
+    SymbolicExpression(*, isless(x, y) ? (x,y) : (y,x))
+end
+
+# commutative binary; slight canonicalization
+# plans to incorporate simplify are WIP/DOA
 for op ∈ (:+, :*)
     @eval begin
         import Base: $op
-        Base.$op(x::AbstractSymbolic, y::Number) = _communtative_op(x, y, $op)
-        Base.$op(x::Number, y::AbstractSymbolic) = _communtative_op(x, y, $op)
-        Base.$op(x::AbstractSymbolic, y::AbstractSymbolic) = _communtative_op(x, y, $op)
+        Base.$op(x::AbstractSymbolic, y::Number) = _commutative_op($op, x, y)
+        Base.$op(x::Number, y::AbstractSymbolic) = _commutative_op($op, x, y)
+        Base.$op(x::AbstractSymbolic, y::AbstractSymbolic) =
+            _commutative_op($op, x, y)
     end
 end
 
@@ -449,16 +453,12 @@ end
 # only used for domain restrictions
 Base.ifelse(p::AbstractSymbolic, a::Real, b::Real) = SymbolicExpression(ifelse, (p,a,b))
 
-# for sorting
+## utils?
+Base.isequal(x::AbstractSymbolic, y::AbstractSymbolic) = hash(x) == hash(y)
+Base.isequal(x::AbstractSymbolic, y::Real) = hash(x) == hash(y)
+Base.isequal(x::Real, y::AbstractSymbolic) = hash(x) == hash(y)
 
-Base.isless(x::AbstractSymbolic, y::Real) = false
-Base.isless(x::Real, y::AbstractSymbolic) = true
-Base.isless(x::Symbolic, y::AbstractSymbolic) = true
-Base.isless(x::AbstractSymbolic, y::Symbolic) = false
-Base.isless(x::Symbolic, y::Symbolic) = isless(x.x, y.x)
-Base.isless(x::AbstractSymbolic, y::AbstractSymbolic) = isless(nodes(x), nodes(y))
-
-# rough complexity count
+# rough complexity count used in `isless`
 nodes(x::Any) = 0
 nodes(x::Real) = (atan(x) + pi/2)/pi
 nodes(::Symbolic) = 1
@@ -471,6 +471,13 @@ function nodes(ex::SymbolicExpression)
     n + sum(nodes(a) for a ∈ ex.arguments)
 end
 
+Base.isless(x::AbstractSymbolic, y::Real) = false
+Base.isless(x::Real, y::AbstractSymbolic) = true
+Base.isless(x::Symbolic, y::AbstractSymbolic) = true
+Base.isless(x::AbstractSymbolic, y::Symbolic) = false
+Base.isless(x::Symbolic, y::Symbolic) = isless(x.x, y.x)
+Base.isless(x::AbstractSymbolic, y::AbstractSymbolic) = isless(nodes(x), nodes(y))
+
 # convert to Expr
 Base.convert(::Type{Expr}, x::Symbolic) = x.x
 Base.convert(::Type{Expr}, x::SymbolicParameter) = x.p
@@ -478,7 +485,7 @@ Base.convert(::Type{Expr}, x::SymbolicNumber) = x.x
 Base.convert(::Type{Expr}, x::SymbolicExpression) =
     Expr(:call, x.op, convert.(Expr, assymbolic.(x.arguments))...)
 
-include("simplify.jl")
+## includes
 include("scalar-derivative.jl")
 
 end
