@@ -52,22 +52,29 @@ import SimpleExpressions: @symbolic_expression
     @test u(x₀, p₀) == prod(xᵢ*pᵢ for (xᵢ, pᵢ) ∈ zip(x₀, p₀))
 
     # test show
+    # note *,+ do light simplification and sort arguments
     @symbolic x p
 
     @test repr(2x) == "2 * x"
-    @test repr(x*2) == "x * 2"
+    @test repr(x*2) == "2 * x"
 
-    @test repr(x*(1+x)) == "x * (1 + x)"
     @test repr(x / 2) == "x / 2"
-    @test repr((x+2) / 2) == "(x + 2) / 2"
-    @test repr(x / (x+2)) == "x / (x + 2)"
+    @test repr((x+2) / 2) == "(2 + x) / 2"
+    @test repr(x / (x+2)) == "x / (2 + x)"
     @test repr(x .- sum(x)/length(x)) == "x .- (sum(x) / length(x))" # parens around expressions, like `sum(x)`.
 
     @test repr((1+x)^2) == "(1 + x) ^ 2"
 
+
     # make new symbolic expressions
     u = @symbolic_expression foldl(=>, @symbolic_expression(1:x))
     @test u(4) == (((1 => 2) => 3) => 4)
+
+    # convert Expr type
+    # (convert Expr to symbolic can be done with `assymbolic` if `TermInterface`
+    # is loaded.
+    u = sin(x) * (cos(x) - x^2)
+    ex = convert(Expr, u)
 end
 
 @testset "derivatives" begin
