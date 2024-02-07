@@ -4,7 +4,11 @@ using SimpleExpressions
 makedocs(
     sitename = "SimpleExpressions",
     format = Documenter.HTML(),
-    modules = [SimpleExpressions]
+    modules = [SimpleExpressions],
+    pages=[
+        "Home" => "index.md",
+        "Reference/API" => "reference.md"
+    ]
 )
 
 # Documenter can also automatically deploy documentation to gh-pages.
