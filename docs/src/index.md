@@ -83,7 +83,7 @@ solve(sin(x) ~ cos(x), (0, pi/2))
 
 By default, when evaluating a symbolic equation the difference of the left- and right-hand sides is used, so no special use of `find_zero` is needed. The `solve` verb is introduced to parallel its use in `SymPy` for *symbolic* solutions to equations.
 
-The `MTH229Lite` package also defines a plot method for symbolic equations that plots both the left-hand side (`ex.lhs`) and the right-hand side (`ex.rhs`); bascially just `plot([eq.lhs, eq.rhs], a, b)`.
+The `MTH229Lite` package also defines a plot method for symbolic equations that plots both the left-hand side (`ex.lhs`) and the right-hand side (`ex.rhs`); basically just `plot([eq.lhs, eq.rhs], a, b)`.
 
 ### Derivatives
 
