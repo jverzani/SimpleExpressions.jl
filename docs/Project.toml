@@ -1,2 +1,4 @@
 [deps]
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+Metatheory = "e9d8d322-4543-424a-9be4-0cc815abe26c"
+Roots = "f2b01f46-fcfa-551c-844a-d8ac1e96c665"

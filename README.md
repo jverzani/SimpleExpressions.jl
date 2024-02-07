@@ -18,6 +18,8 @@ An extension is provided for functions in `SpecialFunctions`.
 An extension is provided for `TermInterface` which should allow the use of `Metatheory` to rewrite terms.
 
 
+
+
 # Example
 
 ```
