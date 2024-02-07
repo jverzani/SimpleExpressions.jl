@@ -110,7 +110,7 @@ Here the product rule is used:
 u = D(exp(x) * (sin(3x) + sin(101x)))
 ```
 
-No simplification is done so the expressions can quickly become unwieldly. There is an extension for `TermInterface` so rewriting of expressions, as is possible with the `Metatheory.jl` package is possible. For example, this pattern can factor out `exp(x)`:
+No simplification is done so the expressions can quickly become unwieldy. There is an extension for `TermInterface` so rewriting of expressions, as is possible with the `Metatheory.jl` package is possible. For example, this pattern can factor out `exp(x)`:
 
 ```@example expressions
 using Metatheory
