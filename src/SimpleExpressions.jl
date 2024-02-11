@@ -228,7 +228,14 @@ Base.:~(a::AbstractSymbolic, b::Number) = SymbolicEquation(a, SymbolicNumber(b))
 Base.:~(a::Number, b::AbstractSymbolic) = SymbolicEquation(SymbolicNumber(a),b)
 Base.:~(a::AbstractSymbolic, b::AbstractSymbolic) = SymbolicEquation(a,b)
 
-(X::SymbolicEquation)(x, p=nothing) = subs(X.lhs, x,p) - subs(X.rhs,x, p)
+# save equation if only `p` given
+function (X::SymbolicEquation)(::typeof(:), p)
+    X.lhs(:, p) ~ X.rhs(:, p)
+end
+(X::SymbolicEquation)(x::Nothing, p) = X(:, p)
+function (X::SymbolicEquation)(x, p=nothing)
+    subs(X.lhs, x,p) - subs(X.rhs,x, p)
+end
 
 
 ## ----
