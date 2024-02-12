@@ -80,6 +80,15 @@ using Plots
 plot(x^5 - x - 1, 0, 1.5)
 ```
 
+Or using both positions, so that we call as a bivariate function:
+
+```julia
+@symbolic x y
+xs = ys = range(-5, 5, length=100)
+contour(xs, ys, x^2 - y^2 + 2x*y)
+```
+
+
 Symbolic derivatives can be taken with respect to the symbolic value, symbolic parameters are treated as constant.
 
 ```julia
@@ -165,7 +174,7 @@ u = @symbolic_expression foldl(=>, @symbolic_expression(1:x))
 u(4) # ((1 => 2) => 3) => 4
 ```
 
-Not exported
+Not exported.
 """
 macro symbolic_expression(expr)
     @assert expr.head === :call
@@ -207,18 +216,17 @@ struct SymbolicExpression <: AbstractSymbolic
 end
 
 function (X::SymbolicExpression)(x, p=nothing)
+    ops = operation.(X.arguments)
     X = subs(X, x, p)
-    if isa(X, AbstractSymbolic)
-        X = subs(X, x, p)     # generators need to repeat...
+    for op ∈ ops
+        Base.Generator != op && continue # generators need to repeat...
+        X = subs(X, x, p)
     end
     X
 end
-
+(X::SymbolicExpression)(x, ::typeof(:)) = X(x, nothing)
 (X::SymbolicExpression)() = X(nothing)
-
-function (X::SymbolicExpression)(x::SymbolicNumber, p=nothing)
-    X = subs(X, x, p)
-end
+(X::SymbolicExpression)(x::SymbolicNumber, p=nothing) = subs(X, x, p)
 
 struct SymbolicEquation
     lhs
@@ -236,6 +244,7 @@ end
 function (X::SymbolicEquation)(x, p=nothing)
     subs(X.lhs, x,p) - subs(X.rhs,x, p)
 end
+
 
 
 ## ----
@@ -269,6 +278,8 @@ function free_symbol(u::SymbolicExpression)
     return nothing
 end
 
+operation(x::SymbolicExpression) = x.op
+operation(::Any) = nothing
 
 ## ----
 

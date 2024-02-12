@@ -35,6 +35,14 @@ import SimpleExpressions: @symbolic_expression
     x₀ = rand()
     @test (u(nothing,2)(x₀) == u(:,2)(x₀) == cos(x₀) - 2*x₀) # replace parameter
 
+    # function algebra
+    f = sin(x)
+    g = cos(x)
+    @test (f∘g)(x₀) == f(g(x₀)) == sin(cos(x₀))
+    for op ∈ (+, -, *, /, ^)
+        @test op(f,g)(x₀) == op(f(x₀), g(x₀))
+    end
+
     # basic generators
     x₀, p₀ = 2, (1,2,3)
 
