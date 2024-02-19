@@ -203,6 +203,11 @@ struct SymbolicParameter <: AbstractSymbolic
 end
 (X::SymbolicParameter)(y , p) = subs(X,y,p)
 
+function Base.iterate(X::T, state=nothing) where {T <:Union{Symbolic, SymbolicParameter}}
+    isnothing(state) && return (X[1],2)
+    return (X[state], state+1)
+end
+
 struct SymbolicNumber <: AbstractSymbolic
     x::Number
 end
@@ -245,7 +250,12 @@ function (X::SymbolicEquation)(x, p=nothing)
     subs(X.lhs, x,p) - subs(X.rhs,x, p)
 end
 
-
+function Base.iterate(X::SymbolicEquation, state=nothing)
+    isnothing(state) && return (X.lhs, 0)
+    iszero(state) && return (X.rhs, 1)
+    return nothing
+end
+Base.length(X::SymbolicEquation) = 2
 
 ## ----
 assymbolic(x::AbstractSymbolic) = x
