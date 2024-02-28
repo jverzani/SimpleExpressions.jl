@@ -371,14 +371,14 @@ Base.:-(x::AbstractSymbolic) = SymbolicExpression(-, (x, ))
 function _commutative_op(op::typeof(+), x, y)
     iszero(x) && return y
     iszero(y) && return x
-    SymbolicExpression(+, isless(x, y) ? (x,y) : (y,x))
+    SymbolicExpression(+, _left_right(x,y))
 end
 
 function _commutative_op(op::typeof(*), x, y)
     isone(x) && return y
     isone(y) && return x
     (iszero(x) || iszero(y)) && return 0
-    SymbolicExpression(*, isless(x, y) ? (x,y) : (y,x))
+    SymbolicExpression(*, _left_right(x,y))
 end
 
 # commutative binary; slight canonicalization
@@ -499,12 +499,14 @@ function nodes(ex::SymbolicExpression)
     n + sum(nodes(a) for a ∈ ex.arguments)
 end
 
-Base.isless(x::AbstractSymbolic, y::Real) = false
-Base.isless(x::Real, y::AbstractSymbolic) = true
-Base.isless(x::Symbolic, y::AbstractSymbolic) = true
-Base.isless(x::AbstractSymbolic, y::Symbolic) = false
-Base.isless(x::Symbolic, y::Symbolic) = isless(x.x, y.x)
-Base.isless(x::AbstractSymbolic, y::AbstractSymbolic) = isless(nodes(x), nodes(y))
+_left_right(x::AbstractSymbolic, y::Real) = (y,x)
+_left_right(x::Real, y::AbstractSymbolic) = (x,y)
+_left_right(x::Symbolic, y::AbstractSymbolic) = (x,y)
+_left_right(x::AbstractSymbolic, y::Symbolic) = (y,x)
+_left_right(x::Symbolic, y::Symbolic) = isless(x.x, y.x) ? (x,y) : (y,x)
+_left_right(x::AbstractSymbolic, y::AbstractSymbolic) = isless(nodes(x), nodes(y)) ? (x, y) : (y,x)
+# odd default
+_left_right(x, y) = (x, y)
 
 # convert to Expr
 Base.convert(::Type{Expr}, x::Symbolic) = x.x
