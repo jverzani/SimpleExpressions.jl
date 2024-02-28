@@ -8,7 +8,7 @@ Documentation for `SimpleExpressions` a *very* lightweight means to create calla
 
 To keep things as simple as possible, there are only few types of symbolic values: a symbolic value, a symbolic parameter, symbolic numbers, and symbolic equations. The first two are created with the `@symbolic` macro, the latter with the `~` infix operator. For `@symbolic`, the first argument names the symbolic variable, the optional second names the symbolic parameter. It is important to note that when calling the symbolic expression different symbolic variables are treated as a singleton instance; similarly for parameters.
 
-The symbolic expressions are just "thunks" or delayed expressions (akin to [Thunks.jl](https://github.com/tbenst/Thunks.jl), where the operation and its arguments are kept in a structure and the expression is evaluated when called as a function.
+The symbolic expressions are just "thunks" or delayed expressions (akin to [Thunks.jl](https://github.com/tbenst/Thunks.jl)), where the operation and its arguments are kept in a structure and the expression is evaluated when called as a function.
 
 ## Usage
 
@@ -64,7 +64,7 @@ u(:, (1,2,3,4))
 
 ### Equations
 
-The package grew out of a desire to have a simpler approach to solve `f(x) = g(x)`. While defining `h(x) = f(x) - g(x)` and solving `h(x) = 0` using, say, `Roots` is straightforward, it does cause confusion while learning.
+The package grew out of a desire to have a simpler approach to solving `f(x) = g(x)`. While defining `h(x) = f(x) - g(x)` and solving `h(x) = 0` using, say, `Roots` is straightforward, it does cause confusion while learning.
 
 Symbolic equations are specified using `~`, a notation borrowed from `Symbolics` for `SymPy` and now on loan to `SimpleExpressions`. Of course `=` is assignment, and `==` and `===` are used for comparisons, so some other syntax is necessary and `~` plays the role of distinguishing the left- and right-hand sides of an equation.
 
