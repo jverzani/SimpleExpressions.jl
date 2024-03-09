@@ -8,7 +8,7 @@ Documentation for `SimpleExpressions` a *very* lightweight means to create calla
 
 The envisioned usage is within resource-constrained environments, such as `binder.org`.
 
-To keep things as simple as possible, there are only few types of symbolic values: a symbolic value, a symbolic parameter and symbolic equations. Symbolic numbers may be uesd internally. Symbolic values and parameters are created with the `@symbolic` macro, the latter with the `~` infix operator. For `@symbolic`, the first argument names the symbolic variable, the optional second names the symbolic parameter. Symbolic expressions are built up naturally by using these two types of objects; symbolic equations are specified with the `~` operator.
+To keep things as simple as possible, there are only few types of symbolic values: a symbolic value, a symbolic parameter and symbolic equations. Symbolic numbers may be used internally. Symbolic values and parameters are created with the `@symbolic` macro, the latter with the `~` infix operator. For `@symbolic`, the first argument names the symbolic variable, the optional second names the symbolic parameter. Symbolic expressions are built up naturally by using these two types of objects; symbolic equations are specified with the `~` operator.
 
 The symbolic expressions are just "thunks" or delayed expressions (akin to [Thunks.jl](https://github.com/tbenst/Thunks.jl)), where the operation and its arguments are kept in a structure and the expression is evaluated when called as a function. It is important to note that when calling the symbolic expression different symbolic variables are treated as a singleton instance; similarly for parameters.
 
