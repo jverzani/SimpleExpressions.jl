@@ -8,7 +8,7 @@ Documentation for `SimpleExpressions` a *very* lightweight means to create calla
 
 The envisioned usage is within resource-constrained environments, such as `binder.org`.
 
-To keep things as simple as possible, there are only few types of symbolic values: a symbolic value, a symbolic parameter and symbolic equations. Symbolic numbers may be used internally. Symbolic values and parameters are created with the `@symbolic` macro, the latter with the `~` infix operator. For `@symbolic`, the first argument names the symbolic variable, the optional second names the symbolic parameter. Symbolic expressions are built up naturally by using these two types of objects; symbolic equations are specified with the `~` operator.
+To keep things as simple as possible, there are only few types of symbolic values: a symbolic value, a symbolic parameter and symbolic equations. Symbolic numbers may be used internally. Symbolic values and parameters are created with the `@symbolic` macro. For `@symbolic`, the first argument names the symbolic variable, the optional second names the symbolic parameter. Symbolic expressions are built up naturally by using these two types of objects; symbolic equations are specified with the infix `~` operator.
 
 The symbolic expressions are just "thunks" or delayed expressions (akin to [Thunks.jl](https://github.com/tbenst/Thunks.jl)), where the operation and its arguments are kept in a structure and the expression is evaluated when called as a function. It is important to note that when calling the symbolic expression different symbolic variables are treated as a singleton instance; similarly for parameters.
 
@@ -87,7 +87,7 @@ The package grew out of a desire to have a simpler approach to solving `f(x) = g
 
 Symbolic equations are specified using `~`, a notation borrowed from `Symbolics` for `SymPy` and now on loan to `SimpleExpressions`. Of course `=` is assignment, and `==` and `===` are used for comparisons, so some other syntax is necessary and `~` plays the role of distinguishing the left- and right-hand sides of an equation.
 
-By default, when evaluating a symbolic equation the difference of the left- and right-hand sides is used, so no special use of `find_zero` is needed.
+By default, when calling a symbolic equation the difference of the left- and right-hand sides is used, so, in this case, symbolic equations can be passed directly to `find_zero`:
 
 ```@example expressions
 using Roots
@@ -98,6 +98,8 @@ find_zero(cos(x) ~ sin(x), (0, pi/2)) # use bisection
 ```@example expressions
 find_zero(cos(x) ~ p*x, (0, pi/2), p=3)
 ```
+
+For plotting a symbolic equation, `ex`, the values `ex.lhs` and `ex.rhs` may be used separately to produce a pair of traces.
 
 ### Derivatives
 
