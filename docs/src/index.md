@@ -4,11 +4,14 @@ Documentation for `SimpleExpressions` a *very* lightweight means to create calla
 
 ## Rationale
 
-`Julia` has easy-to-use "anonymous" functions defined through the pattern `(args) -> body` using `->`, notation which mirrors common math notation. However, for students the distinction between an expression, such as defines the "`body`" and a function is sometimes not made, whereas in `Julia` or other computer languages, the distinction is forced. The `SymPy` package, as well as other symbolic package like `Symbolics` and `Symengine`, allows symbolic expressions to be created naturally from symbolic variables. This package does just this (and does not provide the many other methods for manipulating symbolic expressions that make using a CAS so powerful). The envisioned usage is with resource-constrained environments, such as `binder.org`. The symbolic expressions subtype `Function`, so can be used where functions are expected.
+`Julia` has easy-to-use "anonymous" functions defined through the pattern `(args) -> body` using `->`, notation which mirrors common math notation. However, for students the distinction between an expression, such as defines the "`body`" and a function is sometimes not made, whereas in `Julia` or other computer languages, the distinction is forced. The `SymPy` package, as well as other symbolic package like `Symbolics` and `Symengine`, allows symbolic expressions to be created naturally from symbolic variables. This package does just this (and does not provide the many other methods for manipulating symbolic expressions that make using a CAS so powerful). The symbolic expressions subtype `Function`, so can be used where functions are expected.
 
-To keep things as simple as possible, there are only few types of symbolic values: a symbolic value, a symbolic parameter, symbolic numbers, and symbolic equations. The first two are created with the `@symbolic` macro, the latter with the `~` infix operator. For `@symbolic`, the first argument names the symbolic variable, the optional second names the symbolic parameter. It is important to note that when calling the symbolic expression different symbolic variables are treated as a singleton instance; similarly for parameters.
+The envisioned usage is within resource-constrained environments, such as `binder.org`.
 
-The symbolic expressions are just "thunks" or delayed expressions (akin to [Thunks.jl](https://github.com/tbenst/Thunks.jl)), where the operation and its arguments are kept in a structure and the expression is evaluated when called as a function.
+To keep things as simple as possible, there are only few types of symbolic values: a symbolic value, a symbolic parameter and symbolic equations. Symbolic numbers may be used internally. Symbolic values and parameters are created with the `@symbolic` macro, the latter with the `~` infix operator. For `@symbolic`, the first argument names the symbolic variable, the optional second names the symbolic parameter. Symbolic expressions are built up naturally by using these two types of objects; symbolic equations are specified with the `~` operator.
+
+The symbolic expressions are just "thunks" or delayed expressions (akin to [Thunks.jl](https://github.com/tbenst/Thunks.jl)), where the operation and its arguments are kept in a structure and the expression is evaluated when called as a function. It is important to note that when calling the symbolic expression different symbolic variables are treated as a singleton instance; similarly for parameters.
+
 
 ## Usage
 
@@ -24,20 +27,36 @@ u = exp(-x) * (sin(3x) + sin(101*x))
 u(2)
 ```
 
-Or using a parameter:
+This is akin, but different from using a function:
+
+```@example expressions
+f(x) = exp(-x) * (sin(3x) + sin(101*x))
+f(2)
+```
+
+The main difference being, `u` can subsequently be algebraically manipulated.
+
+
+The parameter can also be used:
 
 ```@example expressions
 u = cos(x) - p * x
 u(pi/4, 4)
 ```
 
-Or leaving the parameter or variable unevaluated:
+The variable or parameter can be substituted in for:
 
 ```@example expressions
 u(pi/4), u(:, 4)
 ```
 
-The calling pattern is `ex(x)` to substitute in for `x`, `ex(x,p)` to fill in for the variable and the parameter, and `ex(:, p)` to substitute in for just the parameter. Substitution takes a symbolic expression and returns a number or a symbolic expression.
+The calling pattern for a symbolic expression `ex` is
+
+* `ex(x)` to substitute in for `x`
+* `ex(x,p)` to fill in for the variable and the parameter, and
+* `ex(:, p)` to substitute in for just the parameter.
+
+Substitution takes a symbolic expression and returns a number or a symbolic expression.
 
 It is worth pointing out, variables are singletons even if they print differently:
 
@@ -46,7 +65,7 @@ It is worth pointing out, variables are singletons even if they print differentl
 u = x^2 - y^2
 ```
 
-Evaluating will always produce `0`, as both `x` and `y` (both are symbolic variables, not parameters) receive the same value on substitution:
+Evaluating this `u` will always produce `0`, as both `x` and `y` (both are symbolic variables, not parameters) receive the same value on substitution:
 
 ```@example expressions
 u(10)
@@ -68,24 +87,17 @@ The package grew out of a desire to have a simpler approach to solving `f(x) = g
 
 Symbolic equations are specified using `~`, a notation borrowed from `Symbolics` for `SymPy` and now on loan to `SimpleExpressions`. Of course `=` is assignment, and `==` and `===` are used for comparisons, so some other syntax is necessary and `~` plays the role of distinguishing the left- and right-hand sides of an equation.
 
-The `MTH229Lite` package defines the following method for `solve`:
+By default, when evaluating a symbolic equation the difference of the left- and right-hand sides is used, so no special use of `find_zero` is needed.
 
 ```@example expressions
-import Roots
-solve(ex::SimpleExpressions.SymbolicEquation, x0, args...; kwargs...) =
-    Roots.find_zero(ex, x0, args...; kwargs...)
+using Roots
+@symbolic x p
+find_zero(cos(x) ~ sin(x), (0, pi/2)) # use bisection
 ```
 
 ```@example expressions
-@symbolic x
-solve(sin(x) ~ cos(x), (0, pi/2))
+find_zero(cos(x) ~ p*x, (0, pi/2), p=3)
 ```
-
-(Another dispatch is used to call `find_zeros`).
-
-By default, when evaluating a symbolic equation the difference of the left- and right-hand sides is used, so no special use of `find_zero` is needed. The `solve` verb is introduced to parallel its use in `SymPy` for *symbolic* solutions to equations.
-
-The `MTH229Lite` package also defines a plot method for symbolic equations that plots both the left-hand side (`ex.lhs`) and the right-hand side (`ex.rhs`); basically just `plot([eq.lhs, eq.rhs], a, b)`.
 
 ### Derivatives
 
@@ -97,7 +109,7 @@ import SimpleExpressions: D
 D(cos(x) - x * p)
 ```
 
-Here is a step of Newton's method::
+Here the derivative is used to take a step of Newton's method::
 
 ```@example expressions
 u = x^5 - x - 1
