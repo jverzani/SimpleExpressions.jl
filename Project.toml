@@ -1,7 +1,7 @@
 name = "SimpleExpressions"
 uuid = "deba94f7-f32a-40ad-b45e-be020a5ded2f"
 authors = ["jverzani <jverzani@gmail.com> and contributors"]
-version = "1.0.16"
+version = "1.0.17"
 
 [weakdeps]
 SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
