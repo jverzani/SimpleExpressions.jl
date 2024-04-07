@@ -233,7 +233,7 @@ end
 (X::SymbolicExpression)() = X(nothing)
 (X::SymbolicExpression)(x::SymbolicNumber, p=nothing) = subs(X, x, p)
 
-struct SymbolicEquation <: AbstractSymbolic
+struct SymbolicEquation
     lhs
     rhs
 end
