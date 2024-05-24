@@ -4,7 +4,7 @@
 
 [![Build Status](https://github.com/jverzani/SimpleExpressions.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/jverzani/SimpleExpressions.jl/actions/workflows/CI.yml?query=branch%3Amain)
 
-A *very* lightweight means to create callable functions using expressions.
+A *very* lightweight means to create callable functions using expressions. For more performant and advanced requirements see [DynamicExpressions](https://juliahub.com/ui/Packages/General/DynamicExpressions) and [CallableExpressions](https://juliahub.com/ui/Packages/General/SimpleExpressions).
 
 
 The [`@symbolic`](@ref) macro, the lone export, can create a symbolic variable and optional symbolic parameter. When expressions are created with these variables, evaluation is deferred until the expression is called like a function. The expressions subtype `Function` so are intended to be useful with `Julia`'s higher-order functions.
@@ -16,6 +16,8 @@ There are no performance claims, this package is all about convenience. Similar 
 An extension is provided for functions in `SpecialFunctions`.
 
 An extension is provided for `TermInterface` which should allow the use of `Metatheory` to rewrite terms.
+
+An extension is provided for `AbstractTrees`.
 
 
 
