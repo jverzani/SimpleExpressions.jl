@@ -7,7 +7,7 @@ import SimpleExpressions: AbstractSymbolic,
 
 import AbstractTrees
 
-AbstractTrees.children(::AbstractSymbolic) = ()
+# use fallback of () for others
 AbstractTrees.children(x::SymbolicExpression) = x.arguments
 AbstractTrees.children(x::SymbolicEquation) = MethodError(AbstractTrees.children, SymbolicExpression)
 
