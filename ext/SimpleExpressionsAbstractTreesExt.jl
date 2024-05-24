@@ -14,7 +14,8 @@ AbstractTrees.children(x::SymbolicEquation) = MethodError(AbstractTrees.children
 AbstractTrees.nodevalue(n::Symbolic) = n.x
 AbstractTrees.nodevalue(n::SymbolicParameter) = n.p
 AbstractTrees.nodevalue(n::SymbolicNumber) = n.x
-AbstractTrees.nodevalue(x::SymbolicEquation) = MethodError(AbstractTrees.nodevalue, SymbolicExpression)
+AbstractTrees.nodevalue(n::SymbolicExpression) = n.op
+AbstractTrees.nodevalue(::SymbolicEquation) = MethodError(AbstractTrees.nodevalue, SymbolicExpression)
 
 
 
