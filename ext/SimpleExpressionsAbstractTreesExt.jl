@@ -2,7 +2,7 @@ module SimpleExpressionsAbstractTreesExt
 
 using SimpleExpressions
 import SimpleExpressions: AbstractSymbolic,
-    Symbolic, SymbolicParameter, SymbolicNumber,
+    SymbolicNumber,
     SymbolicExpression, SymbolicEquation
 
 import AbstractTrees
@@ -11,8 +11,6 @@ import AbstractTrees
 AbstractTrees.children(x::SymbolicExpression) = x.arguments
 AbstractTrees.children(x::SymbolicEquation) = MethodError(AbstractTrees.children, SymbolicExpression)
 
-AbstractTrees.nodevalue(n::Symbolic) = n.x
-AbstractTrees.nodevalue(n::SymbolicParameter) = n.p
 AbstractTrees.nodevalue(n::SymbolicNumber) = n.x
 AbstractTrees.nodevalue(n::SymbolicExpression) = n.op
 AbstractTrees.nodevalue(::SymbolicEquation) = MethodError(AbstractTrees.nodevalue, SymbolicExpression)
