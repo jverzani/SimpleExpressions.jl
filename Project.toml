@@ -12,7 +12,6 @@ Roots = "f2b01f46-fcfa-551c-844a-d8ac1e96c665"
 SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
 TermInterface = "8ea1fca8-c5ef-4a55-8b96-4e9afe9c9a3c"
 
-
 [extensions]
 SimpleExpressionsAbstractTreesExt = "AbstractTrees"
 SimpleExpressionsRecipesBaseExt = "RecipesBase"
@@ -25,7 +24,7 @@ AbstractTrees = "0.4"
 RecipesBase = "1"
 Roots = "2"
 SpecialFunctions = "1,2"
-TermInterface = "0.3.3"
+TermInterface = "0.3.3, 0.5"
 julia = "1.9"
 
 [extras]
