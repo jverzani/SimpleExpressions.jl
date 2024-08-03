@@ -6,31 +6,29 @@ import SimpleExpressions: AbstractSymbolic, Symbolic, SymbolicParameter, Symboli
 
 using TermInterface
 
-TermInterface.istree(::Symbolic) = true
-TermInterface.istree(::SymbolicParameter) = true
-TermInterface.istree(::AbstractSymbolic) = true
+#In other symbolic expression languages, such as SymbolicUtils.jl, the head of a node can correspond to operation and children can correspond to arguments.
+
+TermInterface.head(ex::SymbolicExpression) =  operation(ex)
+TermInterface.children(ex::SymbolicExpression) = arguments(ex)
 
 TermInterface.operation(X::SymbolicExpression) = X.op
-TermInterface.operation(X::AbstractSymbolic) = () -> X
-
 TermInterface.arguments(X::SymbolicExpression) = collect(X.arguments)
-TermInterface.arguments(X::AbstractSymbolic) = ()
-
-TermInterface.exprhead(X::AbstractSymbolic) = :call
-TermInterface.exprhead(X::SymbolicExpression) = _exprhead(X.op, X)
-_exprhead(::typeof(getindex), X) = :ref
-_exprhead(::Any, X) = :call
 
 
+TermInterface.iscall(ex::SymbolicExpression) = true
+TermInterface.iscall(ex::AbstractSymbolic) = false
 
-TermInterface.similarterm(X::Symbolic, f, args, as...; kwargs...) = X
-TermInterface.similarterm(X::SymbolicEquation, f, args, as...; kwargs...) = error(f)
 
-function TermInterface.similarterm(X::SymbolicExpression, f, args, as...; kwargs...)
-    f(args...)
+TermInterface.isexpr(::Symbolic) = false
+TermInterface.isexpr(::SymbolicParameter) = false
+TermInterface.isexpr(::AbstractSymbolic) = true
+
+
+
+function TermInterface.maketerm(T::Type{<:AbstractSymbolic}, head, children, metadata)
+    head(children...)
 end
 
-TermInterface.symtype(::T) where {T<:AbstractSymbolic} = T
 
 TermInterface.arity(::AbstractSymbolic) = 0
 TermInterface.arity(ex::SymbolicExpression) = length(ex.arguments)
