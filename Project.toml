@@ -1,7 +1,7 @@
 name = "SimpleExpressions"
 uuid = "deba94f7-f32a-40ad-b45e-be020a5ded2f"
 authors = ["jverzani <jverzani@gmail.com> and contributors"]
-version = "1.0.20"
+version = "1.0.21"
 
 [deps]
 
@@ -21,6 +21,7 @@ SimpleExpressionsTermInterfaceExt = "TermInterface"
 
 [compat]
 AbstractTrees = "0.4"
+Metatheory = "3"
 RecipesBase = "1"
 Roots = "2"
 SpecialFunctions = "1,2"
@@ -29,9 +30,10 @@ julia = "1.9"
 
 [extras]
 AbstractTrees = "1520ce14-60c1-5f80-bbc7-55ef81b5835c"
+Metatheory = "e9d8d322-4543-424a-9be4-0cc815abe26c"
 SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
 TermInterface = "8ea1fca8-c5ef-4a55-8b96-4e9afe9c9a3c"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test"]
+test = ["Test","Metatheory"]
