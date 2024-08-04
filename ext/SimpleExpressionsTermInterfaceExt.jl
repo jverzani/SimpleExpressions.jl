@@ -2,7 +2,9 @@ module SimpleExpressionsTermInterfaceExt
 
 using SimpleExpressions
 
-import SimpleExpressions: AbstractSymbolic, Symbolic, SymbolicParameter, SymbolicExpression, SymbolicEquation
+import SimpleExpressions: AbstractSymbolic,
+    Symbolic, SymbolicParameter, SymbolicNumber,
+    SymbolicExpression, SymbolicEquation
 
 using TermInterface
 
@@ -21,12 +23,18 @@ TermInterface.iscall(ex::AbstractSymbolic) = false
 
 TermInterface.isexpr(::Symbolic) = false
 TermInterface.isexpr(::SymbolicParameter) = false
+TermInterface.isexpr(::SymbolicNumber) = false
 TermInterface.isexpr(::AbstractSymbolic) = true
 
 
 
 function TermInterface.maketerm(T::Type{<:AbstractSymbolic}, head, children, metadata)
-    head(children...)
+    if isa(head, Symbol)
+        head == :. && return first(children)
+        @show head, children, metadata
+        return 42
+    end
+    head(SimpleExpressions.assymbolic.(children)...)
 end
 
 

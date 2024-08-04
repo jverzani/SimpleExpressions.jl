@@ -259,7 +259,8 @@ Base.length(X::SymbolicEquation) = 2
 
 ## ----
 assymbolic(x::AbstractSymbolic) = x
-assymbolic(x::Any) = SymbolicNumber(x)
+assymbolic(x::Symbol) = Symbolic(x)
+assymbolic(x::Number) = x #SymbolicNumber(x)
 
 issymbolic(x::AbstractSymbolic) = true
 issymbolic(::Any) = false
@@ -290,6 +291,15 @@ end
 
 operation(x::SymbolicExpression) = x.op
 operation(::Any) = nothing
+
+## ----
+"""
+    simplify(ex)
+
+Simplify expression using `Metatheory.jl` when that package is loaded
+"""
+simplify(x::AbstractSymbolic) = x  # Metatheory.jl extension adds here
+simplify(ex::SymbolicEquation) = simplify(ex.lhs) ~ simplify(ex.rhs)
 
 ## ----
 
@@ -479,7 +489,7 @@ function _subs(::typeof(Base.broadcasted), args, y, p=nothing)
 end
 
 # only used for domain restrictions
-Base.ifelse(p::AbstractSymbolic, a::Real, b::Real) = SymbolicExpression(ifelse, (p,a,b))
+Base.ifelse(p::AbstractSymbolic, a, b) = SymbolicExpression(ifelse, (p,a,b))
 
 ## utils?
 Base.isequal(x::AbstractSymbolic, y::AbstractSymbolic) = hash(x) == hash(y)
@@ -515,6 +525,37 @@ Base.convert(::Type{Expr}, x::SymbolicNumber) = x.x
 Base.convert(::Type{Expr}, x::SymbolicExpression) =
     Expr(:call, x.op, convert.(Expr, assymbolic.(x.arguments))...)
 
+
+# isless
+Base.isless(x::Symbolic, y::Symbolic) = isless(x.x, y.x)
+Base.isless(x::Symbolic, y::SymbolicParameter) = isless(x.x, y.x)
+Base.isless(x::SymbolicParameter, y::Symbolic) = isless(x.x, y.x)
+Base.isless(x::SymbolicParameter, y::SymbolicParameter) = isless(x.x, y.x)
+
+Base.isless(x::SymbolicNumber, y::AbstractSymbolic) = true
+Base.isless(x::AbstractSymbolic, y::SymbolicNumber) = false
+Base.isless(x::SymbolicNumber, y::SymbolicNumber) = isless(x.x, y.x)
+
+Base.isless(x::SymbolicExpression, y::Symbolic) = false
+Base.isless(x::Symbolic, y::SymbolicExpression) = !isless(y,x)
+Base.isless(x::SymbolicExpression, y::SymbolicParameter) = false
+Base.isless(x::SymbolicParameter, y::SymbolicExpression) = !isless(y,x)
+Base.isless(x::SymbolicExpression, y::SymbolicNumber) = isless(x.x, y.x)
+
+op_val(f) = Base.operator_precedence(Symbol(f))
+function Base.isless(x::SymbolicExpression, y::SymbolicExpression)
+    xo, yo = op_val(operation(x)), op_val(operation(y))
+    isless(xo,yo) && return true
+    isless(yo, xo) && return false
+    xc, yc = x.arguments, y.arguments
+    isless(length(xc), length(yc)) && return true
+    isless(length(yc), length(xc)) && return false
+    for (cx, cy) ∈ zip(xc, yc)
+        isless(cx, cy) && return true
+        isless(cy, cx) && return false
+    end
+    false
+end
 ## includes
 include("scalar-derivative.jl")
 
