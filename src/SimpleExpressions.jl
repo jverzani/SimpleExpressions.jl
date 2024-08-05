@@ -282,7 +282,7 @@ function free_symbol(u::SymbolicExpression)
         a′ = free_symbol(a)
         isa(a′, Symbolic) && return a′
         if isa(a′, SymbolicEquation)
-            u = free_symbol(a′)
+            a′′ = free_symbol(a′)
             isa(a′′, Symbolic) && return a′′
         end
     end
@@ -299,7 +299,7 @@ operation(::Any) = nothing
 Simplify expression using `Metatheory.jl` when that package is loaded
 """
 simplify(x::AbstractSymbolic) = x  # Metatheory.jl extension adds here
-simplify(ex::SymbolicEquation) = simplify(ex.lhs) ~ simplify(ex.rhs)
+simplify(ex::SymbolicEquation) = SymbolicEquation(simplify.(ex)...)
 
 ## ----
 
@@ -528,9 +528,9 @@ Base.convert(::Type{Expr}, x::SymbolicExpression) =
 
 # isless
 Base.isless(x::Symbolic, y::Symbolic) = isless(x.x, y.x)
-Base.isless(x::Symbolic, y::SymbolicParameter) = isless(x.x, y.x)
-Base.isless(x::SymbolicParameter, y::Symbolic) = isless(x.x, y.x)
-Base.isless(x::SymbolicParameter, y::SymbolicParameter) = isless(x.x, y.x)
+Base.isless(x::Symbolic, y::SymbolicParameter) = isless(x.x, y.p)
+Base.isless(x::SymbolicParameter, y::Symbolic) = isless(x.p, y.x)
+Base.isless(x::SymbolicParameter, y::SymbolicParameter) = isless(x.p, y.p)
 
 Base.isless(x::SymbolicNumber, y::AbstractSymbolic) = true
 Base.isless(x::AbstractSymbolic, y::SymbolicNumber) = false
@@ -539,8 +539,9 @@ Base.isless(x::SymbolicNumber, y::SymbolicNumber) = isless(x.x, y.x)
 Base.isless(x::SymbolicExpression, y::Symbolic) = false
 Base.isless(x::Symbolic, y::SymbolicExpression) = !isless(y,x)
 Base.isless(x::SymbolicExpression, y::SymbolicParameter) = false
-Base.isless(x::SymbolicParameter, y::SymbolicExpression) = !isless(y,x)
-Base.isless(x::SymbolicExpression, y::SymbolicNumber) = isless(x.x, y.x)
+Base.isless(x::SymbolicParameter, y::SymbolicExpression) = !isless(y, x)
+Base.isless(x::SymbolicExpression, y::SymbolicNumber) = false
+Base.isless(x::SymbolicNumber, y::SymbolicExpression) = !isless(y,x)
 
 op_val(f) = Base.operator_precedence(Symbol(f))
 function Base.isless(x::SymbolicExpression, y::SymbolicExpression)
