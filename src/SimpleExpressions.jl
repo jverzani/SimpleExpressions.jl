@@ -290,6 +290,16 @@ end
 
 operation(x::SymbolicExpression) = x.op
 operation(::Any) = nothing
+arguments(x::SymbolicExpression) = x.arguments
+arguments(x::Any) = (x,)
+
+
+function is_operation(f)
+    ex -> begin
+        op = operation(ex)
+        !isnothing(op) && op == f
+    end
+end
 
 ## ----
 
@@ -313,14 +323,23 @@ function Base.show(io::IO, x::SymbolicExpression)
             show(io, only(arguments))
             print(io, ")")
         else
-            a, b = arguments
+            n = length(arguments)
+            for (i, a) ∈ enumerate(arguments)
+                isa(a, SymbolicExpression) && a.op ∈ infix_ops && print(io, "(")
+                show(io, a)
+                isa(a, SymbolicExpression) && a.op ∈ infix_ops && print(io, ")")
+                i != n && print(io, " ", broadcast, string(op), " ")
+            end
+            #=
+            a, bs..., c = arguments
             isa(a, SymbolicExpression) && a.op ∈ infix_ops && print(io, "(")
-            show(io, first(arguments))
+            show(io, a)
             isa(a, SymbolicExpression) && a.op ∈ infix_ops && print(io, ")")
             print(io, " ", broadcast, string(op), " ")
             isa(b, SymbolicExpression) && b.op ∈ infix_ops && print(io, "(")
             show(io, b)
             isa(b, SymbolicExpression) && b.op ∈ infix_ops && print(io, ")")
+            =#
         end
     elseif op == ifelse
         p,a,b = arguments
@@ -371,14 +390,25 @@ Base.:-(x::AbstractSymbolic) = SymbolicExpression(-, (x, ))
 function _commutative_op(op::typeof(+), x, y)
     iszero(x) && return y
     iszero(y) && return x
-    SymbolicExpression(+, _left_right(x,y))
+
+    (is_operation(+)(x) || is_operation(+)(y)) &&
+        return SymbolicExpression(+, tuplejoin(arguments(x), arguments(y)))
+
+    return SymbolicExpression(+, (x, y))
 end
 
 function _commutative_op(op::typeof(*), x, y)
     isone(x) && return y
     isone(y) && return x
     (iszero(x) || iszero(y)) && return 0
-    SymbolicExpression(*, _left_right(x,y))
+
+    (is_operation(*)(x) || is_operation(*)(y)) &&
+        return SymbolicExpression(*, tuplejoin(arguments(x), arguments(y)))
+
+    return SymbolicExpression(*, (x, y))
+
+
+#    SymbolicExpression(*, _left_right(x,y))
 end
 
 # commutative binary; slight canonicalization
@@ -514,6 +544,11 @@ Base.convert(::Type{Expr}, x::SymbolicParameter) = x.p
 Base.convert(::Type{Expr}, x::SymbolicNumber) = x.x
 Base.convert(::Type{Expr}, x::SymbolicExpression) =
     Expr(:call, x.op, convert.(Expr, assymbolic.(x.arguments))...)
+
+# tuplejoin (Discourse)
+@inline tuplejoin(x) = x
+@inline tuplejoin(x, y) = (x..., y...)
+@inline tuplejoin(x, y, z...) = (x..., tuplejoin(y, z...)...)
 
 ## includes
 include("scalar-derivative.jl")
