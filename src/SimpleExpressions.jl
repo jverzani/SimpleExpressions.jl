@@ -7,6 +7,8 @@ $(joinpath(@__DIR__, "..", "README.md") |>
 
 """
 module SimpleExpressions
+using TermInterface
+
 export @symbolic
 
 
@@ -194,8 +196,13 @@ abstract type AbstractSymbolic <: Function end
 struct Symbolic <: AbstractSymbolic
     x::Symbol
 end
+Base.convert(::Type{<:AbstractSymbolic}, x::Symbol) = Symbolic(x)
+Base.convert(::Type{<:AbstractSymbolic}, x::AbstractString) = Symbolic(Symbol(x))
+
 (X::Symbolic)(y, p=nothing) = subs(X,y,p)
 (X::Symbolic)() = X(nothing)
+
+
 
 # optional parameter
 struct SymbolicParameter <: AbstractSymbolic
@@ -221,7 +228,7 @@ struct SymbolicExpression <: AbstractSymbolic
 end
 
 function (X::SymbolicExpression)(x, p=nothing)
-    ops = operation.(X.arguments)
+    ops = operation.(filter(x -> isa(x, SymbolicExpression), X.arguments))
     X = subs(X, x, p)
     for op ∈ ops
         Base.Generator != op && continue # generators need to repeat...
@@ -258,9 +265,44 @@ end
 Base.length(X::SymbolicEquation) = 2
 
 ## ----
+TermInterface.operation(x::AbstractSymbolic) = nothing
+TermInterface.operation(x::SymbolicExpression) = x.op
+TermInterface.arguments(x::AbstractSymbolic) = nothing
+TermInterface.arguments(x::SymbolicExpression) = x.arguments
+
+TermInterface.head(ex::SymbolicExpression) =  operation(ex)
+TermInterface.children(ex::SymbolicExpression) = arguments(ex)
+
+TermInterface.iscall(ex::SymbolicExpression) = true
+TermInterface.iscall(ex::AbstractSymbolic) = false
+
+
+TermInterface.isexpr(::Symbolic) = false
+TermInterface.isexpr(::SymbolicParameter) = false
+TermInterface.isexpr(::SymbolicNumber) = false
+TermInterface.isexpr(::AbstractSymbolic) = true
+
+function TermInterface.maketerm(T::Type{<:AbstractSymbolic}, head, children, metadata)
+    head(children...)
+end
+
+
 assymbolic(x::AbstractSymbolic) = x
 assymbolic(x::Symbol) = Symbolic(x)
-assymbolic(x::Number) = x #SymbolicNumber(x)
+assymbolic(x::Number) = SymbolicNumber(x)
+# convert from Expression to SimpleExpression
+# all variables become `𝑥` except `p` becomes `𝑝`, a parameter
+assymbolic(x::Expr) = eval(_assymbolic(x))
+function _assymbolic(x)
+    if !isexpr(x)
+        isa(x, Symbol) && return x == :p ? :(SymbolicParameter(:𝑝)) : :(Symbolic(:𝑥))
+        return x
+    end
+
+    op = operation(x)
+    arguments = arguments(x)
+    Expr(:call, op, _assymbolic.(arguments)...)
+end
 
 issymbolic(x::AbstractSymbolic) = true
 issymbolic(::Any) = false
@@ -289,8 +331,6 @@ function free_symbol(u::SymbolicExpression)
     return nothing
 end
 
-operation(x::SymbolicExpression) = x.op
-operation(::Any) = nothing
 
 ## ----
 """
@@ -323,14 +363,23 @@ function Base.show(io::IO, x::SymbolicExpression)
             show(io, only(arguments))
             print(io, ")")
         else
-            a, b = arguments
+            n = length(arguments)
+            for (i, a) ∈ enumerate(arguments)
+                isa(a, SymbolicExpression) && a.op ∈ infix_ops && print(io, "(")
+                show(io, a)
+                isa(a, SymbolicExpression) && a.op ∈ infix_ops && print(io, ")")
+                i != n && print(io, " ", broadcast, string(op), " ")
+            end
+            #=
+            a, bs..., c = arguments
             isa(a, SymbolicExpression) && a.op ∈ infix_ops && print(io, "(")
-            show(io, first(arguments))
+            show(io, a)
             isa(a, SymbolicExpression) && a.op ∈ infix_ops && print(io, ")")
             print(io, " ", broadcast, string(op), " ")
             isa(b, SymbolicExpression) && b.op ∈ infix_ops && print(io, "(")
             show(io, b)
             isa(b, SymbolicExpression) && b.op ∈ infix_ops && print(io, ")")
+            =#
         end
     elseif op == ifelse
         p,a,b = arguments
@@ -378,20 +427,31 @@ subs(x::Symbolic, y::SymbolicNumber, p) = y
 # unary
 Base.:-(x::AbstractSymbolic) = SymbolicExpression(-, (x, ))
 #
-function _commutative_op(op::typeof(+), x, y)
-    iszero(x) && return y
-    iszero(y) && return x
-    SymbolicExpression(+, _left_right(x,y))
+_isidentity(op::typeof(+), x) = iszero(x)
+_isidentity(op::typeof(*), x) = isone(x)
+_isidentity(op::Any, x) = false
+_iszero(op::typeof(*), x) = iszero(x)
+_iszero(op::Any, x) = false
+
+function _commutative_op(op::O, x, y) where {O <: Union{typeof(+), typeof(*)}}
+    _isidentity(op, x) && return y
+    _isidentity(op, y) && return x
+    _iszero(op,x) && return x
+    _iszero(op,y) && return y
+
+    if (is_operation(op)(x) && is_operation(op)(y))
+        args = tuplejoin(arguments(x), arguments(y))
+    elseif (is_operation(op)(x) && !is_operation(op)(y))
+        args = tuplejoin(arguments(x), (y,))
+    elseif (!is_operation(op)(x) && is_operation(op)(y))
+        args = tuplejoin((x,), arguments(y))
+    else
+        args = (x,y)
+    end
+    return SymbolicExpression(op, args)
+
 end
 
-function _commutative_op(op::typeof(*), x, y)
-    isone(x) && return y
-    isone(y) && return x
-    (iszero(x) || iszero(y)) && return 0
-    SymbolicExpression(*, _left_right(x,y))
-end
-
-# commutative binary; slight canonicalization
 # plans to incorporate simplify are WIP/DOA
 for op ∈ (:+, :*)
     @eval begin
@@ -525,7 +585,6 @@ Base.convert(::Type{Expr}, x::SymbolicNumber) = x.x
 Base.convert(::Type{Expr}, x::SymbolicExpression) =
     Expr(:call, x.op, convert.(Expr, assymbolic.(x.arguments))...)
 
-
 # isless
 Base.isless(x::Symbolic, y::Symbolic) = isless(x.x, y.x)
 Base.isless(x::Symbolic, y::SymbolicParameter) = isless(x.x, y.p)
@@ -543,6 +602,8 @@ Base.isless(x::SymbolicParameter, y::SymbolicExpression) = !isless(y, x)
 Base.isless(x::SymbolicExpression, y::SymbolicNumber) = false
 Base.isless(x::SymbolicNumber, y::SymbolicExpression) = !isless(y,x)
 
+Base.isless(x::AbstractSymbolic, y::Number) = false
+Base.isless(x::Number, y::AbstractSymbolic) = true
 op_val(f) = Base.operator_precedence(Symbol(f))
 function Base.isless(x::SymbolicExpression, y::SymbolicExpression)
     xo, yo = op_val(operation(x)), op_val(operation(y))
@@ -557,6 +618,11 @@ function Base.isless(x::SymbolicExpression, y::SymbolicExpression)
     end
     false
 end
+# tuplejoin (Discourse)
+@inline tuplejoin(x) = x
+@inline tuplejoin(x, y) = (x..., y...)
+@inline tuplejoin(x, y, z...) = (x..., tuplejoin(y, z...)...)
+
 ## includes
 include("scalar-derivative.jl")
 
