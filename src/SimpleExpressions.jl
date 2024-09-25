@@ -7,6 +7,7 @@ $(joinpath(@__DIR__, "..", "README.md") |>
 
 """
 module SimpleExpressions
+using Combinatorics
 using TermInterface
 
 export @symbolic
@@ -268,7 +269,7 @@ Base.length(X::SymbolicEquation) = 2
 TermInterface.operation(x::AbstractSymbolic) = nothing
 TermInterface.operation(x::SymbolicExpression) = x.op
 TermInterface.arguments(x::AbstractSymbolic) = nothing
-TermInterface.arguments(x::SymbolicExpression) = x.arguments
+TermInterface.arguments(x::SymbolicExpression) = collect(x.arguments)
 
 TermInterface.head(ex::SymbolicExpression) =  operation(ex)
 TermInterface.children(ex::SymbolicExpression) = arguments(ex)
@@ -340,6 +341,14 @@ Simplify expression using `Metatheory.jl` when that package is loaded
 """
 simplify(x::AbstractSymbolic) = x  # Metatheory.jl extension adds here
 simplify(ex::SymbolicEquation) = SymbolicEquation(simplify.(ex)...)
+
+"""
+    expand(ex)
+
+Expand expression using `Metatheory.jl` when that package is loaded
+"""
+expand(x::AbstractSymbolic) = x  # Metatheory.jl extension adds here
+expand(ex::SymbolicEquation) = SymbolicEquation(expand.(ex)...)
 
 ## ----
 
