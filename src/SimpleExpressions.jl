@@ -7,7 +7,6 @@ $(joinpath(@__DIR__, "..", "README.md") |>
 
 """
 module SimpleExpressions
-using Combinatorics
 using TermInterface
 
 export @symbolic
@@ -199,6 +198,7 @@ struct Symbolic <: AbstractSymbolic
 end
 Base.convert(::Type{<:AbstractSymbolic}, x::Symbol) = Symbolic(x)
 Base.convert(::Type{<:AbstractSymbolic}, x::AbstractString) = Symbolic(Symbol(x))
+Base.convert(::Type{Symbol}, x::Symbolic) = Symbol(x)
 
 (X::Symbolic)(y, p=nothing) = subs(X,y,p)
 (X::Symbolic)() = X(nothing)
@@ -210,6 +210,7 @@ struct SymbolicParameter <: AbstractSymbolic
     p::Symbol
 end
 (X::SymbolicParameter)(y , p) = subs(X,y,p)
+Base.convert(::Type{Symbol}, p::SymbolicParameter) = Symbol(p)
 
 function Base.iterate(X::T, state=nothing) where {T <:Union{Symbolic, SymbolicParameter}}
     isnothing(state) && return (X[1],2)
@@ -334,23 +335,6 @@ end
 
 
 ## ----
-"""
-    simplify(ex)
-
-Simplify expression using `Metatheory.jl` when that package is loaded
-"""
-simplify(x::AbstractSymbolic) = x  # Metatheory.jl extension adds here
-simplify(ex::SymbolicEquation) = SymbolicEquation(simplify.(ex)...)
-
-"""
-    expand(ex)
-
-Expand expression using `Metatheory.jl` when that package is loaded
-"""
-expand(x::AbstractSymbolic) = x  # Metatheory.jl extension adds here
-expand(ex::SymbolicEquation) = SymbolicEquation(expand.(ex)...)
-
-## ----
 
 Base.show(io::IO, ::MIME"text/plain", x::AbstractSymbolic) = show(io, x)
 Base.show(io::IO, x::Symbolic) = print(io, x.x)
@@ -442,33 +426,32 @@ _isidentity(op::Any, x) = false
 _iszero(op::typeof(*), x) = iszero(x)
 _iszero(op::Any, x) = false
 
-function _commutative_op(op::O, x, y) where {O <: Union{typeof(+), typeof(*)}}
+function _vararg_op(op::O, x, y) where {O <: Union{typeof(+), typeof(*)}}
     _isidentity(op, x) && return y
     _isidentity(op, y) && return x
     _iszero(op,x) && return x
     _iszero(op,y) && return y
 
     if (is_operation(op)(x) && is_operation(op)(y))
-        args = tuplejoin(arguments(x), arguments(y))
+        args = vcat(arguments(x), arguments(y))
     elseif (is_operation(op)(x) && !is_operation(op)(y))
-        args = tuplejoin(arguments(x), (y,))
+        args = vcat(arguments(x), y)
     elseif (!is_operation(op)(x) && is_operation(op)(y))
-        args = tuplejoin((x,), arguments(y))
+        args = vcat(x, arguments(y))
     else
-        args = (x,y)
+        args = [x,y]
     end
-    return SymbolicExpression(op, args)
+    return SymbolicExpression(op, sort(args))
 
 end
 
-# plans to incorporate simplify are WIP/DOA
 for op ∈ (:+, :*)
     @eval begin
         import Base: $op
-        Base.$op(x::AbstractSymbolic, y::Number) = _commutative_op($op, x, y)
-        Base.$op(x::Number, y::AbstractSymbolic) = _commutative_op($op, x, y)
+        Base.$op(x::AbstractSymbolic, y::Number) = _vararg_op($op, x, y)
+        Base.$op(x::Number, y::AbstractSymbolic) = _vararg_op($op, x, y)
         Base.$op(x::AbstractSymbolic, y::AbstractSymbolic) =
-            _commutative_op($op, x, y)
+            _vararg_op($op, x, y)
     end
 end
 
@@ -627,12 +610,9 @@ function Base.isless(x::SymbolicExpression, y::SymbolicExpression)
     end
     false
 end
-# tuplejoin (Discourse)
-@inline tuplejoin(x) = x
-@inline tuplejoin(x, y) = (x..., y...)
-@inline tuplejoin(x, y, z...) = (x..., tuplejoin(y, z...)...)
 
 ## includes
 include("scalar-derivative.jl")
+include("simplify.jl")
 
 end
