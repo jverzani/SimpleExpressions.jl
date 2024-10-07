@@ -62,11 +62,11 @@
     @symbolic x p
 
     @test repr(2x) == "2 * x"
-    @test repr(x*2) == "x * 2"
+    @test repr(x*2) == "2 * x"
 
     @test repr(x / 2) == "x / 2"
-    @test repr((x+2) / 2) == "(x + 2) / 2"
-    @test repr(x / (x+2)) == "x / (x + 2)"
+    @test repr((x+2) / 2) == "(2 + x) / 2"
+    @test repr(x / (x+2)) == "x / (2 + x)"
     @test repr(x .- sum(x)/length(x)) == "x .- (sum(x) / length(x))" # parens around expressions, like `sum(x)`.
 
     @test repr((1+x)^2) == "(1 + x) ^ 2"
