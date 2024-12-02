@@ -4,6 +4,7 @@ authors = ["jverzani <jverzani@gmail.com> and contributors"]
 version = "1.0.22"
 
 [deps]
+CallableExpressions = "391672e0-bbe4-4ab4-8bc9-b89a79cbc2f0"
 TermInterface = "8ea1fca8-c5ef-4a55-8b96-4e9afe9c9a3c"
 
 [weakdeps]
@@ -22,6 +23,7 @@ SimpleExpressionsSpecialFunctionsExt = "SpecialFunctions"
 
 [compat]
 AbstractTrees = "0.4"
+CallableExpressions = "1.0.0"
 Latexify = "0.16, 1"
 RecipesBase = "1"
 Roots = "2"
