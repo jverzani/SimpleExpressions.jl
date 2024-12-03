@@ -8,7 +8,7 @@ $(joinpath(@__DIR__, "..", "README.md") |>
 """
 module SimpleExpressions
 using CallableExpressions
-using TermInterface
+import TermInterface
 
 export @symbolic
 
@@ -153,59 +153,101 @@ map.([x^2], [1,2]) # [1, 4]
 """
 macro symbolic(x...)
     q=Expr(:block)
-    push!(q.args, Expr(:(=), esc(x[1]), Expr(:call, symbolic, Expr(:quote, x[1]))))
+    push!(q.args, Expr(:(=), esc(x[1]), Expr(:call, Symbolic, Expr(:quote, x[1]))))
     if length(x) > 1
-        push!(q.args, Expr(:(=), esc(x[2]), Expr(:call, symbolicparameter, Expr(:quote, x[2]))))
+        push!(q.args, Expr(:(=), esc(x[2]), Expr(:call, SymbolicParameter, Expr(:quote, x[2]))))
     end
     push!(q.args, Expr(:tuple, map(esc, x)...))
     q
 end
 
+
+macro symbolic_expression(expr)
+    @assert expr.head === :call
+    op = expr.args[1]
+    args = expr.args[2:end]
+    Expr(:call, SymbolicExpression, esc(op),  Expr(:tuple, map(esc,args)...))
+end
+
 ## ---- types ----
 abstract type AbstractSymbolic <: Function end
-struct Symbolic{T} <: AbstractSymbolic
+struct Symbolic{T <: DynamicVariable} <: AbstractSymbolic
+    u::T
+    Symbolic(u::T) where {T <: DynamicVariable} = new{T}(u)
+end
+
+Symbolic(x::Symbolic) = x
+Symbolic(x::Symbol) = Symbolic(DynamicVariable(x))
+Symbolic(x::AbstractString) = Symbolic(Symbol(x))
+
+struct SymbolicParameter{X, T <: StaticVariable{X}} <: AbstractSymbolic
+    u::T
+    SymbolicParameter(u::T) where {X, T <: StaticVariable{X}} = new{X,T}(u)
+end
+SymbolicParameter(p::SymbolicParameter) = p
+SymbolicParameter(p::Symbol) = SymbolicParameter(StaticVariable{p}())
+SymbolicParameter(p::AbstractString) = SymbolicParameter(Symbol(p))
+
+
+struct SymbolicNumber{T <: DynamicConstant} <: AbstractSymbolic
     u::T
 end
-symbolic(x) = Symbolic(DynamicVariable(Symbol(x)))
-
-struct SymbolicParameter{T} <: AbstractSymbolic
-    u::T
-end
-symbolicparameter(p) = Symbolic(StaticVariable{Symbol(p)}())
-
-
-struct SymbolicNumber{T} <: AbstractSymbolic
-    u::T
-end
-symbolicnumber(c) = convert(SymbolicNumber, c)
+SymbolicNumber(c::SymbolicNumber) = c
+SymbolicNumber(c::Number) = SymbolicNumber(DynamicConstant(c))
 convert(::Type{<:AbstractSymbolic}, x::Number) = SymbolicNumber(DynamicConstant(x))
 
-struct SymbolicExpression{T} <: AbstractSymbolic
+Δ = :nothing
+struct SymbolicExpression{T <: StaticExpression} <: AbstractSymbolic
     u::T
     x::Base.RefValue{Symbol}
     p::Base.RefValue{Symbol}
 end
-SymbolicExpression(u) = SymbolicExpression(u, Ref(:nothing), Ref(:nothing))
+SymbolicExpression(u) = SymbolicExpression(u, Ref(Δ), Ref(Δ))
+function SymbolicExpression(op, children)
+    u = StaticExpression(map(↓,children), op)
+    SymbolicExpression(u)
+end
 # XXX need to check u is of proper type
+
+# convert to symbolic
+assymbolic(x::AbstractSymbolic) = x
+assymbolic(x::Symbol) = Symbolic(x)
+assymbolic(x::Number) = SymbolicNumber(x)
+# convert from Expression to SimpleExpression
+# all variables become `𝑥` except `p` becomes `𝑝`, a parameter
+assymbolic(x::Expr) = eval(_assymbolic(x))
+function _assymbolic(x)
+    if !isexpr(x)
+        isa(x, Symbol) && return x == :p ? :(SymbolicParameter(:𝑝)) : :(Symbolic(:𝑥))
+        return x
+    end
+
+    op = operation(x)
+    arguments = arguments(x)
+    Expr(:call, op, _assymbolic.(arguments)...)
+end
+
+assymbolic(u::DynamicVariable) = Symbolic(u)
+assymbolic(u::StaticVariable) = SymbolicParameter(u)
+assymbolic(u::DynamicConstant) = SymbolicNumber(u)
+assymbolic(u::StaticExpression) = SymbolicExpression(u)
+
 
 ## ----
 struct SymbolicEquation{T,S}
     lhs::T
     rhs::S
 end
-Base.:~(a::AbstractSymbolic, b::Number) = SymbolicEquation(a, symbolicnumber(b))
-Base.:~(a::Number, b::AbstractSymbolic) = SymbolicEquation(symbolicnumber(a),b)
 Base.:~(a::AbstractSymbolic, b::AbstractSymbolic) = SymbolicEquation(a,b)
+Base.:~(a::AbstractSymbolic, b::Number) = SymbolicEquation(a, SymbolicNumber(b))
+Base.:~(a::Number, b::AbstractSymbolic) = SymbolicEquation(SymbolicNumber(a),b)
 
-(X::SymbolicEquation)(x, p) = X.lhs(x,p) - X.rhs(x,p)
-# save equation if only `p` given
-function (X::SymbolicEquation)(::typeof(:), p)
-    X.lhs(:, p) ~ X.rhs(:, p)
-end
-(X::SymbolicEquation)(x::Nothing, p) = X(:, p)
-function (X::SymbolicEquation)(x, ::Nothing)
-    x.lhs(x, p) ~ x.rhs(x, p)
-end
+tilde(a::Number, b::Number) = a - b
+tilde(a, b) = a ~ b
+
+(X::SymbolicEquation)(x) =   tilde(X.lhs(x), X.rhs(x))
+(X::SymbolicEquation)(x,p) = tilde(X.lhs(x, p),  X.rhs(x, p))
+
 
 function Base.iterate(X::SymbolicEquation, state=nothing)
     isnothing(state) && return (X.lhs, 0)
@@ -222,7 +264,37 @@ Base.length(X::SymbolicEquation) = 2
 Base.convert(::Type{<:AbstractSymbolic}, x::Number) = SymbolicNumber(DynamicConstant(x))
 Base.convert(::Type{<:AbstractSymbolic}, x::Symbolic) = x
 Base.convert(::Type{<:AbstractSymbolic}, x::SymbolicParameter) = x
-Base.promote_rule(::Type{<:AbstractSymbolic}, x::Type{T}) where {T <: Number} = SymbolicExpression
+
+Base.promote_rule(::Type{<:AbstractSymbolic}, x::Type{T}) where {T <: Number} = AbstractSymbolic
+
+## ---- TermInterface
+TermInterface.operation(x::AbstractSymbolic) = nothing
+TermInterface.operation(x::SymbolicExpression) = (↓(x)).operation
+
+TermInterface.arguments(x::AbstractSymbolic) = nothing
+function TermInterface.arguments(x::SymbolicExpression)
+    children = (↓(x)).children
+    assymbolic.(children)
+end
+
+TermInterface.head(ex::SymbolicExpression) =  TermInterface.operation(ex)
+TermInterface.children(ex::SymbolicExpression) = TermInterface.arguments(ex)
+
+TermInterface.iscall(ex::SymbolicExpression) = true
+TermInterface.iscall(ex::AbstractSymbolic) = false
+
+
+TermInterface.isexpr(::Symbolic) = false
+TermInterface.isexpr(::SymbolicParameter) = false
+TermInterface.isexpr(::SymbolicNumber) = false
+TermInterface.isexpr(::AbstractSymbolic) = true
+
+function TermInterface.maketerm(T::Type{<:AbstractSymbolic}, head, children, metadata)
+    head(assymbolic.(children)...)
+end
+
+
+
 
 ## ---- operations
 for op ∈ (:+, :-, :*, :/, ://, :^)
@@ -240,6 +312,7 @@ end
 # lists from AbstractNumbers.jl
 unary_ops = (
     #:~,
+    :-,
     :conj, :abs, :sin, :cos, :tan, :sinh, :cosh, :tanh, :asin, :acos, :atan,
     :asinh, :acosh, :atanh, :sec, :csc, :cot, :asec, :acsc, :acot, :sech, :csch,
     :coth, :asech, :acsch, :acoth, :sinc, :cosc, :cosd, :cotd, :cscd, :secd,
@@ -249,8 +322,10 @@ unary_ops = (
     :frexp, :ldexp, :modf, :real, :imag, :!, :identity,
     :zero, :one, :<<, :>>, :abs2, :sign, :sinpi, :cospi, :exp10,
     :iseven, :ispow2, :isfinite, :isinf, :isodd, :isinteger, :isreal,
-    :isnan, :isempty, :iszero, :transpose, :copysign, :flipsign, :signbit,
+    :isnan, :isempty,  :transpose, :copysign, :flipsign, :signbit,
+    # :iszero,
     #:+, :-, :*, :/, :\, :^, :(==), :(!=), :<, :(<=), :>, :(>=), :≈,
+    :inv,
     :min, :max,
     :div, :fld, :rem, :mod, :mod1, :cmp, :&, :|, :xor,
     :clamp,
@@ -263,8 +338,50 @@ for fn ∈ unary_ops
 end
 Base.log(a::Number, x::AbstractSymbolic) = log(x) / log(symbolicnumber(a))
 
-# TODO: binary ops (atan, ...)
 
+# handle integer powers
+Base.literal_pow(::typeof(^), x::AbstractSymbolic, ::Val{0}) = 1
+Base.literal_pow(::typeof(^), x::AbstractSymbolic, ::Val{1}) = x
+Base.literal_pow(::typeof(^), x::AbstractSymbolic, ::Val{2}) = SymbolicExpression(^,(x,SymbolicNumber(2)))
+Base.literal_pow(::typeof(^), x::AbstractSymbolic, ::Val{3}) = SymbolicExpression(^,(x,SymbolicNumber(3)))
+Base.literal_pow(::typeof(^), x::AbstractSymbolic, ::Val{-1}) = 1/x
+Base.literal_pow(::typeof(^), x::AbstractSymbolic, ::Val{-2}) = 1/x^2
+function Base.literal_pow(::typeof(^), x::AbstractSymbolic, ::Val{p}) where {p}
+    p′ = SymbolicNumber(abs(p))
+    u = SymbolicExpression(^, (x, p′))
+    p < 0 ? 1 / u : u
+end
+function Base.broadcasted(::typeof(Base.literal_pow), u, a::AbstractSymbolic,
+                          p::Val{N}) where {N}
+    SymbolicExpression(Base.broadcasted, (^, a,N))
+end
+
+# XXX Generators
+
+
+
+Base.Generator(f, iter::AbstractSymbolic) =
+    SymbolicExpression(Base.Generator, (f, iter))
+
+Base.broadcastable(x::AbstractSymbolic) = Ref(x)
+
+
+# try enumerate
+Base.enumerate(x::AbstractSymbolic) = SymbolicExpression(enumerate, (x,))
+
+# TODO: binary ops (atan, ...)
+#=
+for fn ∈ (:sum, :prod,
+          :getindex,
+          :eachindex, :enumerate, :zip, :length,
+          :first, :last, :only,
+          )
+        @eval begin
+        import Base: $fn
+        $fn(x::AbstractSymbolic, as) = SymbolicExpression($fn, as)
+        end
+end
+=#
 ## ----- show
 # show (Fix parens)
 function Base.show(io::IO, x::AbstractSymbolic)
@@ -319,6 +436,9 @@ function _show(io::IO, u::StaticExpression)
     end
 end
 
+# catch others
+_show(io::IO, x) = show(io, x)
+
 ## ---- call
 # used to identify x, p
 # error if more than one found
@@ -329,23 +449,23 @@ _name(x::SymbolicParameter) = _name(↓(x))
 _name(x::DynamicVariable) = x.sym
 _name(::StaticVariable{T}) where {T} = T
 
-find_xp(x::DynamicVariable) = (x=_name(x), p=:nothing)
-find_xp(p::StaticVariable{T}) where {T} = (x=:nothing, p=_name(p))
-find_xp(x::DynamicConstant) = (x=:nothing, p=:nothing)
+find_xp(x::DynamicVariable) = (x=_name(x), p=Δ)
+find_xp(p::StaticVariable{T}) where {T} = (x=Δ, p=_name(p))
+find_xp(x::DynamicConstant) = (x=Δ, p=Δ)
 function find_xp(u::StaticExpression)
-    x, p = :nothing, :nothing
+    x, p = Δ, Δ
     for c ∈ u.children
         o = find_xp(c)
         x′, p′ = o.x, o.p
-        if x == :nothing
+        if x == Δ
             x = x′
-        elseif !(x′ == :nothing)
+        elseif !(x′ == Δ)
             x == x′ || error("more than one variable")
             x = x′
         end
-        if p == :nothing
+        if p == Δ
             p = p′
-        elseif p′ != :nothing
+        elseif p′ != Δ
             p == p′ || error("more than one variable")
             p = p′
         end
@@ -353,48 +473,88 @@ function find_xp(u::StaticExpression)
     (;x, p)
 end
 
-# call (x,p), (:,p), (x,:) or (x) are patterns to support
+# call (x,p), (:,p), (x,:), or (x) are patterns to support
+# we have substitution if one variable is not given
+# evaluation if all variables are specified
+
+MISSING = Union{Nothing, Missing, typeof(:)}
+
 (𝑥::Symbolic)(x) = x
 (𝑥::Symbolic)(x,p) = x
-(𝑥::Symbolic)(x,::typeof(:)) = x
-(𝑥::Symbolic)(::typeof(:), p) = 𝑥
+(𝑥::Symbolic)(::MISSING, p) = 𝑥
 
 (𝑝::SymbolicParameter)(x) = 𝑝
 (𝑝::SymbolicParameter)(x,p) = p
-(𝑝::SymbolicParameter)(x,::typeof(:)) = 𝑝
-(𝑝::SymbolicParameter)(::typeof(:), p) = p
+(𝑝::SymbolicParameter)(x,::MISSING) = 𝑝
 
-(𝑐::SymbolicNumber)(x) = c.u.value
-(𝑐::SymbolicNumber)(x,p) = c.u.value
-(𝑐::SymbolicNumber)(x,::typeof(:)) = c.u.value
-(𝑐::SymbolicNumber)(::typeof(:), p) = c.u.value
+(𝑐::SymbolicNumber)(args...; kwargs...) = c.u.value
 
-
+# add in MISSING, p; x,MISSING here
+# we have substitution if one variable is not given
+# evaluation if all variables are specified
 function (ex::SymbolicExpression)(x,p=nothing)
+
+    # cache symbols; check for doubles
     𝑥, 𝑝 = ex.x[], ex.p[]
-    if 𝑥 == :nothing && 𝑝 == :nothing
+    if 𝑥 == Δ && 𝑝 == Δ
         𝑥, 𝑝 = find_xp(ex)
         ex.x[] = 𝑥
         ex.p[] = 𝑝
     end
-    _call(ex, (𝑥,𝑝), x, p)
+
+    # this is kinda eww
+    # eval: if x,p are both specified
+    doeval = true
+    if (𝑥 != Δ && isa(x, MISSING))
+        doeval = false
+    elseif (𝑝 != Δ && isa(p, MISSING))
+        doeval = false
+    end
+
+    if !doeval
+        if !isa(x,MISSING)
+            substitutex(ex, x)
+        else
+            substitutep(ex, p)
+        end
+    else
+        if 𝑥 == Δ
+            _call(ex, (𝑝,), p)
+        elseif 𝑝 == Δ
+            _call(ex, (𝑥,), x)
+        else
+            _call(ex, (𝑥, 𝑝), x, p)
+        end
+    end
 end
 
+_call(ex, 𝑥, x) =  (↓(ex))(NamedTuple{𝑥}((x,)))
 _call(ex, 𝑥𝑝, x, p) =  (↓(ex))(NamedTuple{𝑥𝑝}((x,p)))
-_call(ex, 𝑥𝑝, x, ::Nothing) =  (↓(ex))(NamedTuple{𝑥𝑝[1:1]}((x,)))
-# different; subsitute
-function _call(ex, 𝑥𝑝, x, ::typeof(:))
+
+# subsitute for x
+function substitutex(ex, x)
     pred = x -> isa(x, DynamicVariable)
     mapping = _ -> DynamicConstant(x)
-    ex.p[] = :nothing
     SymbolicExpression(expression_map_matched(pred, mapping, ↓(ex)))
 end
 
-function _call(ex, 𝑥𝑝, ::typeof(:), p)
+# substitute for p
+function substitutep(ex, p)
     pred = p -> isa(p, StaticVariable)
     mapping = _ -> DynamicConstant(p)
-    ex.x[] = :nothing
     SymbolicExpression(expression_map_matched(pred, mapping, ↓(ex)))
 end
+
+
+# directly call with kwargs.
+(𝑥::Symbolic)(;kwargs...) = (↓(𝑥))(NamedTuple(kwargs))
+(𝑝::SymbolicParameter)(;kwargs...) = (↓(𝑝))(NamedTuple(kwargs))
+(ex::SymbolicExpression)(;kwargs...) = (↓(ex))(NamedTuple(kwargs))
+
+
+
+
+## includes
+include("scalar-derivative.jl")
 
 end

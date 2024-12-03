@@ -22,13 +22,11 @@ julia> D(D(sin(x))) + sin(x) # no simplification!
 
 ```
 """
-D(ex::SymbolicExpression) = D(ex.op, ex.arguments)
-
 D(::Any) = 0
 D(::Symbolic) = 1
 D(::SymbolicParameter) = 0
+D(ex::SymbolicExpression) = D(TermInterface.operation(ex), TermInterface.children(ex))
 D(ex::SymbolicEquation) = D(ex.lhs) ~ D(ex.rhs)
-
 
 
 # slight simplifications here
@@ -46,7 +44,7 @@ end
 ⊗(x,y) = x * y
 
 function D(::typeof(+), args)
-    a, b= args
+    a, b = args
     D(a) ⊕ D(b)
 end
 D(::typeof(sum), args) = SymbolicExpression(+, D.(args))
@@ -107,8 +105,10 @@ end
 D(::typeof(ifelse), args) = 0
 
 # (prefer NaN over error for technical reasons)
-D(::typeof(inv), args)     = (𝑥 = only(args); D(𝑥) ⊗ -1/𝑥^2 ⊗ 𝕀(𝑥 != 0))
-D(::typeof(abs), args)     = (𝑥 = only(args); D(𝑥) ⊗ sign(𝑥) ⊗ 𝕀(𝑥 != 0))
+#XXXD(::typeof(inv), args)     = (𝑥 = only(args); D(𝑥) ⊗ -1/𝑥^2 ⊗ 𝕀(𝑥 != 0))
+D(::typeof(inv), args)     = (𝑥 = only(args); D(𝑥) ⊗ -1/𝑥^2)
+#XXXD(::typeof(abs), args)     = (𝑥 = only(args); D(𝑥) ⊗ sign(𝑥) ⊗ 𝕀(𝑥 != 0))
+D(::typeof(abs), args)     = (𝑥 = only(args); D(𝑥) ⊗ sign(𝑥))
 D(::typeof(sign), args)    = (𝑥 = only(args); 0 ⊗ 𝕀(𝑥 != 0))
 D(::typeof(abs2), args)    = (𝑥 = only(args); D(𝑥) ⊗ 2𝑥)
 D(::typeof(deg2rad), args) = (𝑥 = only(args); D(𝑥) ⊗ (pi / 180))
@@ -118,10 +118,12 @@ D(::typeof(exp), args)   = (𝑥 = only(args); D(𝑥) ⊗ exp(𝑥))
 D(::typeof(exp2), args)  = (𝑥 = only(args); D(𝑥) ⊗ exp2(𝑥) ⊗ log(2))
 D(::typeof(exp10), args) = (𝑥 = only(args); D(𝑥) ⊗ exp10(𝑥) ⊗ log(10))
 D(::typeof(expm1), args) = (𝑥 = only(args); D(𝑥) ⊗ exp(𝑥))
-D(::typeof(log), args)   = (𝑥 = only(args); D(𝑥) ⊗ (1/𝑥) ⊗ 𝕀(𝑥 > 0))
+#XXXD(::typeof(log), args)   = (𝑥 = only(args); D(𝑥) ⊗ (1/𝑥) ⊗ 𝕀(𝑥 > 0))
+D(::typeof(log), args)   = (𝑥 = only(args); D(𝑥) ⊗ (1/𝑥))
 D(::typeof(log2), args)  = (𝑥 = only(args); D(𝑥) ⊗ (1/𝑥/log(2)) ⊗ 𝕀(𝑥 > 0))
 D(::typeof(log10), args) = (𝑥 = only(args); D(𝑥) ⊗ (1/𝑥/log(10)) ⊗ 𝕀(𝑥 > 0))
 D(::typeof(log1p), args) = (𝑥 = only(args); D(𝑥) ⊗ 1/(1 + 𝑥))
+
 
 D(::typeof(sin), args) = (𝑥 = only(args); D(𝑥) ⊗  cos(𝑥))
 D(::typeof(cos), args) = (𝑥 = only(args); D(𝑥) ⊗ -sin(𝑥))

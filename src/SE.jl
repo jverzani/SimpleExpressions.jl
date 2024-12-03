@@ -470,6 +470,7 @@ for fn ∈ (
     :min, :max,
     :div, :fld, :rem, :mod, :mod1, :cmp, :&, :|, :xor,
     :clamp,
+    :length,
 )
     @eval begin
         import Base: $fn
