@@ -39,90 +39,119 @@ end
 @testset "evaluation/substitution" begin
     @symbolic x p
     f = (x,p)  -> cos(x) - x*p
-    u = f(x, p)
+    uxp = f(x, p)
     x₀,p₀ = 1, 2
 
-    @test u(x₀,p₀)       == f(x₀, p₀)
-    @test u(x₀)(:,p₀)    == f(x₀, p₀)
-    @test u(x₀, :)(:,p₀) == f(x₀, p₀)
-    @test u(:,p₀)(x₀)    == f(x₀, p₀)
-    @test u(:,p₀)(x₀,:)  == f(x₀, p₀)
+    @test uxp(x₀,p₀)         == f(x₀, p₀)
+    @test_throws "type NamedTuple has no field p" uxp(x₀)          # no p
+    @test uxp(x₀, :)(:,p₀)() == f(x₀, p₀)
+    @test uxp(:,p₀)(x₀)      == f(x₀, p₀)
+    @test uxp(:,p₀)(x₀,:)()  == f(x₀, p₀)
 
-    @test u(;x=x₀, p=p₀) == f(x₀, p₀)
+    @test uxp(;x=x₀, p=p₀) == f(x₀, p₀)   # direct to CallableExpressions
 
     f = (x,p) -> x^2
-    u = f(x,p)
-    @test u(x₀)          == f(x₀, p₀)
-    @test u(x₀,p₀)       == f(x₀, p₀)
-    @test u(:,p₀)(x₀)    == f(x₀, p₀)
-    @test u(:,p₀)(x₀,:)  == f(x₀, p₀)
+    ux_ = f(x,p)
+    @test ux_(x₀)            == f(x₀, p₀)
+    @test ux_(x₀,p₀)         == f(x₀, p₀)
+    @test ux_(:,p₀)(x₀)      == f(x₀, p₀)
+    @test ux_(:,p₀)(x₀,:)()  == f(x₀, p₀)
+
+    @test ux_(;x=x₀, p=p₀)   == f(x₀, p₀) # direct to CallableExpressions
 
     f = (x,p) -> p^2
-    u = f(x,p)
-    @test u(:, p₀)       == f(x₀, p₀)
-    @test u(x₀,p₀)       == f(x₀, p₀)
-    @test u(x₀)(:,p₀)    == f(x₀, p₀)
-    @test u(x₀, :)(:,p₀) == f(x₀, p₀)
+    u_p = f(x,p)
+    @test u_p(:, p₀)()       == f(x₀, p₀)
+    @test u_p(x₀,p₀)         == f(x₀, p₀)
+    @test_throws "type NamedTuple has no field p" u_p(x₀)          # no p
+    @test u_p(x₀, :)(:,p₀)() == f(x₀, p₀)
 
+    @test u_p(;x=x₀, p=p₀)   == f(x₀, p₀) # direct to CallableExpressions
+
+
+    u__ = replace(u_p, p=>p₀)
+    @test u__()       == f(x₀,p₀)
+    @test u__(x₀)     == f(x₀,p₀)
+    @test_throws "duplicate field name in NamedTuple" u__(x₀, p₀) == f(x₀,p₀)
+
+    u = cos(x)*sin(p*x)
+    # : = nothing = missing
+    import SimpleExpressions: ↓
+    @test ↓(u(:,p₀)) == ↓(u(missing, p₀)) == ↓(u(nothing, p₀))
+    @test ↓(u(x₀,:)) == ↓(u(x₀, missing)) == ↓(u(x₀, nothing))
+
+    # Number or symbolic output
+    @test u(x₀, p₀)                isa Number
+    @test u(:, p₀)(x₀)             isa Number
+    @test u(x₀, :)(*, p₀)          isa Number
+    @test u(:, p₀)                 isa SimpleExpressions.AbstractSymbolic
+    @test u(x₀, :)                 isa SimpleExpressions.AbstractSymbolic
+    @test replace(u, x=>x₀, p=>p₀) isa SimpleExpressions.AbstractSymbolic
+    @test u(x=>x₀, p=>p₀)          isa SimpleExpressions.AbstractSymbolic
+    @test u(x=>x₀)                 isa SimpleExpressions.AbstractSymbolic
+    @test u(p=>p₀)                 isa SimpleExpressions.AbstractSymbolic
 end
 
 
 
 
 @testset "show" begin
-        # test show
-    # note *,+ do light simplification and sort arguments
+    # test show
+    # note *,+ do **not** do light simplification and sort arguments
+    # though they had
     @symbolic x p
 
-    @test_broken repr(2x) == "2 * x"
-    @test_broken repr(x*2) == "2 * x"
+    @test repr(2x) == "2 * x"
+    @test_broken repr(x*2) == "2 * x" # sort?
 
-    @test_broken repr(x / 2) == "x / 2"
+    @test repr(x / 2) == "x / 2"
     @test_broken repr((x+2) / 2) == "(2 + x) / 2"
-    @test_broken repr(x / (x+2)) == "x / (2 + x)"
+    @test repr(x / (x+2)) == "x / (x + 2)"
     @test_broken repr(x .- sum(x)/length(x)) == "x .- (sum(x) / length(x))" # parens around expressions, like `sum(x)`.
 
-    @test_broken repr((1+x)^2) == "(1 + x) ^ 2"
+    @test repr((1+x)^2) == "(1 + x) ^ 2"
 
 end
 
-@testset "broken" begin
+@testset "broadcast/generators" begin
     @symbolic x p
-    # broadcasting
+
     x₀ = [1,2,3]
-    @test_broken x₀ |> (x .- sum(x)/length(x)) |> x .* x  == (x₀ .- sum(x₀)/length(x₀)).^2
-    @test_broken x₀ |> x.^2 == x₀.^2
-    @test_broken x₀ |> x.^2.0 == x₀.^2.0
-## XXX    @test_broken_throws MethodError x₀ |> x^2
+    @test x₀ |> (x .- sum(x)/length(x)) |> x .* x  == (x₀ .- sum(x₀)/length(x₀)).^2
+
+    @test x₀ |> x.^2 == x₀.^2
+    @test x₀ |> x.^2.0 == x₀.^2.0
+
+    @test_throws MethodError x₀ |> x^2
 
     # basic generators
     x₀, p₀ = 2, (1,2,3)
 
     # eachindex
     u = sum(x[i] for i ∈ eachindex(x))
-    @test_throws MethodError u(x₀) == sum(x₀[i] for i ∈ eachindex(x₀))
+    @test u(x₀) == sum(x₀[i] for i ∈ eachindex(x₀))
+
+    x₀′ = (1,2)
+    u = sum(p[i] for i ∈ eachindex(x))
+    @test u(x₀′, p₀) == sum(p₀[i] for i in eachindex(x₀′))
+
+
 
     # enumerate
     u = sum(pᵢ*x^i for (i,pᵢ) ∈ enumerate(p))
-    @test_broken u(x₀, p₀) == sum(pᵢ*x₀^i for (i, pᵢ) ∈ enumerate(p₀))
+    @test u(x₀, p₀) == sum(pᵢ*x₀^i for (i, pᵢ) ∈ enumerate(p₀))
 
     # zip
-    x₀ = (2,3)
+    x₀ = (3,2,3)
     u = prod(xᵢ*pᵢ for (xᵢ, pᵢ) ∈ zip(x, p))
-    @test_broken u(x₀, p₀) == prod(xᵢ*pᵢ for (xᵢ, pᵢ) ∈ zip(x₀, p₀))
+    @test u(x₀, p₀) == prod(xᵢ*pᵢ for (xᵢ, pᵢ) ∈ zip(x₀, p₀))
 
     # make new symbolic expressions
     u = @symbolic_expression foldl(=>, @symbolic_expression(1:x))
-    @test_broken u(4) == (((1 => 2) => 3) => 4)
-
-    # make new symbolic expressions
-    u = @symbolic_expression foldl(=>, @symbolic_expression(1:x))
-    @test_broken u(4) == (((1 => 2) => 3) => 4)
+    @test u(4) == (((1 => 2) => 3) => 4)
 
 
     # convert Expr type
-    # (convert Expr to symbolic can be done with `assymbolic` if `TermInterface`
-    # is loaded.
     u = sin(x) * (cos(x) - x^2)
     ex = convert(Expr, u)
 
@@ -154,6 +183,6 @@ end
     ex = log(x)
     u = D(D(ex)) - D(1/x)
     @test u(x₀) == 0
-    @test_broken isnan(u(-x₀)) # Fix indicator ones
+    @test isnan(u(-x₀)) # Fix indicator ones
 
 end
