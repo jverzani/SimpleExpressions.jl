@@ -166,8 +166,8 @@ There is a difference -- which needs to be corrected -- where it is best to wrap
 ```julia
 @symbolic x
 map(x^2, [1,2])    # [1, 4]
-map.([x^2,x^3], [2,3]) # [4, 27]
-map.(x^2, [1,2])   # map.(x^2, [1, 2]) ... not desirable XXX
+map.(x^2, [1,2])   # map.(x^2, [1, 2]); map.(x->x^2, [1,2]) is [1,4]
+map.([x^2], [1,2]) # [1, 4]
 ```
 
 """
