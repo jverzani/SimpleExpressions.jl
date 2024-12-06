@@ -301,7 +301,7 @@ Base.length(X::SymbolicEquation) = 2
 
 ## ----
 
-# ↓ \downarrow[tab] returns something in CallableExpresssions language
+# ↓ \downarrow[tab] returns something in `CallableExpresssions.jl` language
 ↓(x::AbstractSymbolic) = x.u
 ↓(x::Number) = DynamicConstant(x)
 ↓(x::ExpressionTypeAliases.ExpressionLoosely) = x
@@ -564,7 +564,7 @@ end
 ##
 ## Evaluation can be achieved by specifying u(x), u(x,p), u(*,p), u()
 ## * `u(x)` evaluates the expression with the variable having the value of x. If there is a parameter in the `u` expression this will error
-## * `u(x,p)`  evaluates the expression with the variable having the value of x and the paramter having the variable p. If there is no parameter, the value of p is ignored
+## * `u(x,p)`  evaluates the expression with the variable having the value of x and the parameter having the variable p. If there is no parameter, the value of p is ignored
 ## * `u(*, p)` evaluates the expression with the parameter having the variable p. If the expression has a variable, this will error. If the expression has just a parameter any value for the first argument besides `nothing`, `missing` or `:` can be passed, `*` is just visually appealing and is always defined
 ## * `u()` if after substitution the expression has no free symbols, this will evaluate it.
 
@@ -610,7 +610,7 @@ function _call(ex, ::typeof(Base.broadcasted), 𝑥𝑝, x, p)
     (↓(ex))(NamedTuple{tuple(𝑥𝑝...)}((x,p)))  |> Base.materialize
 end
 
-# subsitute for x
+# substitute for x
 function substitutex(ex, x)
     pred = x -> isa(x, DynamicVariable)
     mapping = _ -> DynamicConstant(x)
