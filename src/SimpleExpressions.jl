@@ -568,7 +568,7 @@ end
 ## * `u(*, p)` evaluates the expression with the parameter having the variable p. If the expression has a variable, this will error. If the expression has just a parameter any value for the first argument besides `nothing`, `missing` or `:` can be passed, `*` is just visually appealing and is always defined
 ## * `u()` if after substitution the expression has no free symbols, this will evaluate it.
 
-MISSING = Union{Nothing, Missing, typeof(:)}
+const MISSING = Union{Nothing, Missing, typeof(:)}
 
 (𝑥::Symbolic)(x) = x
 (𝑥::Symbolic)(x,p) = x
