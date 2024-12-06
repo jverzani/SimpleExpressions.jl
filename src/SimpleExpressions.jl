@@ -301,7 +301,7 @@ Base.length(X::SymbolicEquation) = 2
 
 ## ----
 
-# ↓ \downarrow[tab] returns something in `CallableExpresssions.jl` language
+# ↓ \downarrow[tab] returns something in `CallableExpressions.jl` language
 ↓(x::AbstractSymbolic) = x.u
 ↓(x::Number) = DynamicConstant(x)
 ↓(x::ExpressionTypeAliases.ExpressionLoosely) = x
