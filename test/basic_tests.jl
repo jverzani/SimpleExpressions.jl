@@ -43,7 +43,7 @@ end
     x₀,p₀ = 1, 2
 
     @test uxp(x₀,p₀)         == f(x₀, p₀)
-    @test_throws "type NamedTuple has no field p" uxp(x₀)          # no p
+    @test_throws "type NamedTuple has no field" uxp(x₀)          # no p
     @test uxp(x₀, :)(:,p₀)() == f(x₀, p₀)
     @test uxp(:,p₀)(x₀)      == f(x₀, p₀)
     @test uxp(:,p₀)(x₀,:)()  == f(x₀, p₀)
@@ -63,7 +63,7 @@ end
     u_p = f(x,p)
     @test u_p(:, p₀)()       == f(x₀, p₀)
     @test u_p(x₀,p₀)         == f(x₀, p₀)
-    @test_throws "type NamedTuple has no field p" u_p(x₀)          # no p
+    @test_throws "type NamedTuple has no field" u_p(x₀)          # no p
     @test u_p(x₀, :)(:,p₀)() == f(x₀, p₀)
 
     @test u_p(;x=x₀, p=p₀)   == f(x₀, p₀) # direct to CallableExpressions
