@@ -14,6 +14,8 @@ module SimpleExpressions
 using CallableExpressions
 import TermInterface
 import TermInterface: operation, children
+using CommonEq
+export ≪, ≦, Eq, ⩵, ≶, ≷, ≫, ≧ # \ll, \leqq, \Equal,\lessgtr, \gtrless, \gg,\geqq
 
 export @symbolic
 
@@ -346,16 +348,37 @@ end
 
 
 ## ---- operations
-for op ∈ (:+, :-, :*, :/, ://, :^,  :(==), :(!=), :<, :(<=), :>, :(>=), :≈)
+for op ∈ (:+, :-, :*, :/, ://, :^,  :≈)
     @eval begin
         import Base: $op
         Base.$op(x::AbstractSymbolic, y::AbstractSymbolic) =
             SymbolicExpression(StaticExpression((↓(x), ↓(y)), $op))
         Base.$op(x::AbstractSymbolic, y::Number) = $op(promote(x,y)...)
         Base.$op(x::Number, y::AbstractSymbolic) = $op(promote(x,y)...)
+    end
+end
 
+## comparison:
+## The usual ==, !=, <, <=, >, >= operators are kept
+## == and `isless` ares defined below to give meaning
+## These, from `CommonEq` allow for symbolic equations/inequalities to be set up
+## see 𝕀 for a use with domains of derivatives.
+for (op, op′) ∈ ((:Eq, Symbol(==)),
+                 (:Ne, Symbol(!=)),
+                 (:Lt, Symbol(<)),
+                 (:Le, Symbol(<=)),
+                 (:Gt, Symbol(>)),
+                 (:Ge, Symbol(>=)))
+    @eval begin
+        CommonEq.$op(x::AbstractSymbolic, y::AbstractSymbolic) =
+            SymbolicExpression(StaticExpression((↓(x), ↓(y)), $op′))
+    end
 end
-end
+
+Base.:(==)(x::AbstractSymbolic, y::Number) = ==(promote(x,y)...)
+Base.:(==)(x::Number, y::AbstractSymbolic) = ==(promote(x,y)...)
+Base.:(==)(x::AbstractSymbolic, y::AbstractSymbolic) =
+    ↓(x) == ↓(y)
 
 
 ## lists from AbstractNumbers.jl
