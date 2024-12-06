@@ -625,6 +625,11 @@ function substitutep(ex, p)
 end
 
 # replace SimpleExpression variable with a value (number, variable, or expression)
+"""
+    replace(ex::SymbolicExpression, args::Pair...)
+
+Replace symbolic variables and parameters with another value. Returns a symbolic object. The replacement is specified using `variable => value`; these are processed left to right.
+"""
 function Base.replace(ex::SymbolicExpression, args::Pair...)
     for pr in args
         k,v = pr

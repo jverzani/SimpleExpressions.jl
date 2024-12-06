@@ -135,7 +135,7 @@ find_zero(cos(x) ~ sin(x), (0, pi/2)) # use bisection
 find_zero(cos(x) ~ p*x, (0, pi/2), p=3)
 ```
 
-For plotting a symbolic equation, `ex`, the values `ex.lhs` and `ex.rhs` may be used separately to produce a pair of traces. (With `Plots` there is a recipe do plot a symbolic equation as two separate functions; it does not plot the difference of the two functions.)
+For plotting a symbolic equation, `ex`, the values `ex.lhs` and `ex.rhs` may be used separately to produce a pair of traces. (With `Plots` there is a recipe to plot a symbolic equation as two separate functions; it does not plot the difference of the two functions.)
 
 ### Derivatives
 
