@@ -22,20 +22,27 @@ julia> D(D(sin(x))) + sin(x) # no simplification!
 
 ```
 """
-D(ex::SymbolicExpression) = D(ex.op, ex.arguments)
-
 D(::Any) = 0
 D(::Symbolic) = 1
 D(::SymbolicParameter) = 0
+D(ex::SymbolicExpression) = D(TermInterface.operation(ex), TermInterface.children(ex))
 D(ex::SymbolicEquation) = D(ex.lhs) ~ D(ex.rhs)
-
 
 
 # slight simplifications here
 Base.iszero(::AbstractSymbolic) = false
-Base.isone(::AbstractSymbolic) = false
+Base.iszero(c::SymbolicNumber) = iszero(c())
 
-⊕(x,y) = x + y
+Base.isone(::AbstractSymbolic) = false
+Base.isone(c::SymbolicNumber) = isone(c())
+
+
+function ⊕(x,y)
+    iszero(x) && return y
+    iszero(y) && return x
+    return x + y
+end
+
 
 function ⊖(x,y)
     iszero(x) && return -y
@@ -43,10 +50,16 @@ function ⊖(x,y)
     return x - y
 end
 
-⊗(x,y) = x * y
+function ⊗(x,y)
+    isone(x) && return y
+    isone(y) && return x
+    iszero(x) && return zero(x)
+    iszero(y) && return zero(y)
+    return x * y
+end
 
 function D(::typeof(+), args)
-    a, b= args
+    a, b = args
     D(a) ⊕ D(b)
 end
 D(::typeof(sum), args) = SymbolicExpression(+, D.(args))
@@ -122,6 +135,7 @@ D(::typeof(log), args)   = (𝑥 = only(args); D(𝑥) ⊗ (1/𝑥) ⊗ 𝕀(�
 D(::typeof(log2), args)  = (𝑥 = only(args); D(𝑥) ⊗ (1/𝑥/log(2)) ⊗ 𝕀(𝑥 > 0))
 D(::typeof(log10), args) = (𝑥 = only(args); D(𝑥) ⊗ (1/𝑥/log(10)) ⊗ 𝕀(𝑥 > 0))
 D(::typeof(log1p), args) = (𝑥 = only(args); D(𝑥) ⊗ 1/(1 + 𝑥))
+
 
 D(::typeof(sin), args) = (𝑥 = only(args); D(𝑥) ⊗  cos(𝑥))
 D(::typeof(cos), args) = (𝑥 = only(args); D(𝑥) ⊗ -sin(𝑥))
