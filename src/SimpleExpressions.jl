@@ -771,7 +771,6 @@ Base.isless(x::SymbolicParameter, y::SymbolicParameter)  =
 
 op_val(f) = Base.operator_precedence(Symbol(f))
 function Base.isless(x::SymbolicExpression, y::SymbolicExpression)
-    @show :isless, x, y
     xo, yo = op_val(operation(x)), op_val(operation(y))
     isless(xo,yo) && return true
     isless(yo, xo) && return false
