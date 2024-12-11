@@ -277,7 +277,6 @@ assymbolic(u::StaticVariable) = SymbolicParameter(u)
 assymbolic(u::DynamicConstant) = SymbolicNumber(u)
 assymbolic(u::StaticExpression) = SymbolicExpression(u)
 
-
 ## ----
 struct SymbolicEquation{T,S}
     lhs::T
@@ -312,11 +311,17 @@ Base.length(X::SymbolicEquation) = 2
 # ↑ \uparrow[tab; returns SimpleExpression
 ↑ = assymbolic
 
+Base.promote_rule(::Type{<:AbstractSymbolic}, x::Type{T}) where {T <: Number} = AbstractSymbolic
+
 Base.convert(::Type{<:AbstractSymbolic}, x::Number) = SymbolicNumber(DynamicConstant(x))
+
 Base.convert(::Type{<:AbstractSymbolic}, x::Symbolic) = x
 Base.convert(::Type{<:AbstractSymbolic}, x::SymbolicParameter) = x
 
-Base.promote_rule(::Type{<:AbstractSymbolic}, x::Type{T}) where {T <: Number} = AbstractSymbolic
+
+
+
+
 
 ## ---- TermInterface
 TermInterface.operation(x::AbstractSymbolic) = nothing
@@ -329,7 +334,7 @@ function TermInterface.arguments(x::SymbolicExpression)
 end
 
 TermInterface.head(ex::SymbolicExpression) =  TermInterface.operation(ex)
-TermInterface.children(ex::SymbolicExpression) = TermInterface.arguments(ex)
+TermInterface.children(ex::SymbolicExpression) = [TermInterface.arguments(ex)...] # return AbstractVector not a tuple
 
 TermInterface.iscall(ex::SymbolicExpression) = true
 TermInterface.iscall(ex::AbstractSymbolic) = false
@@ -348,17 +353,49 @@ end
 
 
 ## ---- operations
-for op ∈ (:+, :-, :*, :/, ://, :^,  :≈)
+for op ∈ (:-, :/, ://, :^,  :≈)
     @eval begin
         import Base: $op
         Base.$op(x::AbstractSymbolic, y::AbstractSymbolic) =
             SymbolicExpression(StaticExpression((↓(x), ↓(y)), $op))
         Base.$op(x::AbstractSymbolic, y::Number) = $op(promote(x,y)...)
         Base.$op(x::Number, y::AbstractSymbolic) = $op(promote(x,y)...)
+        Base.$op(x::SymbolicNumber, y::SymbolicNumber) = $op(x(),y())
     end
 end
 
-## comparison:
+## arrange for *, + to be n-ary
+for op ∈ (:*, :+)
+    @eval begin
+        import Base: $op
+        Base.$op(x::AbstractSymbolic, y::AbstractSymbolic) =
+            SymbolicExpression(StaticExpression(tuplejoin(_children($op,x), _children($op,y)), $op))
+        Base.$op(x::AbstractSymbolic, y::Number) = $op(promote(x,y)...)
+        Base.$op(x::Number, y::AbstractSymbolic) = $op(promote(x,y)...)
+        Base.$op(x::SymbolicNumber, y::SymbolicNumber) = $op(x(),y())
+    end
+end
+
+_children(::Any, x::SymbolicNumber) = (↓(x),)
+_children(::Any, x::Symbolic) = (↓(x),)
+_children(::Any, x::SymbolicParameter) = (↓(x),)
+
+_children(op, x::SymbolicExpression) = _children(op, operation(x), x)
+_children(::typeof(+), ::typeof(+), x::SymbolicExpression) = ↓(x).children
+_children(::Any, ::typeof(+), x::SymbolicExpression) = (↓(x),)
+_children(::typeof(*), ::typeof(*), x::SymbolicExpression) = ↓(x).children
+_children(::Any, ::typeof(*), x::SymbolicExpression) = (↓(x),)
+_children(::Any, ::Any, x::SymbolicExpression) = (↓(x),)
+
+
+
+# cf https://discourse.julialang.org/t/efficient-tuple-concatenation/5398/8
+@inline tuplejoin(x) = x
+@inline tuplejoin(x, y) = (x..., y...)
+@inline tuplejoin(x, y, z...) = (x..., tuplejoin(y, z...)...)
+
+
+## comparison operators:
 ## The usual ==, !=, <, <=, >, >= operators are kept
 ## == and `isless` ares defined below to give meaning
 ## These, from `CommonEq` allow for symbolic equations/inequalities to be set up
@@ -688,32 +725,42 @@ end
 Base.ifelse(p::AbstractSymbolic, a, b) = SymbolicExpression(ifelse, (p,a,b))
 
 ## utils?
-Base.isequal(x::AbstractSymbolic, y::AbstractSymbolic) = hash(x) == hash(y)
-Base.isequal(x::AbstractSymbolic, y::Real) = hash(x) == hash(y)
-Base.isequal(x::Real, y::AbstractSymbolic) = hash(x) == hash(y)
+
+Base.isequal(x::AbstractSymbolic, y::AbstractSymbolic) = hash(↓(x)) == hash(↓(y))
+Base.isequal(x::AbstractSymbolic, y::Real) = hash(↓(x)) == hash(y)
+Base.isequal(x::Real, y::AbstractSymbolic) = hash(x) == hash(↓(y))
 
 # isless for sorting
-Base.isless(x::Symbolic, y::Symbolic)          = isless(Symbol(x), Symbol(y))
-Base.isless(x::Symbolic, y::SymbolicParameter) = isless(Symbol(x), Symbol(y))
-Base.isless(x::SymbolicParameter, y::Symbolic) = isless(Symbol(x), Symbol(y))
-Base.isless(x::SymbolicParameter, y::SymbolicParameter) =
+# Number < SymbolicNumber < SymbolicParameter < Symbolic < SymbolicExpression
+Base.isless(::Number, ::AbstractSymbolic) = true
+Base.isless(::AbstractSymbolic, ::Number) = false
+
+Base.isless(::SymbolicNumber,    ::Symbolic) = true
+Base.isless(::SymbolicNumber,    ::SymbolicParameter) = true
+Base.isless(::SymbolicNumber,    ::SymbolicExpression) = true
+
+Base.isless(::SymbolicParameter,  ::SymbolicNumber) = false
+Base.isless(::SymbolicParameter,  ::Symbolic) = true
+Base.isless(::SymbolicParameter,  ::SymbolicExpression) = true
+
+Base.isless(::Symbolic,          ::SymbolicNumber) = false
+Base.isless(::Symbolic,          ::SymbolicParameter) = false
+Base.isless(::Symbolic,          ::SymbolicExpression) = true
+
+Base.isless(::SymbolicExpression, ::SymbolicNumber) = false
+Base.isless(::SymbolicExpression, ::Symbolic) = false
+Base.isless(::SymbolicExpression, ::SymbolicParameter) = false
+
+Base.isless(x::SymbolicNumber, y::SymbolicNumber) =
+    isless(x(), y())
+Base.isless(x::Symbolic, y::Symbolic) =
+    isless(Symbol(x), Symbol(y))
+Base.isless(x::SymbolicParameter, y::SymbolicParameter)  =
     isless(Symbol(x), Symbol(y))
 
-Base.isless(x::SymbolicNumber, y::AbstractSymbolic) = true
-Base.isless(x::AbstractSymbolic, y::SymbolicNumber) = false
-Base.isless(x::SymbolicNumber, y::SymbolicNumber) = isless(x(), y())
-
-Base.isless(x::SymbolicExpression, y::Symbolic) = false
-Base.isless(x::Symbolic, y::SymbolicExpression) = !isless(y,x)
-Base.isless(x::SymbolicExpression, y::SymbolicParameter) = false
-Base.isless(x::SymbolicParameter, y::SymbolicExpression) = !isless(y, x)
-Base.isless(x::SymbolicExpression, y::SymbolicNumber) = false
-Base.isless(x::SymbolicNumber, y::SymbolicExpression) = !isless(y,x)
-
-Base.isless(x::AbstractSymbolic, y::Number) = false
-Base.isless(x::Number, y::AbstractSymbolic) = true
 op_val(f) = Base.operator_precedence(Symbol(f))
 function Base.isless(x::SymbolicExpression, y::SymbolicExpression)
+    @show :isless, x, y
     xo, yo = op_val(operation(x)), op_val(operation(y))
     isless(xo,yo) && return true
     isless(yo, xo) && return false
