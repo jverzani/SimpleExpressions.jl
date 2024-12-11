@@ -139,7 +139,7 @@ Though one can make different symbolic variables, evaluation will error
 
 ```julia
 @symbolic x
-@symbolic y    # both x, y are `Symbolic` type
+@symbolic y    # both x, y are `SymbolicVariable` type
 u = x + 2y
 u(3)           # Error: more than one variable
 ```
@@ -175,7 +175,7 @@ map.([x^2], [1,2]) # [1, 4]
 """
 macro symbolic(x...)
     q=Expr(:block)
-    push!(q.args, Expr(:(=), esc(x[1]), Expr(:call, Symbolic, Expr(:quote, x[1]))))
+    push!(q.args, Expr(:(=), esc(x[1]), Expr(:call, SymbolicVariable, Expr(:quote, x[1]))))
     if length(x) > 1
         push!(q.args, Expr(:(=), esc(x[2]), Expr(:call, SymbolicParameter, Expr(:quote, x[2]))))
     end
@@ -202,14 +202,14 @@ function Base.broadcasted(op, a::AbstractSymbolic, as...)
 end
 
 
-struct Symbolic{T <: DynamicVariable} <: AbstractSymbolic
+struct SymbolicVariable{T <: DynamicVariable} <: AbstractSymbolic
     u::T
-    Symbolic(u::T) where {T <: DynamicVariable} = new{T}(u)
+    SymbolicVariable(u::T) where {T <: DynamicVariable} = new{T}(u)
 end
 
-Symbolic(x::Symbolic) = x
-Symbolic(x::Symbol) = Symbolic(DynamicVariable(x))
-Symbolic(x::AbstractString) = Symbolic(Symbol(x))
+SymbolicVariable(x::SymbolicVariable) = x
+SymbolicVariable(x::Symbol) = SymbolicVariable(DynamicVariable(x))
+SymbolicVariable(x::AbstractString) = SymbolicVariable(Symbol(x))
 
 struct SymbolicParameter{X, T <: StaticVariable{X}} <: AbstractSymbolic
     u::T
@@ -256,14 +256,14 @@ end
 
 # convert to symbolic
 assymbolic(x::AbstractSymbolic) = x
-assymbolic(x::Symbol) = Symbolic(x)
+assymbolic(x::Symbol) = SymbolicVariable(x)
 assymbolic(x::Number) = SymbolicNumber(x)
 # convert from Expression to SimpleExpression
 # all variables become `𝑥` except `p` becomes `𝑝`, a parameter
 assymbolic(x::Expr) = eval(_assymbolic(x))
 function _assymbolic(x)
     if !isexpr(x)
-        isa(x, Symbol) && return x == :p ? :(SymbolicParameter(:𝑝)) : :(Symbolic(:𝑥))
+        isa(x, Symbol) && return x == :p ? :(SymbolicParameter(:𝑝)) : :(SymbolicVariable(:𝑥))
         return x
     end
 
@@ -272,7 +272,7 @@ function _assymbolic(x)
     Expr(:call, op, _assymbolic.(arguments)...)
 end
 
-assymbolic(u::DynamicVariable) = Symbolic(u)
+assymbolic(u::DynamicVariable) = SymbolicVariable(u)
 assymbolic(u::StaticVariable) = SymbolicParameter(u)
 assymbolic(u::DynamicConstant) = SymbolicNumber(u)
 assymbolic(u::StaticExpression) = SymbolicExpression(u)
@@ -315,7 +315,7 @@ Base.promote_rule(::Type{<:AbstractSymbolic}, x::Type{T}) where {T <: Number} = 
 
 Base.convert(::Type{<:AbstractSymbolic}, x::Number) = SymbolicNumber(DynamicConstant(x))
 
-Base.convert(::Type{<:AbstractSymbolic}, x::Symbolic) = x
+Base.convert(::Type{<:AbstractSymbolic}, x::SymbolicVariable) = x
 Base.convert(::Type{<:AbstractSymbolic}, x::SymbolicParameter) = x
 
 
@@ -340,7 +340,7 @@ TermInterface.iscall(ex::SymbolicExpression) = true
 TermInterface.iscall(ex::AbstractSymbolic) = false
 
 
-TermInterface.isexpr(::Symbolic) = false
+TermInterface.isexpr(::SymbolicVariable) = false
 TermInterface.isexpr(::SymbolicParameter) = false
 TermInterface.isexpr(::SymbolicNumber) = false
 TermInterface.isexpr(::AbstractSymbolic) = true
@@ -377,7 +377,7 @@ for op ∈ (:*, :+)
 end
 
 _children(::Any, x::SymbolicNumber) = (↓(x),)
-_children(::Any, x::Symbolic) = (↓(x),)
+_children(::Any, x::SymbolicVariable) = (↓(x),)
 _children(::Any, x::SymbolicParameter) = (↓(x),)
 
 _children(op, x::SymbolicExpression) = _children(op, operation(x), x)
@@ -434,7 +434,7 @@ unary_ops = (
     :isnan, :isempty,  :transpose, :copysign, :flipsign, :signbit,
     # :iszero,
     #:+, :-, :*, :/, :\, :^, :(==), :(!=), :<, :(<=), :>, :(>=), :≈,
-    :inv,
+    #:inv,
     :min, :max,
     :div, :fld, :rem, :mod, :mod1, :cmp, :&, :|, :xor,
     :clamp,
@@ -445,6 +445,7 @@ for fn ∈ unary_ops
         $fn(x::AbstractSymbolic) = SymbolicExpression(StaticExpression((↓(x),), $fn))
     end
 end
+
 
 ## generic functions
 for fn ∈ (:eachindex,
@@ -474,6 +475,16 @@ end
 
 ## special cases
 Base.log(a::Number, x::AbstractSymbolic) = log(x) / log(symbolicnumber(a))
+
+Base.inv(a::AbstractSymbolic) = SymbolicExpression(inv, (a,))
+Base.inv(a::SymbolicExpression) = _inv(operation(a), a)
+_inv(::typeof(inv), a) = only(children(a))
+function _inv(::typeof(^), a)
+    u, v = children(a)
+    isa(v, SymbolicNumber) && return u^(-v())
+    u^(-v)
+end
+_inv(::Any, a) = SymbolicExpression(inv, (a,))
 
 ## handle integer powers
 Base.literal_pow(::typeof(^), x::AbstractSymbolic, ::Val{0}) = 1
@@ -565,7 +576,7 @@ _show(io::IO, x) = show(io, x)
 ## ----
 # convert to Expr
 
-Base.convert(::Type{Expr}, x::Symbolic) = Symbol(x)
+Base.convert(::Type{Expr}, x::SymbolicVariable) = Symbol(x)
 Base.convert(::Type{Expr}, p::SymbolicParameter) = Symbol(p)
 Base.convert(::Type{Expr}, x::SymbolicNumber) = x()
 function Base.convert(::Type{Expr}, x::SymbolicExpression)
@@ -575,7 +586,7 @@ end
 
 
 ## ---- call
-Base.Symbol(x::Symbolic) = Symbol(↓(x))
+Base.Symbol(x::SymbolicVariable) = Symbol(↓(x))
 Base.Symbol(x::SymbolicParameter) = Symbol(↓(x))
 Base.Symbol(x::DynamicVariable) = x.sym
 Base.Symbol(::StaticVariable{T}) where {T} = T
@@ -630,9 +641,9 @@ end
 
 const MISSING = Union{Nothing, Missing, typeof(:)}
 
-(𝑥::Symbolic)(x) = x
-(𝑥::Symbolic)(x,p) = x
-(𝑥::Symbolic)(::MISSING, p) = 𝑥
+(𝑥::SymbolicVariable)(x) = x
+(𝑥::SymbolicVariable)(x,p) = x
+(𝑥::SymbolicVariable)(::MISSING, p) = 𝑥
 
 (𝑝::SymbolicParameter)(x) = 𝑝
 (𝑝::SymbolicParameter)(x,p) = p
@@ -715,7 +726,7 @@ end
 # directly call with kwargs.
 # direct call can be quite more performant but requires
 # specification of the variable/parameter name in the call.
-(𝑥::Symbolic)(;kwargs...) = (↓(𝑥))(NamedTuple(kwargs))
+(𝑥::SymbolicVariable)(;kwargs...) = (↓(𝑥))(NamedTuple(kwargs))
 (𝑝::SymbolicParameter)(;kwargs...) = (↓(𝑝))(NamedTuple(kwargs))
 (ex::SymbolicExpression)(;kwargs...) = (↓(ex))(NamedTuple(kwargs))
 
@@ -731,29 +742,29 @@ Base.isequal(x::AbstractSymbolic, y::Real) = hash(↓(x)) == hash(y)
 Base.isequal(x::Real, y::AbstractSymbolic) = hash(x) == hash(↓(y))
 
 # isless for sorting
-# Number < SymbolicNumber < SymbolicParameter < Symbolic < SymbolicExpression
+# Number < SymbolicNumber < SymbolicParameter < SymbolicVariable < SymbolicExpression
 Base.isless(::Number, ::AbstractSymbolic) = true
 Base.isless(::AbstractSymbolic, ::Number) = false
 
-Base.isless(::SymbolicNumber,    ::Symbolic) = true
-Base.isless(::SymbolicNumber,    ::SymbolicParameter) = true
-Base.isless(::SymbolicNumber,    ::SymbolicExpression) = true
+Base.isless(::SymbolicNumber,     ::SymbolicVariable) = true
+Base.isless(::SymbolicNumber,     ::SymbolicParameter) = true
+Base.isless(::SymbolicNumber,     ::SymbolicExpression) = true
 
 Base.isless(::SymbolicParameter,  ::SymbolicNumber) = false
-Base.isless(::SymbolicParameter,  ::Symbolic) = true
+Base.isless(::SymbolicParameter,  ::SymbolicVariable) = true
 Base.isless(::SymbolicParameter,  ::SymbolicExpression) = true
 
-Base.isless(::Symbolic,          ::SymbolicNumber) = false
-Base.isless(::Symbolic,          ::SymbolicParameter) = false
-Base.isless(::Symbolic,          ::SymbolicExpression) = true
+Base.isless(::SymbolicVariable,   ::SymbolicNumber) = false
+Base.isless(::SymbolicVariable,   ::SymbolicParameter) = false
+Base.isless(::SymbolicVariable,   ::SymbolicExpression) = true
 
 Base.isless(::SymbolicExpression, ::SymbolicNumber) = false
-Base.isless(::SymbolicExpression, ::Symbolic) = false
+Base.isless(::SymbolicExpression, ::SymbolicVariable) = false
 Base.isless(::SymbolicExpression, ::SymbolicParameter) = false
 
-Base.isless(x::SymbolicNumber, y::SymbolicNumber) =
+Base.isless(x::SymbolicNumber,   y::SymbolicNumber) =
     isless(x(), y())
-Base.isless(x::Symbolic, y::Symbolic) =
+Base.isless(x::SymbolicVariable, y::SymbolicVariable) =
     isless(Symbol(x), Symbol(y))
 Base.isless(x::SymbolicParameter, y::SymbolicParameter)  =
     isless(Symbol(x), Symbol(y))

@@ -23,7 +23,7 @@ julia> D(D(sin(x))) + sin(x) # no simplification!
 ```
 """
 D(::Any) = 0
-D(::Symbolic) = 1
+D(::SymbolicVariable) = 1
 D(::SymbolicParameter) = 0
 D(ex::SymbolicExpression) = D(TermInterface.operation(ex), TermInterface.children(ex))
 D(ex::SymbolicEquation) = D(ex.lhs) ~ D(ex.rhs)
@@ -91,10 +91,15 @@ end
 
 function D(::typeof(^), args)
     a,b = args
-    if !isa(b, AbstractSymbolic)
-        isone(b) && return D(a) ⊗ a
-        isone(b-1) && return D(a) ⊗ (2*a)
-        return  D(a) ⊗ (b*a^(b-1))
+
+    if isa(b, SymbolicNumber)
+        isone(b()) && return D(a) ⊗ a
+        isone(b()-1) && return D(a) ⊗ (2*a)
+        return  D(a) ⊗ (b*a^(b()-1))
+    end
+    𝑥𝑝 = find_xp(b)
+    if 𝑥𝑝.x == Δ # no x dependency in b
+        return D(a) ⊗ b * a^(b-1)
     end
     return D(exp(b * log(a)))
 end

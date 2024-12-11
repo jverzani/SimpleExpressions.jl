@@ -1,5 +1,5 @@
 # basics
-
+import SimpleExpressions.TermInterface: children
 
 @testset "SimpleExpressions.jl" begin
 
@@ -34,6 +34,26 @@
         @test op(f,g)(x₀) == op(f(x₀), g(x₀))
     end
 
+    # +,* nary
+    @test children(x + 2x + 6sin(x)) == 3
+    @test children(x * 2x * 6sin(x)) == 5
+
+    # sort
+    @test sort(children(6*sin(x)*x*p*2)) == [2,6,p,x,sin(x)]
+
+    # isless + isequal: exactly one of those three yields true.
+    xs = (2, 3, x, 2x, p, 2p, x^2,sin(x),x+x^2+x^3)
+    for a in xs
+        for b in xs
+            @test sum(isless(a,b) + isequal(a,b) + isless(b,a)) == 1
+        end
+    end
+
+    # inv
+    @test inv(inv(x)) == x
+    @test inv(x^p) == x^(-p)
+    x₀ = rand() # integers special cased, so harder to test
+    @test inv(x^2)(x₀) ≈ (x^(-2))(x₀)
 end
 
 @testset "evaluation/substitution" begin
