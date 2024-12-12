@@ -430,8 +430,7 @@ unary_ops = (
     :cbrt, :sqrt, :ceil, :floor, :trunc, :round, :significand,
     :frexp, :ldexp, :modf, :real, :imag, :!, :identity,
     :<<, :>>, :abs2, :sign, :sinpi, :cospi, :exp10,
-    :iseven, :ispow2, :isfinite, :isinf, :isodd, :isinteger, :isreal,
-    :isnan, :isempty,  :transpose, :copysign, :flipsign, :signbit,
+    :isempty,  :transpose, :copysign, :flipsign, :signbit,
     # :iszero,
     #:+, :-, :*, :/, :\, :^, :(==), :(!=), :<, :(<=), :>, :(>=), :≈,
     #:inv,
@@ -730,16 +729,32 @@ end
 (𝑝::SymbolicParameter)(;kwargs...) = (↓(𝑝))(NamedTuple(kwargs))
 (ex::SymbolicExpression)(;kwargs...) = (↓(ex))(NamedTuple(kwargs))
 
+## predicates for numbers
+for op in (:isinteger, :ispow2,
+           :iszero, :isone,
+           :iseven, :isodd,
+           :isfinite, :isinf, :isnan)
+    @eval begin
+        import Base: $op
+        Base.$op(::AbstractSymbolic) = false
+        Base.$op(c::SymbolicNumber) = isinteger(c())
+        function Base.$op(c::SymbolicExpression)
+            x,p = find_xp(c)
+            (x != Δ || p != Δ) && return false
+            return $op(c())
+        end
+    end
+end
 
 ## ---- comparison, sorting
 # only used for domain restrictions
 Base.ifelse(p::AbstractSymbolic, a, b) = SymbolicExpression(ifelse, (p,a,b))
 
 ## utils?
-
-Base.isequal(x::AbstractSymbolic, y::AbstractSymbolic) = hash(↓(x)) == hash(↓(y))
-Base.isequal(x::AbstractSymbolic, y::Real) = hash(↓(x)) == hash(y)
-Base.isequal(x::Real, y::AbstractSymbolic) = hash(x) == hash(↓(y))
+Base.hash(x::AbstractSymbolic) = hash(↓(x))
+Base.isequal(x::AbstractSymbolic, y::AbstractSymbolic) = hash(x) == hash(y)
+Base.isequal(x::AbstractSymbolic, y::Real) = hash(x) == hash(y)
+Base.isequal(x::Real, y::AbstractSymbolic) = hash(x) == hash(y)
 
 # isless for sorting
 # Number < SymbolicNumber < SymbolicParameter < SymbolicVariable < SymbolicExpression

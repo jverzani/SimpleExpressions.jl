@@ -35,8 +35,8 @@ import SimpleExpressions.TermInterface: children
     end
 
     # +,* nary
-    @test children(x + 2x + 6sin(x)) == 3
-    @test children(x * 2x * 6sin(x)) == 5
+    @test length(children(x + 2x + 6sin(x))) == 3
+    @test length(children(x * 2x * 6sin(x))) == 5
 
     # sort
     @test sort(children(6*sin(x)*x*p*2)) == [2,6,p,x,sin(x)]

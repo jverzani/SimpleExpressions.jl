@@ -29,12 +29,6 @@ D(ex::SymbolicExpression) = D(TermInterface.operation(ex), TermInterface.childre
 D(ex::SymbolicEquation) = D(ex.lhs) ~ D(ex.rhs)
 
 
-# slight simplifications here
-Base.iszero(::AbstractSymbolic) = false
-Base.iszero(c::SymbolicNumber) = iszero(c())
-
-Base.isone(::AbstractSymbolic) = false
-Base.isone(c::SymbolicNumber) = isone(c())
 
 
 function ⊕(x,y)
