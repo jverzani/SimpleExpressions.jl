@@ -1,6 +1,8 @@
 # SimpleExpressions.jl
 
-Documentation for `SimpleExpressions` a *very* lightweight means to create callable functions using expressions. This package leverages the `CallableExpressions` package.
+Documentation for `SimpleExpressions` a *very* lightweight means to create callable functions using expressions.
+
+This package leverages the [`CallableExpressions`](https://gitlab.com/nsajko/CallableExpressions.jl) package for the heavy lifting.
 
 ## Rationale
 
@@ -63,7 +65,7 @@ u(pi/4,:), u(:, 4)
 The calling pattern for a symbolic expression `ex` is simple: the first positional argument is for the symbolic value, the second for the symbolic parameter. Leading to:
 
 * `ex(x)` to evaluate the expression of just the variable with the value of  `x`; an error is thrown if the expression has both a variable and a parameter.
-* `ex(x,p)` to evaluate an expression of both a  variable and a parameter; if there is no parameter the value of `p` is ignored.
+* `ex(x, p)` to evaluate an expression of both a  variable and a parameter; if there is no parameter the value of `p` is ignored.
 * `ex(*, p)` to evaluate an expression of just a parameter. The `*` in the `x` slot can be any valid identifier (except for `:`, `nothing`, or `missing`, as they are used for substitution), it is just ignored.
 * `ex()` to evaluate an expression that involves neither a symbolic variable or a parameter.
 
@@ -117,6 +119,19 @@ u = sum(ai * x^(i-1) for (i,ai) in enumerate(a))
 u(2, [1,2,3])
 ```
 
+## Broadcasting
+
+The package is intended to support broadcasting of expressions and the construction of broadcasting expressions.
+
+```@example expressions
+@symbolic x p
+u = x^2 + p
+v = @. x^2 + p
+f(x,p) = x^2 + p
+x0, p0 = (1,2), (3,4)
+u.(x0, p0) == v(x0, p0) == f.(x0, p0) == (1^2+3, 2^2+4)
+```
+
 ## Equations
 
 The package grew out of a desire to have a simpler approach to solving `f(x) = g(x)`. While defining `h(x) = f(x) - g(x)` and solving `h(x) = 0` using, say, `Roots` is straightforward, it does cause confusion while learning.
@@ -162,10 +177,14 @@ Here the product rule is used:
 u = D(exp(x) * (sin(3x) + sin(101x)))
 ```
 
-No simplification is done so the expressions can quickly become unwieldy. There is`TermInterface` so rewriting of expressions, as is possible with the `Metatheory.jl` package is possible. Though currently this is expecting a development version of Metatheory. For example, with the development version, this pattern can factor out `exp(x)`
+#### Simplification
+
+No simplification is done so the expressions can quickly become unwieldy. There is `TermInterface` support, so rewriting of expressions, as is possible with the `Metatheory.jl` package is possible. Though currently this usage expects a development version of `Metatheory`.
+
+For example, with the development version, this pattern can factor out `exp(x)`
 
 ```
-using Metatheory
+using Metatheory # need 3.0 to use with TermInterface v"2.0"
 r = @rule (~x * ~a + ~x * ~b --> ~x * (~a + ~b))
 r(u)
 ```
