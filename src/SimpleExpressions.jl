@@ -899,5 +899,6 @@ end
 
 ## includes
 include("scalar-derivative.jl")
+include("simplify.jl")
 
 end
