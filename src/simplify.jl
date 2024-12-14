@@ -15,7 +15,7 @@ Expand terms in an expression using `Metatheory.jl`
 function expand()
 end
 
-# some default defintions
+# some default definitions
 # we extend to SymbolicExpression in the Metatheroy extension
 for fn ∈ (:simplify, :expand,
           :canonicalize, :powsimp, :trigsimp, :logcombine,
