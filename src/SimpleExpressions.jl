@@ -430,8 +430,6 @@ Base.:(==)(x::AbstractSymbolic, y::AbstractSymbolic) =
 
 ## lists from AbstractNumbers.jl
 unary_ops = (
-    #:~,
-    :-,
     :conj, :abs, :sin, :cos, :tan, :sinh, :cosh, :tanh, :asin, :acos, :atan,
     :asinh, :acosh, :atanh, :sec, :csc, :cot, :asec, :acsc, :acot, :sech, :csch,
     :coth, :asech, :acsch, :acoth, :sinc, :cosc, :cosd, :cotd, :cscd, :secd,
@@ -457,6 +455,10 @@ for fn ∈ unary_ops
         end
     end
 end
+
+Base.:-(x::AbstractSymbolic) = (-1)*x
+Base.:+(x::AbstractSymbolic) = x
+Base.:*(x::AbstractSymbolic) = x
 
 ## predicates for numbers; return Boolean, not symbolic expression
 for op in (:isinteger, :ispow2,
@@ -628,7 +630,7 @@ function Base.convert(::Type{Expr}, x::SymbolicExpression)
     Expr(:call,  op, convert.(Expr, assymbolic.(arguments))...)
 end
 
-## ---- call
+## ---- introspecition
 Base.Symbol(x::SymbolicVariable) = Symbol(↓(x))
 Base.Symbol(x::SymbolicParameter) = Symbol(↓(x))
 Base.Symbol(x::DynamicVariable) = x.sym
@@ -664,6 +666,41 @@ function find_xp(u::ExpressionTypeAliases.ExpressionLoosely)
     expression_is_constant(u) && return (;x=Δ, p=Δ)
     error("Shouldn't get here")
 end
+
+# predicate to see if expression contains a symbolic variable
+isconstant(x::Number) = true
+isconstant(x::AbstractSymbolic) = true
+isconstant(x::SymbolicParameter) = true
+isconstant(x::SymbolicVariable) = false
+isconstant(x::SymbolicExpression) = first(find_xp(x)) == Δ
+
+# free_symbols return unique collection of SymbolicVariables and SymbolicParameters
+free_symbols(x::Any) = (x=(), p=())
+free_symbols(x::SymbolicParameter) = (x=(), p=(x,))
+free_symbols(x::SymbolicVariable) = (x=(x,), p=())
+function free_symbols(ex::SymbolicExpression)
+    x,p = (), ()
+    for c ∈ children(ex)
+        𝑥, 𝑝 = free_symbols(c)
+        x = _mergetuple(x, 𝑥)
+        p = _mergetuple(p, 𝑝)
+    end
+    (;x, p)
+end
+
+function _mergetuple(c, c′)
+    for 𝑐 ∈ c′
+        if !(𝑐 ∈ c)
+            c = tuplejoin(c, (𝑐,))
+        end
+    end
+    c
+end
+
+
+
+## ---- call
+
 
 ## Evaluate or substitute
 ##
@@ -776,6 +813,49 @@ end
 (𝑥::SymbolicVariable)(;kwargs...) = (↓(𝑥))(NamedTuple(kwargs))
 (𝑝::SymbolicParameter)(;kwargs...) = (↓(𝑝))(NamedTuple(kwargs))
 (ex::SymbolicExpression)(;kwargs...) = (↓(ex))(NamedTuple(kwargs))
+
+"""
+    xreplace(ex, expr => replacement, ...)
+
+Replace expressions in syntax tree that match `expr` with the replacement value. Evaluates left to right.
+
+## Example
+```julia
+julia> @symbolic x p; u = x*cos(x)
+x * cos(x)
+
+julia> SimpleExpressions.xreplace(1 + u^2 + 2u^3, u => x)
+1 + (x ^ 2) + (2 * (x ^ 3))
+```
+
+Replacements occur only if an entire node in the expression tree is matched:
+```julia
+julia> u = 1 + x
+1 + x
+
+julia> SimpleExpressions.xreplace(u + exp(-u), u => x)
+1 + x + exp(-1 * x)
+```
+"""
+function xreplace(ex:: SymbolicExpression, args::Pair...)
+    for (p, q) ∈ args
+        ex = _xreplace(ex, p, q)
+    end
+    ex
+end
+
+_xreplace(ex::SymbolicNumber, p, q) = ex == p ? q : ex
+_xreplace(ex::SymbolicVariable, p, q) = ex == p ? q : ex
+_xreplace(ex::SymbolicParameter, p, q) = ex == p ? q : ex
+function _xreplace(ex::SymbolicExpression, p, q)
+    op, args = operation(ex), children(ex)
+    args′ = tuple(((a == p ? q : _xreplace(a, p, q)) for a in args)...)
+    SymbolicExpression(op, args′)
+end
+
+
+
+
 
 ## ---- comparison, sorting
 # only used for domain restrictions
@@ -899,5 +979,6 @@ end
 
 ## includes
 include("scalar-derivative.jl")
+include("simplify.jl")
 
 end
