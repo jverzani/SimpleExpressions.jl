@@ -430,8 +430,6 @@ Base.:(==)(x::AbstractSymbolic, y::AbstractSymbolic) =
 
 ## lists from AbstractNumbers.jl
 unary_ops = (
-    #:~,
-    :-,
     :conj, :abs, :sin, :cos, :tan, :sinh, :cosh, :tanh, :asin, :acos, :atan,
     :asinh, :acosh, :atanh, :sec, :csc, :cot, :asec, :acsc, :acot, :sech, :csch,
     :coth, :asech, :acsch, :acoth, :sinc, :cosc, :cosd, :cotd, :cscd, :secd,
@@ -457,6 +455,10 @@ for fn ∈ unary_ops
         end
     end
 end
+
+Base.:-(x::AbstractSymbolic) = (-1)*x
+Base.:+(x::AbstractSymbolic) = x
+Base.:*(x::AbstractSymbolic) = x
 
 ## predicates for numbers; return Boolean, not symbolic expression
 for op in (:isinteger, :ispow2,
@@ -664,6 +666,40 @@ function find_xp(u::ExpressionTypeAliases.ExpressionLoosely)
     expression_is_constant(u) && return (;x=Δ, p=Δ)
     error("Shouldn't get here")
 end
+
+# predicate to see if expression contains a symbolic variable
+isconstant(x::Number) = true
+isconstant(x::AbstractSymbolic) = true
+isconstant(x::SymbolicParameter) = true
+isconstant(x::SymbolicVariable) = false
+isconstant(x::SymbolicExpression) = first(find_xp(x)) == Δ
+
+# free_symbols return unique collection of SymbolicVariables and SymbolicParameters
+free_symbols(x::Any) = (x=(), p=())
+free_symbols(x::SymbolicParameter) = (x=(), p=(x,))
+free_symbols(x::SymbolicVariable) = (x=(x,), p=())
+function free_symbols(ex::SymbolicExpression)
+    x,p = (), ()
+    for c ∈ children(ex)
+        𝑥, 𝑝 = free_symbols(c)
+        x = _mergetuple(x, 𝑥)
+        p = _mergetuple(p, 𝑝)
+    end
+    (;x, p)
+end
+
+function _mergetuple(c, c′)
+    for 𝑐 ∈ c′
+        if !(𝑐 ∈ c)
+            c = tuplejoin(c, (𝑐,))
+        end
+    end
+    c
+end
+
+
+
+
 
 ## Evaluate or substitute
 ##
