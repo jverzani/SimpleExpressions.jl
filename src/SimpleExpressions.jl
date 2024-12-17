@@ -630,7 +630,7 @@ function Base.convert(::Type{Expr}, x::SymbolicExpression)
     Expr(:call,  op, convert.(Expr, assymbolic.(arguments))...)
 end
 
-## ---- call
+## ---- introspecition
 Base.Symbol(x::SymbolicVariable) = Symbol(↓(x))
 Base.Symbol(x::SymbolicParameter) = Symbol(↓(x))
 Base.Symbol(x::DynamicVariable) = x.sym
@@ -699,6 +699,7 @@ end
 
 
 
+## ---- call
 
 
 ## Evaluate or substitute
@@ -812,6 +813,49 @@ end
 (𝑥::SymbolicVariable)(;kwargs...) = (↓(𝑥))(NamedTuple(kwargs))
 (𝑝::SymbolicParameter)(;kwargs...) = (↓(𝑝))(NamedTuple(kwargs))
 (ex::SymbolicExpression)(;kwargs...) = (↓(ex))(NamedTuple(kwargs))
+
+"""
+    xreplace(ex, expr => replacement, ...)
+
+Replace expressions in syntax tree that match `expr` with the replacement value. Evaluates left to right.
+
+## Example
+```julia
+julia> @symbolic x p; u = x*cos(x)
+x * cos(x)
+
+julia> SimpleExpressions.xreplace(1 + u^2 + 2u^3, u => x)
+1 + (x ^ 2) + (2 * (x ^ 3))
+```
+
+Replacements occur only if an entire node in the expression tree is matched:
+```julia
+julia> u = 1 + x
+1 + x
+
+julia> SimpleExpressions.xreplace(u + exp(-u), u => x)
+1 + x + exp(-1 * x)
+```
+"""
+function xreplace(ex:: SymbolicExpression, args::Pair...)
+    for (p, q) ∈ args
+        ex = _xreplace(ex, p, q)
+    end
+    ex
+end
+
+_xreplace(ex::SymbolicNumber, p, q) = ex == p ? q : ex
+_xreplace(ex::SymbolicVariable, p, q) = ex == p ? q : ex
+_xreplace(ex::SymbolicParameter, p, q) = ex == p ? q : ex
+function _xreplace(ex::SymbolicExpression, p, q)
+    op, args = operation(ex), children(ex)
+    args′ = tuple(((a == p ? q : _xreplace(a, p, q)) for a in args)...)
+    SymbolicExpression(op, args′)
+end
+
+
+
+
 
 ## ---- comparison, sorting
 # only used for domain restrictions
