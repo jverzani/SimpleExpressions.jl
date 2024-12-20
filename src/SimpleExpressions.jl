@@ -934,18 +934,8 @@ end
 
 # _replace: basic dispatch in on `u` with (too) many methods
 # for shortcuts based on typeof `ex`
-## u::SymbolicParameter
-_replace(ex::SymbolicParameter, u::SymbolicParameter, v) = ex == u ? ↑(v) : ex
-function _replace(ex::SymbolicExpression, u::SymbolicParameter,  v)
-    pred = ==(↓(u))
-    mapping = _ -> ↓(v)
-    ex = SymbolicExpression(expression_map_matched(pred, mapping, ↓(ex)))
-end
 
 ## u::SymbolicVariable
-function _replace(ex::SymbolicVariable, u::SymbolicVariable, v)
-    ex == u ? ↑(v) : ex
-end
 
 function _replace(ex::SymbolicExpression, u::SymbolicVariable,  v)
     pred = ==(↓(u))
@@ -953,12 +943,24 @@ function _replace(ex::SymbolicExpression, u::SymbolicVariable,  v)
     ex = SymbolicExpression(expression_map_matched(pred, mapping, ↓(ex)))
 end
 
+## u::SymbolicParameter
+function _replace(ex::SymbolicExpression, u::SymbolicParameter,  v)
+    pred = ==(↓(u))
+    mapping = _ -> ↓(v)
+    ex = SymbolicExpression(expression_map_matched(pred, mapping, ↓(ex)))
+end
+
+
+_replace(ex::SymbolicVariable, u::SymbolicVariable, v) =  ex == u ? ↑(v) : ex
+_replace(ex::SymbolicParameter, u::SymbolicParameter, v) = ex == u ? ↑(v) : ex
+
+
 ## u::Function (for a head, keeping in mind this is not for SymbolicExpression)
+
 # replace old head with new head in expression
 _replace(ex::SymbolicNumber, u::Function,  v) = ex
 _replace(ex::SymbolicParameter, u::Function,  v) = ex
 _replace(ex::SymbolicVariable, u::Function,  v) = ex
-
 
 function _replace(ex::SymbolicExpression, u::Function, v)
     op, args = operation(ex), children(ex)
@@ -1013,16 +1015,17 @@ end
 
 # return arguments fill out ⋯ or nothing if not a
 # match in the expression tree
-function Base.match(u::AbstractSymbolic, ex::SymbolicExpression)
-    has_WILD(u) || return (u == ex ? ex : nothing)
-    m = _ismatch(ex, u)
+# this seems like the correct use of the generic
+function Base.match(pat::AbstractSymbolic, ex::AbstractSymbolic)
+    has_WILD(pat) || return (pat == ex ? ex : nothing)
+    m = _ismatch(ex, pat)
     return m
 end
 
 # ismatch wildcard
 # return hasmatch: this matches or contains a match
 # and expression/missing expression if a match, nothing if not
-_ismatch(ex::AbstractSymbolic, u::SymbolicVariable) = nothing
+_ismatch(ex::AbstractSymbolic, u::SymbolicVariable) = ex == u ? u : nothing
 _ismatch(ex::AbstractSymbolic, u::typeof(WILD)) = ex
 
 _ismatch(ex::SymbolicNumber, u::SymbolicExpression) = nothing
