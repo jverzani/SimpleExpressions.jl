@@ -30,6 +30,13 @@ An extension is provided for `AbstractTrees`.
 ```julia
 using SimpleExpressions
 @symbolic x       # (x,)
+u = sin(x) - (x - x^3/6)
+u(0.5)  # 0.000258...
+u = u - x^5/120
+u(0.5) # -1.544...e-6
+```
+
+```julia
 map(x^2, (1, 2))  # (1, 4)
 ```
 
@@ -38,5 +45,5 @@ using Plots
 @symbolic x p     # (x, p)
 u = x^5 - x - p   # ((x ^ 5) - x) - p
 plot(u(:, 1), 0, 1.5)
-plot!(u(:, 2))
+plot!(u(:, 2))    # or plot(u.(:, 1:2), 0, 1.5)
 ```
