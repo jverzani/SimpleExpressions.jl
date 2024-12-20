@@ -842,7 +842,7 @@ x + cos(x)
 
 The fourth needs more explanation, as there can be wildcards in the expression.
 
-The symbolic variable `⋯` (created with `@symbolic ⋯`, where `⋯` is formed by `\\cdots[tab]`) can be used as a wild card that matches the remainder of an expression tree. The replacement value can have `⋯` as a variable, in which case the identified values will be subsituted.
+The symbolic variable `⋯` (created with `@symbolic ⋯`, where `⋯` is formed by `\\cdots[tab]`) can be used as a wild card that matches the remainder of an expression tree. The replacement value can have `⋯` as a variable, in which case the identified values will be substituted.
 
 If there is no wildcard in the expression, then an exact replacement is checked.
 
