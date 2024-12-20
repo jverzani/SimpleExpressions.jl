@@ -60,7 +60,7 @@ The variable or parameter can be substituted in for:
 u(pi/4,:), u(:, 4)
 ```
 
-### Evaluation
+## Evaluation
 
 The calling pattern for a symbolic expression `ex` is simple: the first positional argument is for the symbolic value, the second for the symbolic parameter. Leading to:
 
@@ -69,13 +69,13 @@ The calling pattern for a symbolic expression `ex` is simple: the first position
 * `ex(*, p)` to evaluate an expression of just a parameter. The `*` in the `x` slot can be any valid identifier (except for `:`, `nothing`, or `missing`, as they are used for substitution), it is just ignored.
 * `ex()` to evaluate an expression that involves neither a symbolic variable or a parameter.
 
-### Substitution
+## Substitution
 
 Evaluation leaves a non-symbolic value. For substitution, the result is still symbolic. The syntax for substitution is:
 
 * `ex(:, p)` to substitute in for the parameter.
 * `ex(x, :)` to substitute in for the variable.
-* `replace(ex, args::Pair...)` to substitute in for either a variable or a parameter. The pairs are specified as `variable_name => replacement_value`.
+* `replace(ex, args::Pair...)` to substitute in for either a variable, parameter, expression head, or symbolic expression (possibly with a wildcard). The pairs are specified as `variable_name => replacement_value`.
 * `ex(args::Pair...)` redirects to `replace(ex, args::Pair...)`
 
 The use of `:` to indicate the remaining value is borrowed from Julia's array syntax; it can also be either `nothing` or `missing`.
@@ -102,6 +102,36 @@ v = replace(u, x=>1, y=>2) # the symbolic value ((1^2)-(2^2))
 v()                        # evaluates to -3
 ```
 
+The `replace` method is a bit more involved. The `key => value` pairs have different dispatches depending on the value of the key. Above, the key is a `SymbolicVariable`, but the key can be
+
+* A `SymbolicVariable` or `SymbolicParameter` in which case the simple substitution is applied, as just illustrated.
+* A function, like `sin`. In this case, a matching operation head is replaced by the replacement head. Eg. `sin => cos` will replace a `sin` call with a `cos` call.
+
+```@example expressions
+v = sin(x) + sin(x^2)
+replace(v, sin => cos)
+```
+
+* A symbolic expression. In this case, the exact match of the expression is replaced by the replacement value.
+
+```@example expressions
+v = 1 + (x+1)^1 + 2*(x+1)^2 + 3*(x+1)^3
+replace(v, x+1 => x)
+```
+
+
+* A symbolic expression *with* a *wildcard*. The **special** symbol `⋯`, when made into a symbolic variable via `@symbolic  ⋯` (where ` ⋯` is entered as `\cdots[tab]`) is treated as a wildcard for matching purposes. The `⋯` can be used in the replacement.
+
+```@example expressions
+v = log(1 + x) + log(1 + x^2/2)
+@symbolic ⋯ # create wildcard
+replace(v, log(1 + ⋯) => log1p(⋯))
+```
+
+
+
+
+## Symbolic containers
 
 The values for `x` or `p` may be replaced by containers. For example:
 
@@ -146,9 +176,13 @@ using Roots
 find_zero(cos(x) ~ sin(x), (0, pi/2)) # use bisection
 ```
 
+
+The `solve` interface is also available for symbolic equations:
+
 ```@example expressions
-find_zero(cos(x) ~ p*x, (0, pi/2), p=3)
+solve(cos(x) ~ p*x, (0, pi/2), p=3)
 ```
+
 
 For plotting a symbolic equation, `ex`, the values `ex.lhs` and `ex.rhs` may be used separately to produce a pair of traces. (With `Plots` there is a recipe to plot a symbolic equation as two separate functions; it does not plot the difference of the two functions.)
 
@@ -179,9 +213,9 @@ u = D(exp(x) * (sin(3x) + sin(101x)))
 
 #### Simplification
 
-No simplification is done so the expressions can quickly become unwieldy. There is `TermInterface` support, so rewriting of expressions, as is possible with the `Metatheory.jl` package is possible. Though currently this usage expects a development version of `Metatheory`.
+No simplification is done so the expressions can quickly become unwieldy. There is `TermInterface` support, so--in theory--rewriting of expressions, as is possible with the `Metatheory.jl` package is possible.
 
-For example, with the development version, this pattern can factor out `exp(x)`
+The scaffolding is in place for `Metatheory` support once the development version is tagged. With this, the following pattern, say, can factor out `exp(x)`:
 
 ```
 using Metatheory # need 3.0 to use with TermInterface v"2.0"
