@@ -13,7 +13,7 @@ $(joinpath(@__DIR__, "..", "README.md") |>
 module SimpleExpressions
 using CallableExpressions
 import TermInterface
-import TermInterface: operation, children, maketerm
+import TermInterface: operation, children, maketerm, is_operation
 using CommonEq
 export ≪, ≦, Eq, ⩵, ≶, ≷, ≫, ≧ # \ll, \leqq, \Equal,\lessgtr, \gtrless, \gg,\geqq
 
@@ -59,6 +59,8 @@ v = u(1,:)(:,2)    # (cos(1)-(2*1)),
 ```
 
 The latter can be evaluated using a zero-argument call, e.g. `v()`.
+
+The [`replace`](@ref) generic for symbolic objects takes pairs of values and replaces the left one with the right one working from left to right, leaving a symbolic expression. A symbolic equation may also be used to specify a left- and right-hand value.
 
 The main use is as an easier-to-type replacement for anonymous functions, though with differences:
 
@@ -114,10 +116,26 @@ a, b = 1, 2
 find_zeros(D(u) ~ (u(b)-u(a)) / (b-a), (a,b)) # [1.577…]
 ```
 
+Very *simple* symbolic equations can be solved with the unexported `solve` method. This example shows how one might be able to 
+
+```{julia}
+@symbolic w p; @symbolic h  # two variables, one paramter
+import SimpleExpressions: solve, D
+constraint = p ~ 2w + 2h
+A = w * h
+
+u = solve(constraint, h)
+A = A(u) # use equation in replacement
+v = solve(D(A, w) ~ 0, w) # lack of simplification masks answer
+p₀ = 25 # set p = 25 and use a numeric solver to solve the linear equation
+solve(v(p => p₀), 0, p₀/2)
+```
+
+## Idiosyncracies
 
 Using this is a convenience for *simple* cases. It is easy to run into idiosyncrasies.
 
-## Expressions are not functions in terms of scope
+### Expressions are not functions in terms of scope
 
 Unlike functions, expressions are defined with variables at the time of definition, not when called. For example, with a clean environment:
 
@@ -134,7 +152,7 @@ u(3)           # still computing 1 * 3 + 2
 f(3)           # computing 3 * 3 + 4, using values of `m` and `b` when called
 ```
 
-## Symbolic values are really singletons
+### Symbolic values are really singletons
 
 Though one can make different symbolic variables, evaluation will error
 
@@ -223,6 +241,8 @@ SymbolicParameter(p::SymbolicParameter) = p
 SymbolicParameter(p::Symbol) = SymbolicParameter(DynamicVariable(p))
 SymbolicParameter(p::AbstractString) = SymbolicParameter(Symbol(p))
 
+
+
 # wrap numbers
 struct SymbolicNumber{T <: DynamicConstant} <: AbstractSymbolic
     u::T
@@ -261,6 +281,7 @@ tilde(a, b) = a ~ b
 
 (X::SymbolicEquation)(x) =   tilde(X.lhs(x), X.rhs(x))
 (X::SymbolicEquation)(x,p) = tilde(X.lhs(x, p),  X.rhs(x, p))
+(X::SymbolicEquation)(args::Pair...) = tilde(X.lhs(args...), X.rhs(args...))
 
 
 function Base.iterate(X::SymbolicEquation, state=nothing)
@@ -343,18 +364,43 @@ function TermInterface.maketerm(T::Type{<:AbstractSymbolic}, head, children, met
     head(assymbolic.(children)...)
 end
 
+function TermInterface.maketerm(T::Type{<:SymbolicNumber}, ::Nothing, children, metadata)
+    SymbolicNumber(DynamicConstant(only(children)))
+end
+
+function TermInterface.maketerm(T::Type{<:SymbolicVariable}, ::Nothing, children, metadata)
+    SymbolicVariable(only(children))
+end
+function TermInterface.maketerm(T::Type{<:SymbolicParameter}, ::Nothing, children, metadata)
+    SymbolicParameter(only(children))
+end
+function TermInterface.maketerm(T::Type{<:AbstractSymbolic}, ::Nothing, children, metadata)
+    SymbolicNumber(only(children))
+end
+
 ## ---- operations
-for op ∈ (:/, ://, :^,  :≈)
+for op ∈ (://, :^,  :≈)
     @eval begin
         import Base: $op
         Base.$op(x::AbstractSymbolic, y::AbstractSymbolic) =
             SymbolicExpression(StaticExpression((↓(x), ↓(y)), $op))
         Base.$op(x::AbstractSymbolic, y::Number) = $op(promote(x,y)...)
         Base.$op(x::Number, y::AbstractSymbolic) = $op(promote(x,y)...)
-        Base.$op(x::SymbolicNumber, y::SymbolicNumber) = $op(x(),y())
+#        Base.$op(x::SymbolicNumber, y::SymbolicNumber) = $op(x(),y())
     end
 end
 
+for op ∈ (:/, )
+    @eval begin
+        import Base: $op
+        Base.$op(x::AbstractSymbolic, y::AbstractSymbolic) =
+            SymbolicExpression(StaticExpression((↓(x), ↓(y)), $op))
+        Base.$op(x::AbstractSymbolic, y::Number) = $op(promote(x,y)...)
+        Base.$op(x::Number, y::AbstractSymbolic) = $op(promote(x,y)...)
+        #Base.$op(x::SymbolicNumber, y::SymbolicNumber) = $op(x(),y())
+    end
+end
+    
 ## arrange for *, + to be n-ary
 for op ∈ (:*, :+)
     @eval begin
@@ -363,7 +409,7 @@ for op ∈ (:*, :+)
             SymbolicExpression(StaticExpression(tuplejoin(_children($op,x), _children($op,y)), $op))
         Base.$op(x::AbstractSymbolic, y::Number) = $op(promote(x,y)...)
         Base.$op(x::Number, y::AbstractSymbolic) = $op(promote(x,y)...)
-        Base.$op(x::SymbolicNumber, y::SymbolicNumber) = $op(x(),y())
+        #Base.$op(x::SymbolicNumber, y::SymbolicNumber) = $op(x(),y())
     end
 end
 
@@ -479,8 +525,8 @@ for op in (:isinteger, :ispow2,
         Base.$op(::AbstractSymbolic) = false
         Base.$op(c::SymbolicNumber) = $op(c())
         function Base.$op(c::SymbolicExpression)
-            x,p = find_xp(c)
-            (x != Δ || p != Δ) && return false
+            x,p = free_symbols(c)
+            (!isempty(x) || !isempty(p)) && return false
             return $op(c())
         end
     end
@@ -548,7 +594,7 @@ end
 _inv(::Any, a) = SymbolicExpression(inv, (a,))
 
 ## handle integer powers
-Base.literal_pow(::typeof(^), x::AbstractSymbolic, ::Val{0}) = 1
+Base.literal_pow(::typeof(^), x::AbstractSymbolic, ::Val{0}) = one(x)
 Base.literal_pow(::typeof(^), x::AbstractSymbolic, ::Val{1}) = x
 Base.literal_pow(::typeof(^), x::AbstractSymbolic, ::Val{2}) = SymbolicExpression(^,(x,SymbolicNumber(2)))
 Base.literal_pow(::typeof(^), x::AbstractSymbolic, ::Val{3}) = SymbolicExpression(^,(x,SymbolicNumber(3)))
@@ -639,7 +685,7 @@ function Base.convert(::Type{Expr}, x::SymbolicExpression)
     Expr(:call,  op, convert.(Expr, assymbolic.(arguments))...)
 end
 
-## ---- introspecition
+## ---- introspection
 Base.Symbol(x::SymbolicVariable) = Symbol(↓(x))
 Base.Symbol(x::SymbolicParameter) = Symbol(↓(x))
 Base.Symbol(x::DynamicVariable) = x.sym
@@ -647,6 +693,7 @@ Base.Symbol(::StaticVariable{T}) where {T} = T
 
 # used to identify x, p
 # error if more than one found
+# much faster than `free_symbols` as this is type stable
 find_xp(x::AbstractSymbolic) = find_xp(↓(x))
 find_xp(x::StaticVariable{T}) where {T} = (x=Symbol(x), p=Δ)
 find_xp(p::DynamicVariable) = (x=Δ, p=Symbol(p))
@@ -688,14 +735,39 @@ function 𝑥𝑝!(ex::SymbolicExpression)
     𝑥,𝑝
 end
 
+# f contains symbolic variable or expression x
+_Variable = CallableExpressions.ExpressionTypeAliases.Variable
+Base.contains(f::AbstractSymbolic, x) = contains(↓(f), ↓(x))
+Base.contains(f::Any, x::𝑋) where 𝑋 = false 
+Base.contains(f::_Variable, x::𝑋) where 𝑋 = (f == x)
 
+function Base.contains(f::StaticExpression, x::𝑋) where 𝑋 
+    f == x && return true
+    for c ∈ f.children
+        (x == c || contains(c, x)) && return true
+    end
+    return false
+end
 
 # predicate to see if expression contains a symbolic variable
+# see also contains(expr, x) for a specific variable
 isconstant(x::Number) = true
-isconstant(x::AbstractSymbolic) = true
-isconstant(x::SymbolicParameter) = true
-isconstant(x::SymbolicVariable) = false
-isconstant(x::SymbolicExpression) = first(find_xp(x)) == Δ
+isconstant(x::AbstractSymbolic) = isconstant(↓(x))
+isconstant(x::DynamicConstant) = true
+isconstant(x::DynamicVariable) = true # parameters are constant here
+isconstant(x::StaticVariable) = false
+function isconstant(x::StaticExpression)
+    for c ∈ x.children
+        isconstant(c) || return false
+    end
+    return true
+end
+
+# isvariable
+isvariable(expr) = false
+isvariable(::SymbolicVariable) = true
+isvariable(::SymbolicParameter) = true
+
 
 # free_symbols return unique collection of symbols for the
 # existing symbolic variables and parameters in the expression
@@ -712,6 +784,8 @@ function free_symbols(ex::StaticExpression)
     end
     (;x, p)
 end
+
+
 
 
 ## ---- call
@@ -786,7 +860,7 @@ const MISSING = Union{Nothing, Missing, typeof(:)}
 (ex::SymbolicExpression)(::MISSING, p) = substitutep(ex, p)
 
 # these **assume** no more than one SymbolicVariable or SymbolicParameter
-# are in expression
+# are in expression. See `replace` for more general substitution
 # substitute for x
 function substitutex(ex, x)
     pred = x -> isa(x, StaticVariable)
@@ -816,6 +890,7 @@ There are different methods depending on the type of key in the the `key => valu
 * A symbolic variable is replaced by the right-hand side, like `ex(val,:)`
 * A symbolic parameter is replaced by the right-hand side, like `ex(:,val)`
 * A function is replaced by the corresponding specified function, as the head of the sub-expression
+* A sub-expression is replaced by the new expression.
 * A sub-expression containing a wildcard is replaced by the new expression, possibly containing a wildcard, in which the arguments are called.
 
 
@@ -840,11 +915,35 @@ x + cos(x)
 
 ```
 
-The fourth needs more explanation, as there can be wildcards in the expression.
+The fourth is similar to the third, only an entire expression (not just its head) is replaced
+
+```{julia}
+julia> ex = cos(x)^2 + cos(x) + 1
+(cos(x) ^ 2) + cos(x) + 1
+
+julia> @symbolic u
+(u,)
+
+julia> replace(ex, cos(x) => u)
+(u ^ 2) + u + 1
+```
+
+Replacements occur only if an entire node in the expression tree is matched:
+
+```julia
+julia> u = 1 + x
+1 + x
+
+julia> replace(u + exp(-u), u => x)
+1 + x + exp(-1 * x)
+```
+
+(As this addition has three terms, `1+x` is not a subtree in the expression tree.)
+
+
+The fifth needs more explanation, as there can be wildcards in the expression.
 
 The symbolic variable `⋯` (created with `@symbolic ⋯`, where `⋯` is formed by `\\cdots[tab]`) can be used as a wild card that matches the remainder of an expression tree. The replacement value can have `⋯` as a variable, in which case the identified values will be substituted.
-
-If there is no wildcard in the expression, then an exact replacement is checked.
 
 ```julia
 julia> @symbolic x p; @symbolic ⋯
@@ -895,30 +994,6 @@ sin
 
 The command wildcard expression `cos(x + ...)` looks at the part of the tree that has `cos` as a node, and the lone child is an expression with node `+` and child `x`. The `⋯` then matches `p + x^2`.
 
-## Exact replacement
-
-If there is no wildcard, then pieces in syntax tree that exactly match
-`expr` are substituted with the `replacement` value.
-
-## Example
-```julia
-julia> @symbolic x p; u = x*cos(x)
-x * cos(x)
-
-julia> replace(1 + u^2 + 2u^3, u => x)
-1 + (x ^ 2) + (2 * (x ^ 3))
-```
-
-Replacements occur only if an entire node in the expression tree is matched:
-```julia
-julia> u = 1 + x
-1 + x
-
-julia> replace(u + exp(-u), u => x)
-1 + x + exp(-1 * x)
-```
-
-(As this addition has  three terms, `1+x` is not a subtree in the expression tree.)
 
 """
 function Base.replace(ex::AbstractSymbolic, args::Pair...)
@@ -928,7 +1003,13 @@ function Base.replace(ex::AbstractSymbolic, args::Pair...)
     end
     ex
 end
+(𝑥::SymbolicVariable)(args::Pair...) = replace(𝑥, args...)
+(𝑝::SymbolicParameter)(args::Pair...) = replace(𝑝, args...)
 (ex::SymbolicExpression)(args::Pair...) = replace(ex, args...)
+
+(𝑥::SymbolicVariable)(eq::SymbolicEquation) = replace(𝑥, eq.lhs => eq.rhs)
+(𝑝::SymbolicParameter)(eq::SymbolicEquation) = replace(𝑝, eq.lhs => eq.rhs)
+(ex::SymbolicExpression)(eq::SymbolicEquation) = replace(ex, eq.lhs => eq.rhs)
 
 
 
@@ -1080,7 +1161,6 @@ function _diff!(xs, xs′)
 end
 
 ## replace exact piece of tree with something else
-
 _exact_replace(ex::SymbolicNumber, p, q) = ex == p ? ↑(q) : ex
 _exact_replace(ex::SymbolicVariable, p, q) = ex == p ? ↑(q) : ex
 _exact_replace(ex::SymbolicParameter, p, q) = ex == p ? ↑(q) : ex
@@ -1093,6 +1173,7 @@ end
 
 
 ## ---- comparison, sorting
+
 # only used for domain restrictions
 Base.ifelse(p::AbstractSymbolic, a, b) = SymbolicExpression(ifelse, (p,a,b))
 
@@ -1215,5 +1296,6 @@ end
 ## includes
 include("scalar-derivative.jl")
 include("simplify.jl")
+include("solve.jl")
 
 end

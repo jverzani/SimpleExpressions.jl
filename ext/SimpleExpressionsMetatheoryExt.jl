@@ -239,7 +239,7 @@ Base.view(t::NTuple{N, AbstractSymbolic}, ind::UnitRange) where {N} = t[ind]
 ## rules for simplification
 CANONICALIZE_PLUS = [
 
-    # @rule(~x::isnotflat(+) => flatten_term(+, ~x)) # in constructor
+#    @rule(~x::isnotflat(+) => flatten_term(+, ~x)) 
 
     @rule(~x::needs_sorting₊ => sort_args(+, ~x)) # also merge
     @ordered_acrule(~a::is_literal_number + ~b::is_literal_number => ~a + ~b)
@@ -251,12 +251,14 @@ CANONICALIZE_PLUS = [
     @ordered_acrule((~z::iszero + ~x) => ~x)
     @rule(+(~x) => ~x)
 
-    @rule(-(~x) => (-1)*~x)
-    @rule(-(~x, ~y) => +(~x, (-1)*~y))
+    #@rule(-(~x) => (-1) * ~x)
+    @rule(-(~x, ~y) => +(~x, (-1) * ~y))
+
+    @acrule(~x + ~c::isminusone * ~x => zero(~x))
 ]
 
 CANONICALIZE_TIMES = [
-    # @rule(~x::isnotflat(*) => flatten_term(*, ~x))
+#    @rule(~x::isnotflat(*) => flatten_term(*, ~x))
     @rule(~x::needs_sortingₓ => sort_args(*, ~x))
 
     @ordered_acrule(~a::is_literal_number * ~b::is_literal_number => ~a * ~b)
@@ -266,7 +268,14 @@ CANONICALIZE_TIMES = [
 
     @ordered_acrule((~z::isone  * ~x) => ~x)
     @ordered_acrule((~z::iszero * ~x) => ~z)
-    # @rule(*(~x) => ~x)
+
+    @rule(~x / ~x => one(~x))
+    @rule(*(~x,~xs...) / (~x,~ys...) => *(~xs...) / *(~ys...))
+    @rule(~x / (~x, ~ys...) => one(~x) / *(~ys...))
+    @rule(*(~x,~xs...) / ~x => *(~xs...))
+
+    @acrule(~x * (~x)^(~c::isone) => one(~x))
+    @rule(*(~x) => ~x)
 ]
 
 CANONICALIZE_POW = [

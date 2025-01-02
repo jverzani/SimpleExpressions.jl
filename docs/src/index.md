@@ -168,8 +168,8 @@ The package grew out of a desire to have a simpler approach to solving `f(x) = g
 
 Symbolic equations are specified using `~`, a notation borrowed from `Symbolics` for `SymPy` and now on loan to `SimpleExpressions`. Of course `=` is assignment, and `==` and `===` are used for comparisons, so some other syntax is necessary and `~` plays the role of distinguishing the left- and right-hand sides of an equation.
 
-By default, when calling a symbolic equation the difference of the left- and right-hand sides is used, so, in this case, symbolic equations can be passed directly to `find_zero`:
-
+By default, when calling a symbolic equation the difference of the left- and right-hand sides is used, so, in this case, symbolic equations can be passed directly to the `find_zero` method from `Roots`:
+ 
 ```@example expressions
 using Roots
 @symbolic x p
@@ -177,30 +177,45 @@ find_zero(cos(x) ~ sin(x), (0, pi/2)) # use bisection
 ```
 
 
-The `solve` interface is also available for symbolic equations:
+The `solve` interface (loaded with `Roots`) is also available for symbolic equations:
 
 ```@example expressions
 solve(cos(x) ~ p*x, (0, pi/2), p=3)
 ```
 
+*Linear* symbolic equations can be solved symbolically through this package (though the lack of simplification is annoying). Instead of specifying an interval, a variable to solve for is given.
 
-For plotting a symbolic equation, `ex`, the values `ex.lhs` and `ex.rhs` may be used separately to produce a pair of traces. (With `Plots` there is a recipe to plot a symbolic equation as two separate functions; it does not plot the difference of the two functions.)
+```@example expression
+@symbolic a A
+@symbolic b B
+solve(sin(A)/a ~ sin(B)/b, A)
+```
+
+This example shows "inverse" functions are applied (without conern for domain/range restrictions) when possible.
+
+### Plotting
+
+For plotting a symbolic equation, `eq`, the values `eq.lhs` and `eq.rhs` may be used separately to produce a pair of traces. With `Plots`, where a vector of functions may be plotted, `plot([eq...], a, b)` will plot each side with separate trace. Though with `Plots` there is a recipe to plot a symbolic equation as two separate functions; it does not plot the difference of the two functions.
 
 ### Derivatives
 
-Symbolic expressions can be easily differentiated, though the operator is not exported. The operator differentiates with respect to the symbolic variable assuming it represents a scalar quantity:
+Symbolic expressions can be easily differentiated, though the operator is not exported. A variable to differentiate by should be specified, though when missing it is assumed there is a lone symbolic variable to differentiate by. The operator differentiates with respect to thevariable assuming it represents a scalar quantity:
 
 ```@example expressions
 import SimpleExpressions: D
 @symbolic x p
-D(cos(x) - x * p)
+D(cos(x) - x * p)  # uses x
+```
+
+```@example expressions
+D(cos(x) ~ x * p, p)
 ```
 
 Here the derivative is used to take a step of Newton's method::
 
 ```@example expressions
 u = x^5 - x - 1
-du = D(u)
+du = D(u, x)
 x0 = 2
 x0 - u(x0) / du(x0)
 ```
@@ -208,7 +223,7 @@ x0 - u(x0) / du(x0)
 Here the product rule is used:
 
 ```@example expressions
-u = D(exp(x) * (sin(3x) + sin(101x)))
+u = D(exp(x) * (sin(3x) + sin(101x)), x)
 ```
 
 #### Simplification
@@ -222,3 +237,4 @@ using Metatheory # need 3.0 to use with TermInterface v"2.0"
 r = @rule (~x * ~a + ~x * ~b --> ~x * (~a + ~b))
 r(u)
 ```
+

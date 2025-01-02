@@ -14,7 +14,7 @@ To substitute in for either the variable or the parameter, leaving a symbolic ex
 
 There are no performance claims, this package is all about convenience.  Similar convenience is available in some form with `SymPy`, `SymEngine`, `Symbolics`, etc. As well, placeholder syntax is available in `Underscores.jl`, `Chain.jl`, `DataPipes.jl` etc., This package only has value in that it is very lightweight and, hopefully, intuitively simple.
 
-Performance is good though, a benchmark case of finding a zero of a function runs without allocations in `0.000003 seconds`, with a symbolic expression in  `0.000036` seconds with 275 allocations (one order of magnitude slower), as compared to a symbolic expression with SymPy which takes `0.067234` seconds with 82.94 k allocations.
+Performance is good though, as `CallableExprssions` is performant. A benchmark case of finding a zero of a function runs without allocations in `0.000003 seconds`, with a symbolic expression in  `0.000036` seconds with 275 allocations (one order of magnitude slower), as compared to a symbolic expression with SymPy which takes `0.067234` seconds with 82.94 k allocations.
 
 An extension is provided for functions in `SpecialFunctions`.
 
