@@ -117,7 +117,7 @@ end
 ## ---- some predicates used in SymbolicUtils rules
 function isnotflat(⋆)
     function (x)
-        args = arguments(x)
+        args = children(x)
         for t in args
             if is_operation(⋆)(t)
                 return true
@@ -128,7 +128,7 @@ function isnotflat(⋆)
 end
 
 function flatten_term(⋆, x)
-    args = arguments(x)
+    args = children(x)
     # flatten nested ⋆
     flattened_args = []
     for t in args
@@ -182,7 +182,7 @@ function has_trig_exp(term)
 end
 
 
-needs_sorting(f) = x -> is_operation(f)(x) && !issorted(arguments(x))
+needs_sorting(f) = x -> is_operation(f)(x) && !issorted(children(x))
 needs_sorting₊ = needs_sorting(+) # issue with using rhs as predicate?
 needs_sortingₓ = needs_sorting(*)
 

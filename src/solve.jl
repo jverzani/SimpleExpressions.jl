@@ -31,7 +31,22 @@ end
 ## very limited!
 ## currently just moves terms to each side and takes inverse functions
 ## in a non-rigorous manner
+"""
+    solve(eq::SymboliclEquation, x)
 
+Very *simple* symbolic equations can be solved with the unexported `solve` method. This example shows a usage.
+
+```{julia}
+@symbolic w p; @symbolic h  # two variables, one parameter
+import SimpleExpressions: solve, D
+constraint = p ~ 2w + 2h
+A = w * h
+
+u = solve(constraint, h)
+A = A(u) # use equation in replacement
+v = solve(D(A, w) ~ 0, w) 
+```
+"""
 CommonSolve.solve(eq::SymbolicEquation, x::𝑉) = _solve(eq.lhs, eq.rhs, x)
 
 CommonSolve.init(eq::SymbolicEquation) = throw(ArgumentError("Must specify variable to solve for"))
@@ -40,39 +55,44 @@ CommonSolve.init(eq::SymbolicEquation) = throw(ArgumentError("Must specify varia
 
 function _solve(l, r, x::𝑉)
     (contains(l, x) || contains(r, x)) || return nothing
-    l, r = _expand(l,x), _expand(r,x)
+    l, r = _distribute_over_plus(l,x), _distribute_over_plus(r,x)
     l′, r′ = l, r
     # r_to_l move x terms to left
     # l_to_r move non-x terms to right
     # also applies inverse functions *non-rigorously* as possible
     if contains(r, x)
-        l,r = r_to_l(l,r,x)
+        l,r = isolate_x(Val(:←), l, r, x)
     end
     if contains(l, x)
-        l, r = l_to_r(l,r,x)
+        l, r = isolate_x(Val(:→), l, r, x)
     else
         l, r = zero(l), r ⊖ l
     end
-
     l == l′  && return _final_solve(l, r, x)
     _solve(l, r, x) # recurse
 end
 
 # add in any tricks here
 function _final_solve(l::𝑋,r,x::𝑋) where {𝑋 <: 𝑉}
-    l ~ r
+    l ~ _combine_numbers(r)
 end
 
 function _final_solve(l,r,x)
     # try some things
     ## polynomials?
-    cs = _aspolynomial(l,x)
+    cs = coefficients(l,x)
     if !isnothing(cs)
+        if length(cs) == 1
+            return l ~ r
+        elseif length(cs) == 2
+            a0,a1 = cs
+            return x ~ _combine_numbers((r ⊖ a0)  ⨸ a1)
+        end
         p = sum(aᵢ * x^i for (i, aᵢ) ∈ enumerate(Iterators.rest(cs,2)))
         # could solve, but ...
-        return p ~ r ⊖ first(cs)
+        return p ~ _combine_numbers(r ⊖ first(cs))
     end
-    l ~ r
+    l ~ _combine_numbers(r)
 end
 
 
@@ -124,16 +144,16 @@ coefficients(ex::SymbolicEquation, x) = coefficients(ex.lhs - ex.rhs, x)
 function coefficients(ex, x)
     # x is variable? expression?
     _ispolynomial(ex, x) || return nothing
-    ex = _expand(ex, x)
+    ex = _distribute_over_plus(ex, x)
     cs = is_operation(+)(ex) ? children(ex) : (ex,)
-    d = Dict()
+    d = Dict{Any, Any}()
     for c in cs
         (aᵢ, i) = _monomial(c, x)
         d[i] = aᵢ ⊕ get(d, i, zero(x))
     end
 
-    n = maximum(keys(d))
-    coeffs = tuple((__clean(get(d,i,zero(x))) for i in 0:n)...)
+    n = maximum(collect(keys(d)))
+    coeffs = tuple((_combine_numbers(get(d,i,zero(x))) for i in 0:n)...)
     nms = tuple((SimpleExpressions._aᵢ(i) for i in 0:n)...)
 
     NamedTuple{nms}(coeffs)
@@ -162,31 +182,36 @@ function _monomial(c, x)
         ps = _monomial.(children(c), x)
         aᵢ = reduce(⊗, first.(ps), init=one(x))
         i  = sum(last.(ps))
+
         return (aᵢ, i)
     elseif is_operation(^)(c)
-        a, b = children(c)
-        u, v = _monomial(a,x)
-        return (u^(v*b), b^v)
+        a, b = children(c) # b is symbolic integer
+        u, v = _monomial(a,x) # v is integer
+        return (u^(v*b), (b()^v))
     else
         error("$(operation(c)) ")
     end
 end
-    
-## _expand out to + terms
-_expand(ex::𝐿, x) = ex
-function _expand(ex, x; __cnt=1)
+
+
+## _distribute_over_plus out to + terms
+_distribute_over_plus(ex::Number, x; __cnt=1) = error(ex)
+_distribute_over_plus(ex::𝐿, x) = ex
+function _distribute_over_plus(ex, x; __cnt=1)
+    contains(ex, x) || return ex
     __cnt > 50 && return ex
-    ex′ = _expand(operation(ex), ex, x)
-    ex′ != ex && return _expand(ex′, x; __cnt= __cnt + 1)
+    ex′ = _distribute_over_plus(operation(ex), ex, x)
+    ex′ != ex && return _distribute_over_plus(ex′, x; __cnt= __cnt + 1)
     ex′
 end
 
-# work of expand is op by op
-function _expand(::typeof(+), ex, x)
-    reduce(⊕, _expand.(children(ex), x), init=zero(x))
+# a*(b+c) --> a*b + a*c (flatten?)
+# work of distribute_over_plus is op by op
+function _distribute_over_plus(::typeof(+), ex, x)
+    reduce(⊕, _distribute_over_plus.(sort(children(ex)), x), init=zero(x))
 end
 
-function _expand(::typeof(*), ex, x)
+function _distribute_over_plus(::typeof(*), ex, x)
     a = one(x)
     b = nothing
     for c ∈ children(ex)
@@ -194,25 +219,25 @@ function _expand(::typeof(*), ex, x)
             b = c
             continue
         else
-            a = a ⊗ _expand(c, x)
+            a = a ⊗ _distribute_over_plus(c, x)
         end
     end
     isnothing(b) && return a
-    return mapreduce(Base.Fix1(⊗, a), ⊕, children(b), init=zero(x))
+    return mapreduce(Base.Fix1(⊗, a), ⊕, sort(children(b)), init=zero(x))
 end
 
-function _expand(::typeof(-), ex, x)
-    reduce(⊖, _expand.(children(ex), x), init=zero(x))
+function _distribute_over_plus(::typeof(-), ex, x)
+    reduce(⊖, _distribute_over_plus.(children(ex), x), init=zero(x))
 end
 
 
-function _expand(::typeof(/), ex, x)
+function _distribute_over_plus(::typeof(/), ex, x)
     a, b = children(ex)
     contains(b, x) && return ex
     a ⊗ (1 / b)
 end
 
-function _expand(::typeof(^), ex, x)
+function _distribute_over_plus(::typeof(^), ex, x)
     a, b = children(ex)
     a == x && return ex
     𝑥, 𝑝 = free_symbolx(b)
@@ -229,31 +254,69 @@ function _expand(::typeof(^), ex, x)
     ex
 end
 
-_expand(::Any, ex, x) = ex # nothing to do?
+_distribute_over_plus(::Any, ex, x) = ex # nothing to do?
 
-# light clean up of * and +
-function __clean(ex)
-    if is_operation(*)(ex)
-        return reduce(⊗, sort(children(ex)), init=one(ex))
-    elseif is_operation(+)(ex)
-        return reduce(⊕, sort(children(ex)), init=zero(ex))
-    end
-    ex
+## clean up constants by sorting arguments to +, &
+_combine_numbers(ex::𝐿) = ex
+_combine_numbers(ex) = _combine_numbers(operation(ex), ex)
+
+function _combine_numbers(::typeof(+), ex)
+    args = _combine_numbers.(sort(children(ex)))
+    foldl(⊕, args, init=zero(ex))
 end
-        
 
-## ---- r_to_l and l_to_r move x terms to l non-x to r
-function r_to_l(l, r::𝑉, x)
+function _combine_numbers(::typeof(*), ex)
+    args = _combine_numbers.(sort(children(ex)))
+    foldl(⊗, args, init=one(ex))
+end
+
+function _combine_numbers(::Any, ex)
+    args = _combine_numbers.(children(ex))
+    maketerm(typeof(ex), operation(ex), args, nothing)
+end
+
+## ---- isolate_x x to lhs
+
+function isolate_x(::Val{:→}, l::𝑉, r, x)
+    l, r
+end
+
+function isolate_x(::Val{:←}, l, r::𝑉, x)
     if r == x
-        l = l /r
+        l = l ⨸ r
         r = one(x)
     end
     l, r
 end
 
-r_to_l(l, r::SymbolicExpression, x) = r_to_l(operation(r), l, r, x)
+isolate_x(v::Val{:→}, l::SymbolicExpression, r, x) = isolate_x(v, operation(l), l, r, x)
+isolate_x(v::Val{:←}, l, r::SymbolicExpression, x) = isolate_x(v, operation(r), l, r, x)
 
-function r_to_l(::typeof(/), l, r, x)
+## ---- /
+
+function isolate_x(::Val{:→}, ::typeof(/), l, r, x)
+    a, b, = children(l)
+    l′ = one(l)
+    if contains(a, x)
+        l′ = a
+    else
+        r = r ⨸ a
+    end
+    if contains(b, x)
+        if !contains(l′, x)  # take reciprocal
+            l′ = b ⨸ l′
+            r = one(x) ⨸ r
+        else
+            l′ = l′ ⨸ b
+        end
+    else
+        r = r ⊗ b
+    end
+
+    l′, r
+end
+
+function isolate_x(::Val{:←}, ::typeof(/), l, r, x)
     a, b, = children(r)
     r′ = one(r)
     if contains(a, x)
@@ -271,111 +334,9 @@ function r_to_l(::typeof(/), l, r, x)
     l, r′
 end
 
-function r_to_l(::typeof(-), l, r, x)
-    a, b, = children(r)
-    r′ = zero(r)
-    if contains(a, x)
-        l = l ⊖ a
-    else
-        r′ = a
-    end
+## ---- -
 
-    if contains(b, x)
-        l = l ⊕ b
-    else
-        r′ = r′ ⊖ b
-    end
-
-    l, r′
-end
-
-function r_to_l(::typeof(^), l, r, x)
-    a, b, = children(r)
-
-    if !contains(b, x)
-        if !isvariable(b)
-            bb = b()
-            bb == 0 && return l, one(x)
-            bb == 1 && return l, a
-            bb == 2 && return sqrt(l), a
-            bb == 3 && return cbrt(l), a
-        end
-        l,r = l^(1/b), a
-    end
-    return l, r
-end
-
-function r_to_l(::typeof(+), l, r, x)
-    r′ = zero(r)
-    for c ∈ children(r)
-        if contains(c, x)
-            l = l ⊖ c
-        else
-            r′ = r′ ⊕ c
-        end
-    end
-    l, r′
-end
-        
-function r_to_l(::typeof(*), l, r, x)
-    r′ = one(r)
-    for c ∈ children(r)
-        if contains(c, x)
-            l = l ⨸ c
-        else
-            r′ = r′ ⊗ c
-        end
-    end
-    l, r′
-end
-
-# apply inverse?
-function r_to_l(::Any, l, r, x)
-    !contains(r, x) && return l, r  # leave as is if no x
-    
-    op = operation(r)
-    op⁻¹ = get(inverse_functions, op, nothing)
-
-    if !isnothing(op⁻¹)
-        r = only(children(r))
-        l = op⁻¹(l)
-    end
-
-    return l, r
-end
-    
-
-## l to r: leave x terms, move others
-function l_to_r(l::𝑉, r, x)
-    l, r
-end
-
-l_to_r(l::SymbolicExpression, r, x) = l_to_r(operation(l), l, r, x)
-
-
-function l_to_r(::typeof(/), l, r, x)
-    a, b, = children(l)
-    l′ = one(l)
-    if contains(a, x)
-        l′ = a
-    else
-        r = r ⨸ a
-    end
-    if contains(b, x)
-        if !contains(l′, x)  # take reciprocal
-            l′ = b ⨸ l′
-            r = 1 ⨸ r
-        else
-            l′ = l′ ⨸ b
-        end
-    else
-        r = r ⊗ b
-    end
-
-    l′, r
-end
-
-function l_to_r(::typeof(-), l, r, x)
+function isolate_x(::Val{:→}, ::typeof(-), l, r, x)
     a, b, = children(l)
     l′ = zero(l)
     if !contains(a, x)
@@ -393,7 +354,27 @@ function l_to_r(::typeof(-), l, r, x)
     l, r′
 end
 
-function l_to_r(::typeof(^), l, r, x)
+function isolate_x(::Val{:←}, ::typeof(-), l, r, x)
+    a, b, = children(r)
+    r′ = zero(r)
+    if contains(a, x)
+        l = l ⊖ a
+    else
+        r′ = a
+    end
+
+    if contains(b, x)
+        l = l ⊕ b
+    else
+        r′ = r′ ⊖ b
+    end
+
+    l, r′
+end
+
+## ----- ^
+
+function isolate_x(::Val{:→}, ::typeof(^), l, r, x)
     a, b = children(l)
     if !contains(b, x)
         if !isvariable(b)
@@ -408,7 +389,52 @@ function l_to_r(::typeof(^), l, r, x)
     return l, r
 end
 
-function l_to_r(::typeof(*), l, r, x)
+function isolate_x(::Val{:←}, ::typeof(^), l, r, x)
+    a, b, = children(r)
+
+    if !contains(b, x)
+        if !isvariable(b)
+            bb = b()
+            bb == 0 && return l, one(x)
+            bb == 1 && return l, a
+            bb == 2 && return sqrt(l), a
+            bb == 3 && return cbrt(l), a
+        end
+        l,r = l^(one(x)/b), a
+    end
+    return l, r
+end
+
+## ----- +
+
+function isolate_x(::Val{:→}, ::typeof(+), l, r, x)
+    l′ = zero(l)
+    for c ∈ children(l)
+        if contains(c, x)
+            l′ = l′ ⊕ c
+        else
+            r = r ⊖ c
+        end
+    end
+    return l′, r
+end
+
+
+function isolate_x(::Val{:←}, ::typeof(+), l, r, x)
+    r′ = zero(r)
+    for c ∈ children(r)
+        if contains(c, x)
+            l = l ⊖ c
+        else
+            r′ = r′ ⊕ c
+        end
+    end
+    l, r′
+end
+
+## ----- *
+
+function isolate_x(::Val{:→}, ::typeof(*), l, r, x)
     l′ = one(l)
     for c ∈ children(l)
         if contains(c, x)
@@ -420,9 +446,21 @@ function l_to_r(::typeof(*), l, r, x)
     l′, r
 end
 
+function isolate_x(::Val{:←}, ::typeof(*), l, r, x)
+    r′ = one(r)
+    for c ∈ children(r)
+        if contains(c, x)
+            l = l ⨸ c
+        else
+            r′ = r′ ⊗ c
+        end
+    end
+    l, r′
+end
 
+## ---- inverse
 # apply inverse?
-function l_to_r(::Any, l, r, x)
+function isolate_x(::Val{:→}, ::Any, l, r, x)
     op = operation(l)
     op⁻¹ = get(inverse_functions, op, nothing)
 
@@ -434,19 +472,33 @@ function l_to_r(::Any, l, r, x)
     return l, r
 end
 
+function isolate_x(::Val{:←}, ::Any, l, r, x)
+    !contains(r, x) && return l, r  # leave as is if no x
+    
+    op = operation(r)
+    op⁻¹ = get(inverse_functions, op, nothing)
 
-function l_to_r(::typeof(+), l, r, x)
-    cs = children(l)
-    l′ = zero(l)
-    for c ∈ cs
-        if contains(c, x)
-            l′ = l′ ⊕ c
-        else
-            r = r ⊖ c
-        end
+    if !isnothing(op⁻¹)
+        r = only(children(r))
+        l = op⁻¹(l)
     end
-    return l′, r
+
+    return l, r
 end
+    
+
+## l to r: leave x terms, move others
+
+
+
+
+
+
+
+
+
+# apply inverse?
+
 
 
 
