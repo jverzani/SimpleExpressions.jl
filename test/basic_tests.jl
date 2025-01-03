@@ -181,7 +181,7 @@ end
     @test replace(x*y + z, x*y => pi) == pi + z
     @test replace(x*y*z, x*y => pi) == x*y*z
     @test replace(2x, 2x => y, x => z) == y
-    @test replace(2 * (2x), 2x => y, x => z) == 2 * (2 * z) # y isn't replaced, just x
+    @test replace(2 * (2x), 2x => y, x => z) == 4 * z # y isn't replaced, just x
 
     # match
     @test match(log(1 + ⋯), log(1 + x^2/2 - x^4/24)) ≈ₑ x^2/2 - x^4/24

@@ -44,11 +44,7 @@ A = w * h
 
 u = solve(constraint, h)
 A = A(u) # use equation in replacement
-v = solve(D(A, w) ~ 0, w) # lack of simplification masks answer
-
-using Roots
-p₀ = 25 # set p = 25 and use a numeric solver to solve the linear equation
-solve(v(p => p₀), 0, p₀/2)
+v = solve(D(A, w) ~ 0, w) 
 ```
 """
 CommonSolve.solve(eq::SymbolicEquation, x::𝑉) = _solve(eq.lhs, eq.rhs, x)
@@ -72,14 +68,13 @@ function _solve(l, r, x::𝑉)
     else
         l, r = zero(l), r ⊖ l
     end
-
     l == l′  && return _final_solve(l, r, x)
     _solve(l, r, x) # recurse
 end
 
 # add in any tricks here
 function _final_solve(l::𝑋,r,x::𝑋) where {𝑋 <: 𝑉}
-    l ~ r
+    l ~ _combine_numbers(r)
 end
 
 function _final_solve(l,r,x)
@@ -89,13 +84,13 @@ function _final_solve(l,r,x)
     if !isnothing(cs)
         if length(cs) == 2
             a0,a1 = cs
-            return x ~ (r ⊖ a0)  ⨸ a1
+            return x ~ _combine_numbers((r ⊖ a0)  ⨸ a1)
         end
         p = sum(aᵢ * x^i for (i, aᵢ) ∈ enumerate(Iterators.rest(cs,2)))
         # could solve, but ...
-        return p ~ r ⊖ first(cs)
+        return p ~ _combine_numbers(r ⊖ first(cs))
     end
-    l ~ r
+    l ~ _combine_numbers(r)
 end
 
 
@@ -156,7 +151,7 @@ function coefficients(ex, x)
     end
 
     n = maximum(collect(keys(d)))
-    coeffs = tuple((__clean(get(d,i,zero(x))) for i in 0:n)...)
+    coeffs = tuple((_combine_numbers(get(d,i,zero(x))) for i in 0:n)...)
     nms = tuple((SimpleExpressions._aᵢ(i) for i in 0:n)...)
 
     NamedTuple{nms}(coeffs)
@@ -197,8 +192,10 @@ function _monomial(c, x)
 end
     
 ## _expand out to + terms
+_expand(ex::Number, x; __cnt=1) = error(ex)
 _expand(ex::𝐿, x) = ex
 function _expand(ex, x; __cnt=1)
+    contains(ex, x) || return ex
     __cnt > 50 && return ex
     ex′ = _expand(operation(ex), ex, x)
     ex′ != ex && return _expand(ex′, x; __cnt= __cnt + 1)
@@ -207,7 +204,7 @@ end
 
 # work of expand is op by op
 function _expand(::typeof(+), ex, x)
-    reduce(⊕, _expand.(children(ex), x), init=zero(x))
+    reduce(⊕, _expand.(sort(children(ex)), x), init=zero(x))
 end
 
 function _expand(::typeof(*), ex, x)
@@ -222,7 +219,7 @@ function _expand(::typeof(*), ex, x)
         end
     end
     isnothing(b) && return a
-    return mapreduce(Base.Fix1(⊗, a), ⊕, children(b), init=zero(x))
+    return mapreduce(Base.Fix1(⊗, a), ⊕, sort(children(b)), init=zero(x))
 end
 
 function _expand(::typeof(-), ex, x)
@@ -255,16 +252,35 @@ end
 
 _expand(::Any, ex, x) = ex # nothing to do?
 
-# light clean up of * and +
-function __clean(ex)
-    if is_operation(*)(ex)
-        return reduce(⊗, sort(children(ex)), init=one(ex))
-    elseif is_operation(+)(ex)
-        return reduce(⊕, sort(children(ex)), init=zero(ex))
-    end
-    ex
+## clean up constants
+_combine_numbers(ex::𝐿) = ex
+_combine_numbers(ex) = _combine_numbers(operation(ex), ex)
+
+function _combine_numbers(::typeof(+), ex)
+    args = _combine_numbers.(sort(children(ex)))
+    foldl(⊕, args, init=zero(ex))
 end
-        
+
+function _combine_numbers(::typeof(*), ex)
+    args = _combine_numbers.(sort(children(ex)))
+    foldl(⊗, args, init=one(ex))
+end
+
+function _combine_numbers(::Any, ex)
+    args = _combine_numbers.(children(ex))
+    maketerm(typeof(ex), operation(ex), args, nothing)
+end
+
+
+
+
+show_types(x, sp="") = println(sp, typeof(x))
+function show_types(x::SymbolicExpression, sp="")
+    println(operation(x))
+    for c in children(x)
+        show_types(c, sp * "  ")
+    end
+end
 
 ## ---- r_to_l and l_to_r move x terms to l non-x to r
 function r_to_l(l, r::𝑉, x)

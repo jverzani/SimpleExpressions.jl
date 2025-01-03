@@ -234,7 +234,10 @@ struct SymbolicNumber{T <: DynamicConstant} <: AbstractSymbolic
     u::T
 end
 SymbolicNumber(c::SymbolicNumber) = c
-SymbolicNumber(c::Number) = SymbolicNumber(DynamicConstant(c))
+function SymbolicNumber(c::S) where {S <: Number}
+    SymbolicNumber(DynamicConstant(c))
+end
+
 
 Base.zero(::AbstractSymbolic) = SymbolicNumber(0)
 Base.one(::AbstractSymbolic)  = SymbolicNumber(1)
@@ -388,7 +391,6 @@ for op ∈ (://, :^,  :≈)
             SymbolicExpression(StaticExpression((↓(x), ↓(y)), $op))
         Base.$op(x::AbstractSymbolic, y::Number) = $op(promote(x,y)...)
         Base.$op(x::Number, y::AbstractSymbolic) = $op(promote(x,y)...)
-#        Base.$op(x::SymbolicNumber, y::SymbolicNumber) = $op(x(),y())
     end
 end
 
@@ -399,7 +401,6 @@ for op ∈ (:/, )
             SymbolicExpression(StaticExpression((↓(x), ↓(y)), $op))
         Base.$op(x::AbstractSymbolic, y::Number) = $op(promote(x,y)...)
         Base.$op(x::Number, y::AbstractSymbolic) = $op(promote(x,y)...)
-        #Base.$op(x::SymbolicNumber, y::SymbolicNumber) = $op(x(),y())
     end
 end
     
@@ -411,14 +412,45 @@ for op ∈ (:*, :+)
             SymbolicExpression(StaticExpression(tuplejoin(_children($op,x), _children($op,y)), $op))
         Base.$op(x::AbstractSymbolic, y::Number) = $op(promote(x,y)...)
         Base.$op(x::Number, y::AbstractSymbolic) = $op(promote(x,y)...)
-        #Base.$op(x::SymbolicNumber, y::SymbolicNumber) = $op(x(),y())
     end
 end
 
 Base.:-(x::AbstractSymbolic, y::AbstractSymbolic) = x + (-1)*y
 Base.:-(x::AbstractSymbolic, y::Number) = x + (-1)*y
 Base.:-(x::Number, y::AbstractSymbolic) = x + (-1)*y
-Base.:-(x::SymbolicNumber, y::SymbolicNumber) = x() - y()
+
+
+𝑄 = Union{Integer, Rational}
+for op ∈ (:+, :-, :*, :^)
+    @eval begin
+        Base.$op(x::SymbolicNumber{DynamicConstant{T}},
+                 y::SymbolicNumber{DynamicConstant{S}}) where {
+                     T<:𝑄, S<:𝑄} = SymbolicNumber($op(x(),y()))
+    end
+end
+
+for op ∈ (:/, ://)
+    @eval begin
+        Base.$op(x::SymbolicNumber{DynamicConstant{T}},
+                  y::SymbolicNumber{DynamicConstant{S}}) where {
+                      T<:𝑄, S<:𝑄} =
+                          SymbolicNumber(x()//y())
+        end
+end
+
+for op ∈ (:+, :-, :*, :^, :/ )
+    @eval begin
+        Base.$op(x::SymbolicNumber{DynamicConstant{T}},
+                 y::SymbolicNumber{DynamicConstant{S}}) where {
+                     T<:AbstractFloat, S<:AbstractFloat} = SymbolicNumber($op(x(),y()))
+        Base.$op(x::SymbolicNumber{DynamicConstant{T}},
+                 y::SymbolicNumber{DynamicConstant{S}}) where {
+                     T<:AbstractFloat, S<:Number} = SymbolicNumber($op(x(),y()))
+        Base.$op(x::SymbolicNumber{DynamicConstant{T}},
+                 y::SymbolicNumber{DynamicConstant{S}}) where {
+                     T<:Number, S<:AbstractFloat} = SymbolicNumber($op(x(),y()))
+    end
+end
 
 
 # broadcasting
@@ -773,6 +805,7 @@ isvariable(::SymbolicParameter) = true
 
 # free_symbols return unique collection of symbols for the
 # existing symbolic variables and parameters in the expression
+free_symbols(x) = (x=(), p=())
 free_symbols(x::AbstractSymbolic) = free_symbols(↓(x))
 free_symbols(x::DynamicConstant) = (x=(), p=())
 free_symbols(x::DynamicVariable) = (x=(), p=(Symbol(x),))
@@ -860,6 +893,9 @@ const MISSING = Union{Nothing, Missing, typeof(:)}
 (𝑝::SymbolicParameter)(x,::MISSING) = 𝑝
 (ex::SymbolicExpression)(x,::MISSING) = substitutex(ex, x)
 (ex::SymbolicExpression)(::MISSING, p) = substitutep(ex, p)
+(X::SymbolicEquation)(::MISSING,p) = tilde(X.lhs(:, p),  X.rhs(:, p))
+(X::SymbolicEquation)(x,::MISSING) = tilde(X.lhs(x, :),  X.rhs(x, :))
+
 
 # these **assume** no more than one SymbolicVariable or SymbolicParameter
 # are in expression. See `replace` for more general substitution
