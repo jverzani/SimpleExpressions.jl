@@ -185,7 +185,7 @@ solve(cos(x) ~ p*x, (0, pi/2), p=3)
 
 *Linear* symbolic equations can be solved symbolically through this package (though the lack of simplification is annoying). Instead of specifying an interval, a variable to solve for is given.
 
-```@example expression
+```@example expressions
 @symbolic a A
 @symbolic b B
 solve(sin(A)/a ~ sin(B)/b, A)
