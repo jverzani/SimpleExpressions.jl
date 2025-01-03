@@ -266,7 +266,7 @@ The equation has a left and right-hand side, which can be found by tuple destruc
 
 Symbolic equations can be evaluated, in which case the value of `a-b` is returned.
 
-When a symbolic equation is passed as an argument to a symbolic expresssion, the pair `a => b` is passed to `replace`.
+When a symbolic equation is passed as an argument to a symbolic expression, the pair `a => b` is passed to `replace`.
 
 The `D` function differentiates both sides. The `solve` function tries to move `x` terms to the left-hand side; and non-`x` terms to the right-hand side.
 """
