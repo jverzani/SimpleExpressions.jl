@@ -122,7 +122,7 @@ julia> a0 + sum(aᵢ*x^i for (i,aᵢ) ∈ enumerate(Iterators.rest(cs,2)) if !is
 """
 coefficients(ex::SymbolicEquation, x) = coefficients(ex.lhs - ex.rhs, x)
 function coefficients(ex, x)
-    # x is variable? experssion?
+    # x is variable? expression?
     _ispolynomial(ex, x) || return nothing
     ex = _expand(ex, x)
     cs = is_operation(+)(ex) ? children(ex) : (ex,)

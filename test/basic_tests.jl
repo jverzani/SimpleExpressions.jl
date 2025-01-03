@@ -264,7 +264,7 @@ end
     @test u.([1,2], [3,4]) == [1+3, 2+4]
     @test u.([1,2],[3 4]) == [1+3 2+3; 1+4 2+4]
 
-    ## we want to be able to create sybolic expressions that will broadcast arguments
+    ## we want to be able to create symbolic expressions that will broadcast arguments
     u = x.^2  # literal_pow
     v = x^2
     @test u((1,2)) == v.((1,2)) == (1,2) .^ 2

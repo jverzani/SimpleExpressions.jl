@@ -119,7 +119,7 @@ find_zeros(D(u) ~ (u(b)-u(a)) / (b-a), (a,b)) # [1.577…]
 Very *simple* symbolic equations can be solved with the unexported `solve` method. This example shows how one might be able to 
 
 ```{julia}
-@symbolic w p; @symbolic h  # two variables, one paramter
+@symbolic w p; @symbolic h  # two variables, one parameter
 import SimpleExpressions: solve, D
 constraint = p ~ 2w + 2h
 A = w * h
@@ -131,7 +131,7 @@ p₀ = 25 # set p = 25 and use a numeric solver to solve the linear equation
 solve(v(p => p₀), 0, p₀/2)
 ```
 
-## Idiosyncracies
+## Idiosyncrasies
 
 Using this is a convenience for *simple* cases. It is easy to run into idiosyncrasies.
 

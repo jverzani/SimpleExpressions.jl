@@ -191,7 +191,7 @@ solve(cos(x) ~ p*x, (0, pi/2), p=3)
 solve(sin(A)/a ~ sin(B)/b, A)
 ```
 
-This example shows "inverse" functions are applied (without conern for domain/range restrictions) when possible.
+This example shows "inverse" functions are applied (without concern for domain/range restrictions) when possible.
 
 ### Plotting
 
