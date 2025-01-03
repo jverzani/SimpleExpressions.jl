@@ -1,5 +1,6 @@
 # basics
 import SimpleExpressions.TermInterface: children
+import SimpleExpressions: D, solve
 
 @testset "SimpleExpressions.jl" begin
 
@@ -162,7 +163,7 @@ end
     @test replace(ex, cos(x + ⋯) => ⋯) == sin(x + (x * log(x)) + p + p + (x ^ 2))
 
     @test replace(x, p=>2) == x
-    @test replace(1 + x^2, x^2 => 2) == 3
+    @test replace(1 + x^2, x^2 => 2)() == 3  # 1 + 2 evaluates to 3
 
     # exact replacement; a bit speedier than `replace(ex, expr=>replacement)`
     ex = x^2 + x^4
@@ -180,7 +181,7 @@ end
     @test replace(x*y + z, x*y => pi) == pi + z
     @test replace(x*y*z, x*y => pi) == x*y*z
     @test replace(2x, 2x => y, x => z) == y
-    @test replace(2 * (2x), 2x => y, x => z) == 4z
+    @test replace(2 * (2x), 2x => y, x => z) == 2 * (2 * z) # y isn't replaced, just x
 
     # match
     @test match(log(1 + ⋯), log(1 + x^2/2 - x^4/24)) ≈ₑ x^2/2 - x^4/24
@@ -263,7 +264,7 @@ end
     @test u.([1,2], [3,4]) == [1+3, 2+4]
     @test u.([1,2],[3 4]) == [1+3 2+3; 1+4 2+4]
 
-    ## we want to be able to create sybolic expressions that will broadcast arguments
+    ## we want to be able to create symbolic expressions that will broadcast arguments
     u = x.^2  # literal_pow
     v = x^2
     @test u((1,2)) == v.((1,2)) == (1,2) .^ 2
@@ -291,30 +292,56 @@ end
 end
 
 @testset "derivatives" begin
-    D = SimpleExpressions.D
+
     ∂(u,x) = (h = 1e-6; (u(x+h)-u(x))/h)
 
     @symbolic x
     x₀ = 2
 
     ex = cos(x)*sin(x^2+x)
-    @test D(ex)(x₀) ≈ ∂(ex, x₀) atol=1e-4
+    @test D(ex, x)(x₀) ≈ ∂(ex, x₀) atol=1e-4
 
     ex = exp(x^2 - 2) * log(x + sin(x))
-    @test D(ex)(x₀) ≈ ∂(ex, x₀) atol=1e-4
+    @test D(ex,x)(x₀) ≈ ∂(ex, x₀) atol=1e-4
 
     ex = log1p(x^2) * sqrt(1 + sin(x)^2)
-    @test D(ex)(x₀) ≈ ∂(ex, x₀) atol=1e-4
+    @test D(ex,x)(x₀) ≈ ∂(ex, x₀) atol=1e-4
 
     ex = (x^2 + 1) / (x^2 - x)
-    @test D(ex)(x₀) ≈ ∂(ex, x₀) atol=1e-4
+    @test D(ex,x)(x₀) ≈ ∂(ex, x₀) atol=1e-4
 
     ex = abs(inv(x))
-    @test D(ex)(x₀) ≈ ∂(ex, x₀) atol=1e-4
+    @test D(ex,x)(x₀) ≈ ∂(ex, x₀) atol=1e-4
 
     ex = log(x)
-    u = D(D(ex)) - D(1/x)
+    u = D(D(ex,x),x) - D(1/x,x)
     @test u(x₀) == 0
     @test isnan(u(-x₀)) # Fix indicator ones
+
+    # sum rule (vararg)
+    ex = sin(x) + cos(x) + tan(x)
+    @test D(ex, x)(x₀) ≈ ∂(ex, x₀) atol=1e-4
+
+    # different variables
+    @symbolic w p
+    ex = cos(w) - p*w
+    @test D(ex, w) == D(ex) # finds w from expression
+    @test D(ex, p) == -w
+    
+end
+
+@testset "solve" begin
+    # solve is really rudimentary
+    # and experimental to see if it has any value
+    @symbolic a A
+    @symbolic b B
+
+    eq = solve(sin(A)/a ~ sin(B)/b, b)
+    @test eq.lhs == b
+    @test !contains(eq.rhs, b)
+
+    eq = solve(a*A + b ~ B, A)
+    @test eq.lhs == A
+    @test !contains(eq.rhs, A)
 
 end
