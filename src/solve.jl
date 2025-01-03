@@ -31,7 +31,26 @@ end
 ## very limited!
 ## currently just moves terms to each side and takes inverse functions
 ## in a non-rigorous manner
+"""
+    solve(eq::SymboliclEquation, x)
 
+Very *simple* symbolic equations can be solved with the unexported `solve` method. This example shows a usage.
+
+```{julia}
+@symbolic w p; @symbolic h  # two variables, one parameter
+import SimpleExpressions: solve, D
+constraint = p ~ 2w + 2h
+A = w * h
+
+u = solve(constraint, h)
+A = A(u) # use equation in replacement
+v = solve(D(A, w) ~ 0, w) # lack of simplification masks answer
+
+using Roots
+p₀ = 25 # set p = 25 and use a numeric solver to solve the linear equation
+solve(v(p => p₀), 0, p₀/2)
+```
+"""
 CommonSolve.solve(eq::SymbolicEquation, x::𝑉) = _solve(eq.lhs, eq.rhs, x)
 
 CommonSolve.init(eq::SymbolicEquation) = throw(ArgumentError("Must specify variable to solve for"))
@@ -66,8 +85,12 @@ end
 function _final_solve(l,r,x)
     # try some things
     ## polynomials?
-    cs = _aspolynomial(l,x)
+    cs = coefficients(l,x)
     if !isnothing(cs)
+        if length(cs) == 2
+            a0,a1 = cs
+            return x ~ (r ⊖ a0)  ⨸ a1
+        end
         p = sum(aᵢ * x^i for (i, aᵢ) ∈ enumerate(Iterators.rest(cs,2)))
         # could solve, but ...
         return p ~ r ⊖ first(cs)
@@ -126,13 +149,13 @@ function coefficients(ex, x)
     _ispolynomial(ex, x) || return nothing
     ex = _expand(ex, x)
     cs = is_operation(+)(ex) ? children(ex) : (ex,)
-    d = Dict()
+    d = Dict{Any, Any}()
     for c in cs
         (aᵢ, i) = _monomial(c, x)
         d[i] = aᵢ ⊕ get(d, i, zero(x))
     end
 
-    n = maximum(keys(d))
+    n = maximum(collect(keys(d)))
     coeffs = tuple((__clean(get(d,i,zero(x))) for i in 0:n)...)
     nms = tuple((SimpleExpressions._aᵢ(i) for i in 0:n)...)
 
@@ -162,11 +185,12 @@ function _monomial(c, x)
         ps = _monomial.(children(c), x)
         aᵢ = reduce(⊗, first.(ps), init=one(x))
         i  = sum(last.(ps))
+
         return (aᵢ, i)
     elseif is_operation(^)(c)
-        a, b = children(c)
-        u, v = _monomial(a,x)
-        return (u^(v*b), b^v)
+        a, b = children(c) # b is symbolic integer
+        u, v = _monomial(a,x) # v is integer
+        return (u^(v*b), (b()^v))
     else
         error("$(operation(c)) ")
     end

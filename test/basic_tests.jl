@@ -1,6 +1,6 @@
 # basics
 import SimpleExpressions.TermInterface: children
-import SimpleExpressions: D, solve
+import SimpleExpressions: D, solve, coefficients
 
 @testset "SimpleExpressions.jl" begin
 
@@ -344,4 +344,23 @@ end
     @test eq.lhs == A
     @test !contains(eq.rhs, A)
 
+    constraint = B ~ 2a + 2b
+    A = a * b
+    u = solve(constraint, b)
+    A = A(u) # use equation in replacement
+    v = solve(D(A, a) ~ 0, a) # lack of simplification masks answer
+    l,r = v
+    @test l == a # solved
+    @test !contains(r, a)
+    @test contains(r, B) # parameterized still
+    
+end
+
+@testset "coefficients" begin
+    @symbolic x p
+
+    @test length(coefficients(x^2 - x ~ 1, x)) == 2 + 1
+    @test length(coefficients(x^2*(x+1)*(x+p) ~ 0, x)) == 4 + 1
+    @test isnothing(coefficients(x + 1/x ~ 1, x))
+    @test isnothing(coefficients(x + sin(x)*x^2 ~ 1, x))
 end

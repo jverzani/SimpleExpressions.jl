@@ -116,20 +116,6 @@ a, b = 1, 2
 find_zeros(D(u) ~ (u(b)-u(a)) / (b-a), (a,b)) # [1.577…]
 ```
 
-Very *simple* symbolic equations can be solved with the unexported `solve` method. This example shows how one might be able to 
-
-```{julia}
-@symbolic w p; @symbolic h  # two variables, one parameter
-import SimpleExpressions: solve, D
-constraint = p ~ 2w + 2h
-A = w * h
-
-u = solve(constraint, h)
-A = A(u) # use equation in replacement
-v = solve(D(A, w) ~ 0, w) # lack of simplification masks answer
-p₀ = 25 # set p = 25 and use a numeric solver to solve the linear equation
-solve(v(p => p₀), 0, p₀/2)
-```
 
 ## Idiosyncrasies
 
@@ -268,6 +254,19 @@ end
 
 
 ## ----
+"""
+   a ~ b
+
+Create a SymbolicEquation.
+
+The equation has a left and right-hand side, which can be found by tuple destructing; calling `first` and `last`; by index; or field access using `.lhs` and `.rhs`.
+
+Symbolic equations can be evaluated, in which case the value of `a-b` is returned.
+
+When a symbolic equation is passed as an argument to a symbolic expresssion, the pair `a => b` is passed to `replace`.
+
+The `D` function differentiates both sides. The `solve` function tries to move `x` terms to the left-hand side; and non-`x` terms to the right-hand side.
+"""
 struct SymbolicEquation{T,S}
     lhs::T
     rhs::S
@@ -289,6 +288,9 @@ function Base.iterate(X::SymbolicEquation, state=nothing)
     iszero(state) && return (X.rhs, 1)
     return nothing
 end
+Base.getindex(X::SymbolicEquation, i::Int) =
+    i == 1 ? X.lhs : i == 2 ? X.rhs : nothing
+Base.lastindex(X::SymbolicEquation) = 2
 Base.length(X::SymbolicEquation) = 2
 
 ## -----
