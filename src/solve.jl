@@ -5,9 +5,6 @@
 import CommonSolve
 import CommonSolve: solve
 
-𝑉 = Union{SymbolicVariable, SymbolicParameter}
-𝐿 = Union{𝑉, SymbolicNumber}
-
 # tidier code? \sqsubset[tab]
 ⊏(ops::Tuple, expr) = any(is_operation(op)(expr) for op in ops)
 ⊏(op, expr) = is_operation(op)(expr)
