@@ -91,6 +91,8 @@ function Base.contains(f::StaticExpression, x::𝑋) where 𝑋
     return false
 end
 
+Base.occursin(x::AbstractSymbolic, f::AbstractSymbolic) = contains(f, x)
+
 # we have some means to query expressions
 # isnumeric -- contains no SymbolicVariable or SymbolicParameter. 
 # isconstant -- contains no SymbolicVariable (possibly SymbolicParameter)
