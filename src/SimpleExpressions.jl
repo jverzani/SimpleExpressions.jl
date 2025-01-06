@@ -13,7 +13,8 @@ $(joinpath(@__DIR__, "..", "README.md") |>
 module SimpleExpressions
 using CallableExpressions
 import TermInterface
-import TermInterface: operation, children, maketerm, is_operation, metadata
+import TermInterface: iscall, operation, arguments, sorted_arguments,
+    maketerm, is_operation, metadata
 using CommonEq
 export ≪, ≦, Eq, ⩵, ≶, ≷, ≫, ≧ # \ll, \leqq, \Equal,\lessgtr, \gtrless, \gg,\geqq
 

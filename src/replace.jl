@@ -166,7 +166,7 @@ _replace(ex::SymbolicParameter, u::Function,  v) = ex
 _replace(ex::SymbolicVariable, u::Function,  v) = ex
 
 function _replace(ex::SymbolicExpression, u::Function, v)
-    op, args = operation(ex), children(ex)
+    op, args = operation(ex), arguments(ex)
     if op == u
         op = v
     end
@@ -209,7 +209,7 @@ function _replace(ex::SymbolicExpression, u::SymbolicExpression, v)
     !isnothing(m) && return has_WILD(v) ? _replace(v, WILD, m) : ↑(v)
 
     # peel off
-    op, args = operation(ex), children(ex)
+    op, args = operation(ex), arguments(ex)
     args′ = _replace.(args, (u,), (v,))
 
     return maketerm(AbstractSymbolic, op, args′, nothing)
@@ -238,7 +238,7 @@ _ismatch(ex::SymbolicParameter, u::SymbolicExpression) = nothing
 function _ismatch(ex::SymbolicExpression, u::SymbolicExpression)
     opₓ, opᵤ = operation(ex), operation(u)
     opₓ == opᵤ || return nothing
-    argsₓ, argsᵤ = children(ex), children(u)
+    argsₓ, argsᵤ = arguments(ex), arguments(u)
     if opₓ == (+) || opₓ == (*)
         asₓ, asᵤ = sort(collect(argsₓ)), sort(collect(argsᵤ))
         if WILD ∈ asᵤ
@@ -288,7 +288,7 @@ _exact_replace(ex::SymbolicVariable, p, q) = ex == p ? ↑(q) : ex
 _exact_replace(ex::SymbolicParameter, p, q) = ex == p ? ↑(q) : ex
 function _exact_replace(ex::SymbolicExpression, p, q)
     ex == p && return ↑(q)
-    op, args = operation(ex), children(ex)
+    op, args = operation(ex), arguments(ex)
     args′ = ((a == p ? q : _exact_replace(a, p, q)) for a in args)
     maketerm(SymbolicExpression, op, args′, nothing)
 end

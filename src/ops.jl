@@ -24,7 +24,7 @@ for op ∈ (:*, :+)
     @eval begin
         import Base: $op
         Base.$op(x::AbstractSymbolic, y::AbstractSymbolic) =
-            SymbolicExpression(StaticExpression(tuplejoin(_children($op,x), _children($op,y)), $op))
+            SymbolicExpression(StaticExpression(tuplejoin(_arguments($op,x), _arguments($op,y)), $op))
         Base.$op(x::AbstractSymbolic, y::Number) = $op(promote(x,y)...)
         Base.$op(x::Number, y::AbstractSymbolic) = $op(promote(x,y)...)
     end
@@ -85,16 +85,16 @@ end
 
 
 
-_children(::Any, x::SymbolicNumber) = (↓(x),)
-_children(::Any, x::SymbolicVariable) = (↓(x),)
-_children(::Any, x::SymbolicParameter) = (↓(x),)
+_arguments(::Any, x::SymbolicNumber) = (↓(x),)
+_arguments(::Any, x::SymbolicVariable) = (↓(x),)
+_arguments(::Any, x::SymbolicParameter) = (↓(x),)
 
-_children(op, x::SymbolicExpression) = _children(op, operation(x), x)
-_children(::typeof(+), ::typeof(+), x::SymbolicExpression) = ↓(x).children
-_children(::Any, ::typeof(+), x::SymbolicExpression) = (↓(x),)
-_children(::typeof(*), ::typeof(*), x::SymbolicExpression) = ↓(x).children
-_children(::Any, ::typeof(*), x::SymbolicExpression) = (↓(x),)
-_children(::Any, ::Any, x::SymbolicExpression) = (↓(x),)
+_arguments(op, x::SymbolicExpression) = _arguments(op, operation(x), x)
+_arguments(::typeof(+), ::typeof(+), x::SymbolicExpression) = ↓(x).children
+_arguments(::Any, ::typeof(+), x::SymbolicExpression) = (↓(x),)
+_arguments(::typeof(*), ::typeof(*), x::SymbolicExpression) = ↓(x).children
+_arguments(::Any, ::typeof(*), x::SymbolicExpression) = (↓(x),)
+_arguments(::Any, ::Any, x::SymbolicExpression) = (↓(x),)
 
 # cf https://discourse.julialang.org/t/efficient-tuple-concatenation/5398/8
 @inline tuplejoin(x) = x
@@ -234,9 +234,9 @@ end
 
 Base.inv(a::AbstractSymbolic) = SymbolicExpression(inv, (a,))
 Base.inv(a::SymbolicExpression) = _inv(operation(a), a)
-_inv(::typeof(inv), a) = only(children(a))
+_inv(::typeof(inv), a) = only(arguments(a))
 function _inv(::typeof(^), a)
-    u, v = children(a)
+    u, v = arguments(a)
     isa(v, SymbolicNumber) && return u^(-v())
     u^(-v)
 end
@@ -307,14 +307,14 @@ function ⨸(x,y)
     
     # can cancel?
     if is_operation(/)(y)
-        a, b = children(y)
+        a, b = arguments(y)
         return (x ⊗ b) ⨸ a
     end
     
     if is_operation(*)(x)
         if contains(x, y) # cancel y in x; return
             out = one(x)
-            for c ∈ sort(children(x))
+            for c ∈ sort(arguments(x))
                 c == y && continue
                 out = out ⊗ c
             end
@@ -324,3 +324,4 @@ function ⨸(x,y)
     
     return x / y
 end
+
