@@ -1,5 +1,5 @@
 # basics
-import SimpleExpressions.TermInterface: children
+import SimpleExpressions.TermInterface: arguments
 import SimpleExpressions: D, solve, coefficients
 
 @testset "SimpleExpressions.jl" begin
@@ -36,11 +36,11 @@ import SimpleExpressions: D, solve, coefficients
     end
 
     # +,* nary
-    @test length(children(x + 2x + 6sin(x))) == 3
-    @test length(children(x * 2x * 6sin(x))) == 5
+    @test length(arguments(x + 2x + 6sin(x))) == 3
+    @test length(arguments(x * 2x * 6sin(x))) == 5
 
     # sort
-    @test sort(children(6*sin(x)*x*p*2)) == [2,6,p,x,sin(x)]
+    @test sort(arguments(6*sin(x)*x*p*2)) == [2,6,p,x,sin(x)]
 
     # isless + isequal: exactly one of those three yields true.
     xs = (2, 3, x, 2x, p, 2p, x^2,sin(x),x+x^2+x^3)

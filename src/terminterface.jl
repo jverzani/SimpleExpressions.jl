@@ -7,19 +7,20 @@ TermInterface.operation(x::SymbolicExpression) = (↓(x)).operation
 TermInterface.arguments(x::AbstractSymbolic) = nothing
 function TermInterface.arguments(x::SymbolicExpression)
     children = (↓(x)).children
-    assymbolic.(children)
+    [assymbolic(child) for child in children]
 end
+TermInterface.sorted_arguments(x::SymbolicExpression) = sort(arguments(x))
 
-TermInterface.head(ex::SymbolicExpression) =  TermInterface.operation(ex)
-TermInterface.children(ex::SymbolicExpression) = [TermInterface.arguments(ex)...] # return AbstractVector not a tuple
 
-TermInterface.iscall(ex::SymbolicExpression) = true
-TermInterface.iscall(ex::AbstractSymbolic) = false
 
-TermInterface.isexpr(::SymbolicVariable) = false
-TermInterface.isexpr(::SymbolicParameter) = false
-TermInterface.isexpr(::SymbolicNumber) = false
-TermInterface.isexpr(::AbstractSymbolic) = true
+TermInterface.iscall(::SymbolicVariable) = false
+TermInterface.iscall(::SymbolicParameter) = false
+TermInterface.iscall(::SymbolicNumber) = false
+TermInterface.iscall(::AbstractSymbolic) = true
+
+TermInterface.isexpr(ex::SymbolicExpression) = true
+TermInterface.isexpr(ex::AbstractSymbolic) = false
+
 
 function TermInterface.maketerm(T::Type{<:AbstractSymbolic}, head, children, metadata)
     head(assymbolic.(children)...)
@@ -38,3 +39,7 @@ end
 function TermInterface.maketerm(T::Type{<:AbstractSymbolic}, ::Nothing, children, metadata)
     SymbolicNumber(only(children))
 end
+
+TermInterface.head(ex::SymbolicExpression) =  TermInterface.operation(ex)
+
+

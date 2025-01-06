@@ -98,11 +98,11 @@ function _ispolynomial(ex, x)
     !contains(ex, x) && return true
     x == ex && return true
     (+,-,*,/,^) ⊏ ex || return false
-    for c ∈ children(ex)
+    for c ∈ arguments(ex)
         out = _ispolynomial(c, x)
         out || return false
         if is_operation(^)(c)
-            a, b = children(c)
+            a, b = arguments(c)
             isconstant(b) || return false
             #contains(a, x) || false
             𝑥, 𝑝 = free_symbols(b)
@@ -110,7 +110,7 @@ function _ispolynomial(ex, x)
             bb = b()
             (isinteger(bb) && bb >= 0) || return false
         elseif is_operation(/)(c)
-            a,b = children(c)
+            a,b = arguments(c)
             contains(b, x) && return false
         end
     end
@@ -142,7 +142,7 @@ function coefficients(ex, x)
     # x is variable? expression?
     _ispolynomial(ex, x) || return nothing
     ex = _distribute_over_plus(ex, x)
-    cs = is_operation(+)(ex) ? children(ex) : (ex,)
+    cs = is_operation(+)(ex) ? arguments(ex) : (ex,)
     d = Dict{Any, Any}()
     for c in cs
         (aᵢ, i) = _monomial(c, x)
@@ -172,17 +172,17 @@ end
 _monomial(c::𝐿, x) = c == x ? (one(x), 1) : (c, 0)
 function _monomial(c, x)
 
-    @assert TermInterface.isexpr(c)
+    @assert TermInterface.iscall(c)
     isconstant(c) && return (c, 0)
 
     if is_operation(*)(c)
-        ps = _monomial.(children(c), x)
+        ps = _monomial.(arguments(c), x)
         aᵢ = reduce(⊗, first.(ps), init=one(x))
         i  = sum(last.(ps))
 
         return (aᵢ, i)
     elseif is_operation(^)(c)
-        a, b = children(c) # b is symbolic integer
+        a, b = arguments(c) # b is symbolic integer
         u, v = _monomial(a,x) # v is integer
         return (u^(v*b), (b()^v))
     else
@@ -205,13 +205,13 @@ end
 # a*(b+c) --> a*b + a*c (flatten?)
 # work of distribute_over_plus is op by op
 function _distribute_over_plus(::typeof(+), ex, x)
-    reduce(⊕, _distribute_over_plus.(sort(children(ex)), x), init=zero(x))
+    reduce(⊕, _distribute_over_plus.(sorted_arguments(ex), x), init=zero(x))
 end
 
 function _distribute_over_plus(::typeof(*), ex, x)
     a = one(x)
     b = nothing
-    for c ∈ children(ex)
+    for c ∈ arguments(ex)
         if isnothing(b) & is_operation(+)(c)
             b = c
             continue
@@ -220,22 +220,22 @@ function _distribute_over_plus(::typeof(*), ex, x)
         end
     end
     isnothing(b) && return a
-    return mapreduce(Base.Fix1(⊗, a), ⊕, sort(children(b)), init=zero(x))
+    return mapreduce(Base.Fix1(⊗, a), ⊕, sorted_arguments(b), init=zero(x))
 end
 
 function _distribute_over_plus(::typeof(-), ex, x)
-    reduce(⊖, _distribute_over_plus.(children(ex), x), init=zero(x))
+    reduce(⊖, _distribute_over_plus.(arguments(ex), x), init=zero(x))
 end
 
 
 function _distribute_over_plus(::typeof(/), ex, x)
-    a, b = children(ex)
+    a, b = arguments(ex)
     contains(b, x) && return ex
     a ⊗ (1 / b)
 end
 
 function _distribute_over_plus(::typeof(^), ex, x)
-    a, b = children(ex)
+    a, b = arguments(ex)
     a == x && return ex
     𝑥, 𝑝 = free_symbolx(b)
     if isempty(𝑥) && isempty(𝑥)
@@ -258,17 +258,17 @@ _combine_numbers(ex::𝐿) = ex
 _combine_numbers(ex) = _combine_numbers(operation(ex), ex)
 
 function _combine_numbers(::typeof(+), ex)
-    args = _combine_numbers.(sort(children(ex)))
+    args = _combine_numbers.(sorted_arguments(ex))
     foldl(⊕, args, init=zero(ex))
 end
 
 function _combine_numbers(::typeof(*), ex)
-    args = _combine_numbers.(sort(children(ex)))
+    args = _combine_numbers.(sorted_arguments(ex))
     foldl(⊗, args, init=one(ex))
 end
 
 function _combine_numbers(::Any, ex)
-    args = _combine_numbers.(children(ex))
+    args = _combine_numbers.(arguments(ex))
     maketerm(typeof(ex), operation(ex), args, nothing)
 end
 
@@ -292,7 +292,7 @@ isolate_x(v::Val{:←}, l, r::SymbolicExpression, x) = isolate_x(v, operation(r)
 ## ---- /
 
 function isolate_x(::Val{:→}, ::typeof(/), l, r, x)
-    a, b, = children(l)
+    a, b, = arguments(l)
     l′ = one(l)
     if contains(a, x)
         l′ = a
@@ -314,7 +314,7 @@ function isolate_x(::Val{:→}, ::typeof(/), l, r, x)
 end
 
 function isolate_x(::Val{:←}, ::typeof(/), l, r, x)
-    a, b, = children(r)
+    a, b, = arguments(r)
     r′ = one(r)
     if contains(a, x)
         l = l / a
@@ -334,7 +334,7 @@ end
 ## ---- -
 
 function isolate_x(::Val{:→}, ::typeof(-), l, r, x)
-    a, b, = children(l)
+    a, b, = arguments(l)
     l′ = zero(l)
     if !contains(a, x)
         r = r ⊖ a
@@ -352,7 +352,7 @@ function isolate_x(::Val{:→}, ::typeof(-), l, r, x)
 end
 
 function isolate_x(::Val{:←}, ::typeof(-), l, r, x)
-    a, b, = children(r)
+    a, b, = arguments(r)
     r′ = zero(r)
     if contains(a, x)
         l = l ⊖ a
@@ -372,7 +372,7 @@ end
 ## ----- ^
 
 function isolate_x(::Val{:→}, ::typeof(^), l, r, x)
-    a, b = children(l)
+    a, b = arguments(l)
     if !contains(b, x)
         if !isvariable(b)
             bb = b()
@@ -387,7 +387,7 @@ function isolate_x(::Val{:→}, ::typeof(^), l, r, x)
 end
 
 function isolate_x(::Val{:←}, ::typeof(^), l, r, x)
-    a, b, = children(r)
+    a, b, = arguments(r)
 
     if !contains(b, x)
         if !isvariable(b)
@@ -406,7 +406,7 @@ end
 
 function isolate_x(::Val{:→}, ::typeof(+), l, r, x)
     l′ = zero(l)
-    for c ∈ children(l)
+    for c ∈ arguments(l)
         if contains(c, x)
             l′ = l′ ⊕ c
         else
@@ -419,7 +419,7 @@ end
 
 function isolate_x(::Val{:←}, ::typeof(+), l, r, x)
     r′ = zero(r)
-    for c ∈ children(r)
+    for c ∈ arguments(r)
         if contains(c, x)
             l = l ⊖ c
         else
@@ -433,7 +433,7 @@ end
 
 function isolate_x(::Val{:→}, ::typeof(*), l, r, x)
     l′ = one(l)
-    for c ∈ children(l)
+    for c ∈ arguments(l)
         if contains(c, x)
             l′ = l′ ⊗ c            
         else
@@ -445,7 +445,7 @@ end
 
 function isolate_x(::Val{:←}, ::typeof(*), l, r, x)
     r′ = one(r)
-    for c ∈ children(r)
+    for c ∈ arguments(r)
         if contains(c, x)
             l = l ⨸ c
         else
@@ -462,7 +462,7 @@ function isolate_x(::Val{:→}, ::Any, l, r, x)
     op⁻¹ = get(inverse_functions, op, nothing)
 
     if !isnothing(op⁻¹)
-        l = only(children(l))
+        l = only(arguments(l))
         r = op⁻¹(r)
     end
 
@@ -476,7 +476,7 @@ function isolate_x(::Val{:←}, ::Any, l, r, x)
     op⁻¹ = get(inverse_functions, op, nothing)
 
     if !isnothing(op⁻¹)
-        r = only(children(r))
+        r = only(arguments(r))
         l = op⁻¹(l)
     end
 

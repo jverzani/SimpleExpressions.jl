@@ -11,8 +11,8 @@ Base.convert(::Type{Expr}, x::SymbolicVariable) = Symbol(x)
 Base.convert(::Type{Expr}, p::SymbolicParameter) = Symbol(p)
 Base.convert(::Type{Expr}, x::SymbolicNumber) = x()
 function Base.convert(::Type{Expr}, x::SymbolicExpression)
-    op, arguments = operation(x), children(x)
-    Expr(:call,  op, convert.(Expr, assymbolic.(arguments))...)
+    op, args = operation(x), arguments(x)
+    Expr(:call,  op, convert.(Expr, assymbolic.(args))...)
 end
 
 ## ----
