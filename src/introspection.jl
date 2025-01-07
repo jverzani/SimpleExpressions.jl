@@ -25,6 +25,28 @@ find_xp(p::DynamicVariable) = (x=Δ, p=Symbol(p))
 find_xp(x::DynamicConstant) = (x=Δ, p=Δ)
 function find_xp(u::StaticExpression)
     x, p = Δ, Δ
+    us = map(find_xp, u.children)
+    for (x′, p′) ∈ us
+#        x′, p′ = o.x, o.p
+        if x == Δ
+            x = x′
+        elseif !(x′ == Δ)
+            x == x′ || error("more than one variable")
+            x = x′
+        end
+        if p == Δ
+            p = p′
+        elseif p′ != Δ
+            p == p′ || error("more than one variable")
+            p = p′
+        end
+    end
+    (; x, p)
+end
+#=
+
+
+
     for c ∈ u.children
         o = find_xp(c)
         x′, p′ = o.x, o.p
@@ -43,6 +65,7 @@ function find_xp(u::StaticExpression)
     end
     (;x, p)
 end
+=#
 function find_xp(u::ExpressionTypeAliases.ExpressionLoosely)
     expression_is_constant(u) && return (;x=Δ, p=Δ)
     error("Shouldn't get here")

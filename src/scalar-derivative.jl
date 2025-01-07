@@ -63,9 +63,11 @@ end
 function D(::typeof(*), args, x)
     args′ = D.(args, x)
     tot = zero(x)
-    aa = Any[ai for ai in args] 
+    aa = Any[ai for ai in args]
     for (i,ai′) ∈ enumerate(args′)
-        copy!(aa, args)
+        for (i,a) ∈ enumerate(args) # copy!
+            aa[i] = a
+        end
         aa[i] = ai′
         tot = tot ⊕ reduce(⊗, aa)
     end

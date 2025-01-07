@@ -10,7 +10,7 @@ function TermInterface.arguments(x::SymbolicExpression)
     assymbolic.(children)
     #[assymbolic(child) for child in children]
 end
-TermInterface.sorted_arguments(x::SymbolicExpression) = sort(arguments(x))
+TermInterface.sorted_arguments(x::SymbolicExpression) = TupleTools.sort(arguments(x))
 
 
 
