@@ -41,5 +41,4 @@ function TermInterface.maketerm(T::Type{<:AbstractSymbolic}, ::Nothing, children
 end
 
 TermInterface.head(ex::SymbolicExpression) =  TermInterface.operation(ex)
-
-
+TermInterface.children(ex::SymbolicExpression) = TermInterface.arguments(ex)

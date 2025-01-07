@@ -1,52 +1,7 @@
-module SimpleExpressionsMetatheoryExt
-
-import SimpleExpressions
-import SimpleExpressions: AbstractSymbolic, SymbolicNumber, SymbolicParameter,
-    SymbolicVariable, SymbolicExpression, SymbolicEquation
-import SimpleExpressions: simplify, canonicalize, powsimp, trigsimp, logcombine,
-    expand, expand_trig, expand_power_exp, expand_log
-
 import Combinatorics: combinations, permutations
-
 using Metatheory
 
-# make methods for expressions
-function simplify(ex::SymbolicExpression)
-    ex = rewrite(ex, CANONICALIZE)
-    theories = (PLUS_DISTRIBUTE,
-                POW_RULES,
-                ASSORTED_RULES,
-                TRIG_RULES,
-                EXP_RULES,
-                LOG_RULES
-                )
-    ex = rewrite(ex, reduce(∪, theories))
-    ex = rewrite(ex, CANONICALIZE)
-end
-
-function expand(ex::SymbolicExpression)
-    theories =  (
-        _expand_minus,
-        _expand_distributive, _expand_binom, _expand_trig,
-        _expand_power, _expand_log,
-        _expand_misc
-    )
-    ex = rewrite(ex, reduce(∪,theories))
-end
-
-
-#
-canonicalize(ex::SymbolicExpression) = rewrite(ex, CANONICALIZE)
-powsimp(ex::SymbolicExpression) = rewrite(ex, CANONICALIZE ∪ POW_RULES ∪ EXP_RULES)
-trigsimp(ex::SymbolicExpression) = rewrite(ex, CANONICALIZE ∪ TRIG_RULES)
-logcombine(ex::SymbolicExpression) = rewrite(ex, CANONICALIZE ∪ LOG_RULES)
-
-expand_trig(ex::SymbolicExpression) = rewrite(ex, _expand_trig)
-expand_power_exp(ex::SymbolicExpression) = rewrite(ex, _expand_power)
-expand_log(ex::SymbolicExpression) = rewrite(ex, _expand_log)
-
-## ----- utils -----
-
+## ----- predicates -----
 is_literal_number(::SymbolicNumber) = true
 is_literal_number(::Number) = true
 is_literal_number(::Any) = false
@@ -117,7 +72,7 @@ end
 ## ---- some predicates used in SymbolicUtils rules
 function isnotflat(⋆)
     function (x)
-        args = children(x)
+        args = arguments(x)
         for t in args
             if is_operation(⋆)(t)
                 return true
@@ -128,7 +83,7 @@ function isnotflat(⋆)
 end
 
 function flatten_term(⋆, x)
-    args = children(x)
+    args = arguments(x)
     # flatten nested ⋆
     flattened_args = []
     for t in args
@@ -143,7 +98,7 @@ end
 
 hasrepeats(::SimpleExpressions.AbstractSymbolic)= false
 function hasrepeats(x′::SimpleExpressions.SymbolicExpression)
-    x = TermInterface.children(x′)
+    x = TermInterface.arguments(x′)
     length(x) <= 1 && return false
     for i=1:length(x)-1
         if isequal(x[i], x[i+1])
@@ -182,7 +137,7 @@ function has_trig_exp(term)
 end
 
 
-needs_sorting(f) = x -> is_operation(f)(x) && !issorted(children(x))
+needs_sorting(f) = x -> is_operation(f)(x) && !issorted(arguments(x))
 needs_sorting₊ = needs_sorting(+) # issue with using rhs as predicate?
 needs_sortingₓ = needs_sorting(*)
 
@@ -199,7 +154,8 @@ function sort_args(f, t)
     maketerm(typeof(t), f, sort(args), metadata(t))
 end
 
-## -----
+#=
+## ----- tuple things
 ## Sort a tuple;  from TupleTools
 tuplesort(t::Tuple; lt=isless, by=identity, rev::Bool=false) = _sort(t, lt, by, rev)
 @inline function _sort(t::Tuple, lt=isless, by=identity, rev::Bool=false)
@@ -233,13 +189,14 @@ function tail(t::Tuple)
     b
 end
 
+=#
 # issue is ~~x
 Base.view(t::NTuple{N, AbstractSymbolic}, ind::UnitRange) where {N} = t[ind]
 
 ## rules for simplification
 CANONICALIZE_PLUS = [
 
-#    @rule(~x::isnotflat(+) => flatten_term(+, ~x)) 
+#    @rule(~x::isnotflat(+) => flatten_term(+, ~x))
 
     @rule(~x::needs_sorting₊ => sort_args(+, ~x)) # also merge
     @ordered_acrule(~a::is_literal_number + ~b::is_literal_number => ~a + ~b)
@@ -411,7 +368,70 @@ _expand_misc = [
 ]
 
 
+# make methods for expressions
+function simplify(ex::SymbolicExpression)
+    ex = rewrite(ex, CANONICALIZE)
+    theories = (PLUS_DISTRIBUTE,
+                POW_RULES,
+                ASSORTED_RULES,
+                TRIG_RULES,
+                EXP_RULES,
+                LOG_RULES
+                )
+    ex = rewrite(ex, reduce(∪, theories))
+    ex = rewrite(ex, CANONICALIZE)
+end
+
+function expand(ex::SymbolicExpression)
+    theories =  (
+        _expand_minus,
+        _expand_distributive, _expand_binom, _expand_trig,
+        _expand_power, _expand_log,
+        _expand_misc
+    )
+    ex = rewrite(ex, reduce(∪,theories))
+end
 
 
+#
+canonicalize(ex::SymbolicExpression) = rewrite(ex, CANONICALIZE)
+powsimp(ex::SymbolicExpression) = rewrite(ex, CANONICALIZE ∪ POW_RULES ∪ EXP_RULES)
+trigsimp(ex::SymbolicExpression) = rewrite(ex, CANONICALIZE ∪ TRIG_RULES)
+logcombine(ex::SymbolicExpression) = rewrite(ex, CANONICALIZE ∪ LOG_RULES)
 
+expand_trig(ex::SymbolicExpression) = rewrite(ex, _expand_trig)
+expand_power_exp(ex::SymbolicExpression) = rewrite(ex, _expand_power)
+expand_log(ex::SymbolicExpression) = rewrite(ex, _expand_log)
+
+
+# function to run quickly and make terms more nice
+# used by show
+function _canon(x)
+    rules = [
+        # sort
+        @rule(~x::needs_sorting₊ => sort_args(+, ~x)) # also merge
+        @rule(~x::needs_sortingₓ => sort_args(*, ~x))
+
+        # combine terms
+        @rule(~x + ~x => 2x)
+        @acrule(~x + *(~β, ~x) => *(1 + ~β, ~x))
+        @acrule(*(~~x) + *(~β, ~~x) => *(1 + ~β, (~~x)...))
+        @acrule(*(~α, ~~x) + *(~β, ~~x) => *(~α + ~β, (~~x)...))
+
+        # additive identity
+        @acrule(~z::iszero + ~x => ~x)
+        @acrule(+(~z::iszero, ~~xs...) => +(~~xs...))
+
+        # multiplicative zero
+        @ordered_acrule(~z::iszero * ~x => zero(~x))
+        @ordered_acrule(*(~z::iszero, ~~xs...) => zero(~z))
+
+        # multiplicative identity
+        @acrule(~z::isone * ~x => ~x)
+        @acrule(*(~z::isone, ~~xs...) => *(~~xs...))
+
+
+    ]
+
+    rewrite(x, rules)
 end
