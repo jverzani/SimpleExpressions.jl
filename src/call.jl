@@ -33,26 +33,37 @@
 
 function (ex::SymbolicExpression)(x)
     𝑥,𝑝 = xp(ex)
-    _call(ex, operation(ex), (𝑥,), x)
+    _call(ex, operation(ex), 𝑥, x)
 end
 
 function (ex::SymbolicExpression)(x,p)
     𝑥,𝑝 = xp(ex)
-    _call(ex, operation(ex), (𝑥,𝑝), x, p)
+    _call(ex, operation(ex), 𝑥, x, 𝑝, p)
 end
 
+# why do these allocate????
+_nt(𝑥::Symbol, x::T) where T = NamedTuple{(𝑥,),Tuple{T}}((x,))
+_nt(𝑥::Symbol, x::T, 𝑝::Symbol, p::S) where {T,S} =
+    NamedTuple{(𝑥,𝑝),Tuple{T,S}}((x,p))
 
-
-
-_call(ex, ::Any, 𝑥, x) =  (↓(ex))(NamedTuple{𝑥}((x,)))
-_call(ex, ::Any, 𝑥𝑝, x, p) =  (↓(ex))(NamedTuple{𝑥𝑝}((x,p)))
-
-function _call(ex, ::typeof(Base.broadcasted), 𝑥, x)
-    (↓(ex))(NamedTuple{𝑥}((x,))) |> Base.materialize
+function _call(ex, ::Any, 𝑥::Symbol, x::T) where T
+    u = ↓(ex)
+    v = _nt(𝑥, x)
+    u(v)
 end
 
-function _call(ex, ::typeof(Base.broadcasted), 𝑥𝑝, x, p)
-    (↓(ex))(NamedTuple{tuple(𝑥𝑝...)}((x,p)))  |> Base.materialize
+function _call(ex, ::F, 𝑥::Symbol, x::T, 𝑝::Symbol, p::S) where {F, T,S}
+    u = ↓(ex)
+    v = _nt(𝑥, x, 𝑝,  p)
+    u(v)
+end
+
+function _call(ex, ::typeof(Base.broadcasted), 𝑥, x::T) where T
+    (↓(ex))(NamedTuple{(𝑥,),Tuple{T}}((x,))) |> Base.materialize
+end
+
+function _call(ex, ::typeof(Base.broadcasted), 𝑥, x::T, 𝑝, p::S) where {T,S}
+    (↓(ex))(NamedTuple{(𝑥, 𝑝), Tuple{T,S}}((x,p)))  |> Base.materialize
 end
 
 # directly call with kwargs.
