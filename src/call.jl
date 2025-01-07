@@ -1,6 +1,6 @@
 ## ---- call
 
-## Evaluate or substitute 
+## Evaluate or substitute
 ##
 ## We can either evaluate (to return a number)
 ## or substitute (returning a symbolic value)
@@ -32,12 +32,12 @@
 
 
 function (ex::SymbolicExpression)(x)
-    𝑥,𝑝 = 𝑥𝑝!(ex)
+    𝑥,𝑝 = xp(ex)
     _call(ex, operation(ex), (𝑥,), x)
 end
 
 function (ex::SymbolicExpression)(x,p)
-    𝑥,𝑝 = 𝑥𝑝!(ex)
+    𝑥,𝑝 = xp(ex)
     _call(ex, operation(ex), (𝑥,𝑝), x, p)
 end
 
@@ -73,7 +73,7 @@ end
 ## position
 ## * `u(x, :)` substitute for `x, leaves expression with parameter
 ## * `u(:, p)` substitute for `p`, leaves expression with variable
-## The result can be evaluated 
+## The result can be evaluated
 
 const MISSING = Union{Nothing, Missing, typeof(:)}
 
@@ -110,6 +110,3 @@ function substitutep(ex, p)
     mapping = _ -> DynamicConstant(p)
     SymbolicExpression(expression_map_matched(pred, mapping, ↓(ex)))
 end
-
-
-

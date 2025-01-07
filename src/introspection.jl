@@ -19,15 +19,14 @@ end
 # used to identify x, p
 # error if more than one found
 # much faster than `free_symbols` as this is type stable
-find_xp(x::AbstractSymbolic) = find_xp(↓(x))
-find_xp(x::StaticVariable{T}) where {T} = (x=Symbol(x), p=Δ)
-find_xp(p::DynamicVariable) = (x=Δ, p=Symbol(p))
-find_xp(x::DynamicConstant) = (x=Δ, p=Δ)
-function find_xp(u::StaticExpression)
+xp(x::AbstractSymbolic) = xp(↓(x))
+xp(x::StaticVariable{T}) where {T} = (x=Symbol(x), p=Δ)
+xp(p::DynamicVariable) = (x=Δ, p=Symbol(p))
+xp(x::DynamicConstant) = (x=Δ, p=Δ)
+function xp(u::StaticExpression)
     x, p = Δ, Δ
-    us = map(find_xp, u.children)
+    us = map(xp, u.children)
     for (x′, p′) ∈ us
-#        x′, p′ = o.x, o.p
         if x == Δ
             x = x′
         elseif !(x′ == Δ)
@@ -43,46 +42,13 @@ function find_xp(u::StaticExpression)
     end
     (; x, p)
 end
-#=
 
-
-
-    for c ∈ u.children
-        o = find_xp(c)
-        x′, p′ = o.x, o.p
-        if x == Δ
-            x = x′
-        elseif !(x′ == Δ)
-            x == x′ || error("more than one variable")
-            x = x′
-        end
-        if p == Δ
-            p = p′
-        elseif p′ != Δ
-            p == p′ || error("more than one variable")
-            p = p′
-        end
-    end
-    (;x, p)
-end
-=#
-function find_xp(u::ExpressionTypeAliases.ExpressionLoosely)
+function xp(u::ExpressionTypeAliases.ExpressionLoosely)
     expression_is_constant(u) && return (;x=Δ, p=Δ)
     error("Shouldn't get here")
 end
 
 
-# return symbols for the symbolic variable and parameter
-function 𝑥𝑝!(ex::SymbolicExpression)
-    return find_xp(ex)
-    𝑥, 𝑝 = ex.x[], ex.p[]
-    if 𝑥 == Δ && 𝑝 == Δ
-        𝑥, 𝑝 = find_xp(ex)
-        ex.x[] = 𝑥
-        ex.p[] = 𝑝
-    end
-    𝑥,𝑝
-end
 
 
 # free_symbols return unique collection of symbols for the

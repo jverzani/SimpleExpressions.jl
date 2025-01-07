@@ -8,7 +8,6 @@ TermInterface.arguments(x::AbstractSymbolic) = nothing
 function TermInterface.arguments(x::SymbolicExpression)
     children = (↓(x)).children
     assymbolic.(children)
-    #[assymbolic(child) for child in children]
 end
 TermInterface.sorted_arguments(x::SymbolicExpression) = TupleTools.sort(arguments(x))
 
