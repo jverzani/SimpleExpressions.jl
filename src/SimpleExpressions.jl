@@ -11,6 +11,7 @@ $(joinpath(@__DIR__, "..", "README.md") |>
 
 """
 module SimpleExpressions
+import TupleTools
 using CallableExpressions
 import TermInterface
 import TermInterface: iscall, operation, arguments, sorted_arguments,
@@ -18,12 +19,14 @@ import TermInterface: iscall, operation, arguments, sorted_arguments,
 using CommonEq
 export ≪, ≦, Eq, ⩵, ≶, ≷, ≫, ≧ # \ll, \leqq, \Equal,\lessgtr, \gtrless, \gg,\geqq
 
+
 export @symbolic
 
 include("types.jl")
 include("constructors.jl")
 include("equations.jl")
 include("terminterface.jl")
+#include("metatheory.jl")
 include("ops.jl")
 include("show.jl")
 include("introspection.jl")

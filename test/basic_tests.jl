@@ -1,5 +1,5 @@
 # basics
-import SimpleExpressions.TermInterface: arguments
+import SimpleExpressions.TermInterface: arguments, sorted_arguments
 import SimpleExpressions: D, solve, coefficients
 
 @testset "SimpleExpressions.jl" begin
@@ -40,7 +40,7 @@ import SimpleExpressions: D, solve, coefficients
     @test length(arguments(x * 2x * 6sin(x))) == 5
 
     # sort
-    @test sort(arguments(6*sin(x)*x*p*2)) == [2,6,p,x,sin(x)]
+    @test sorted_arguments(6*sin(x)*x*p*2) == (2,6,p,x,sin(x))
 
     # isless + isequal: exactly one of those three yields true.
     xs = (2, 3, x, 2x, p, 2p, x^2,sin(x),x+x^2+x^3)
@@ -327,7 +327,7 @@ end
     ex = cos(w) - p*w
     @test D(ex, w) == D(ex) # finds w from expression
     @test D(ex, p) == -w
-    
+
 end
 
 @testset "solve" begin
@@ -353,7 +353,7 @@ end
     @test l == a # solved
     @test !contains(r, a)
     @test contains(r, B) # parameterized still
-    
+
 end
 
 @testset "coefficients" begin

@@ -44,10 +44,8 @@ Base.one(::AbstractSymbolic)  = SymbolicNumber(1)
 const Δ = :nothing # flag for missing symbols 𝑥, 𝑝
 struct SymbolicExpression{T <: StaticExpression} <: AbstractSymbolic
     u::T
-    x::Base.RefValue{Symbol}
-    p::Base.RefValue{Symbol}
 end
-SymbolicExpression(u) = SymbolicExpression(u, Ref(Δ), Ref(Δ))
+SymbolicExpression(u) = SymbolicExpression(u)
 function SymbolicExpression(op, children)
     u = StaticExpression(map(↓,children), op)
     SymbolicExpression(u)
@@ -67,4 +65,3 @@ Base.promote_rule(::Type{<:AbstractSymbolic}, x::Type{T}) where {T <: Number} = 
 Base.convert(::Type{<:AbstractSymbolic}, x::Number) = SymbolicNumber(DynamicConstant(x))
 Base.convert(::Type{<:AbstractSymbolic}, x::SymbolicVariable) = x
 Base.convert(::Type{<:AbstractSymbolic}, x::SymbolicParameter) = x
-

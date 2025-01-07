@@ -203,9 +203,10 @@ function _assymbolic(x)
     Expr(:call, op, _assymbolic.(arguments)...)
 end
 
+assymbolic(u::DynamicConstant) = SymbolicNumber(u)
 assymbolic(u::StaticVariable) = SymbolicVariable(u)
 assymbolic(u::DynamicVariable) = SymbolicParameter(u)
-assymbolic(u::DynamicConstant) = SymbolicNumber(u)
+
 assymbolic(u::StaticExpression) = SymbolicExpression(u)
 
 # ↑ \uparrow[tab]; returns SimpleExpression
@@ -218,4 +219,3 @@ assymbolic(u::StaticExpression) = SymbolicExpression(u)
 ↓(x::Number) = DynamicConstant(x)
 ↓(x::ExpressionTypeAliases.ExpressionLoosely) = x
 ↓(x) = DynamicConstant(x)
-

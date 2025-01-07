@@ -7,9 +7,9 @@ TermInterface.operation(x::SymbolicExpression) = (↓(x)).operation
 TermInterface.arguments(x::AbstractSymbolic) = nothing
 function TermInterface.arguments(x::SymbolicExpression)
     children = (↓(x)).children
-    [assymbolic(child) for child in children]
+    assymbolic.(children)
 end
-TermInterface.sorted_arguments(x::SymbolicExpression) = sort(arguments(x))
+TermInterface.sorted_arguments(x::SymbolicExpression) = TupleTools.sort(arguments(x))
 
 
 
@@ -41,5 +41,4 @@ function TermInterface.maketerm(T::Type{<:AbstractSymbolic}, ::Nothing, children
 end
 
 TermInterface.head(ex::SymbolicExpression) =  TermInterface.operation(ex)
-
-
+TermInterface.children(ex::SymbolicExpression) = TermInterface.arguments(ex)

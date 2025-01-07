@@ -19,15 +19,14 @@ end
 # used to identify x, p
 # error if more than one found
 # much faster than `free_symbols` as this is type stable
-find_xp(x::AbstractSymbolic) = find_xp(↓(x))
-find_xp(x::StaticVariable{T}) where {T} = (x=Symbol(x), p=Δ)
-find_xp(p::DynamicVariable) = (x=Δ, p=Symbol(p))
-find_xp(x::DynamicConstant) = (x=Δ, p=Δ)
-function find_xp(u::StaticExpression)
+xp(x::AbstractSymbolic) = xp(↓(x))
+xp(x::StaticVariable{T}) where {T} = (x=Symbol(x), p=Δ)
+xp(p::DynamicVariable) = (x=Δ, p=Symbol(p))
+xp(x::DynamicConstant) = (x=Δ, p=Δ)
+function xp(u::StaticExpression)
     x, p = Δ, Δ
-    for c ∈ u.children
-        o = find_xp(c)
-        x′, p′ = o.x, o.p
+    us = map(xp, u.children)
+    for (x′, p′) ∈ us
         if x == Δ
             x = x′
         elseif !(x′ == Δ)
@@ -41,24 +40,15 @@ function find_xp(u::StaticExpression)
             p = p′
         end
     end
-    (;x, p)
+    (; x, p)
 end
-function find_xp(u::ExpressionTypeAliases.ExpressionLoosely)
+
+function xp(u::ExpressionTypeAliases.ExpressionLoosely)
     expression_is_constant(u) && return (;x=Δ, p=Δ)
     error("Shouldn't get here")
 end
 
 
-# return symbols for the symbolic variable and parameter
-function 𝑥𝑝!(ex::SymbolicExpression)
-    𝑥, 𝑝 = ex.x[], ex.p[]
-    if 𝑥 == Δ && 𝑝 == Δ
-        𝑥, 𝑝 = find_xp(ex)
-        ex.x[] = 𝑥
-        ex.p[] = 𝑝
-    end
-    𝑥,𝑝
-end
 
 
 # free_symbols return unique collection of symbols for the
@@ -80,10 +70,10 @@ end
 
 # f contains symbolic variable or expression x
 Base.contains(f::AbstractSymbolic, x) = contains(↓(f), ↓(x))
-Base.contains(f::Any, x::𝑋) where 𝑋 = false 
+Base.contains(f::Any, x::𝑋) where 𝑋 = false
 Base.contains(f::_Variable, x::𝑋) where 𝑋 = (f == x)
 
-function Base.contains(f::StaticExpression, x::𝑋) where 𝑋 
+function Base.contains(f::StaticExpression, x::𝑋) where 𝑋
     f == x && return true
     for c ∈ f.children
         (x == c || contains(c, x)) && return true
@@ -94,10 +84,10 @@ end
 Base.occursin(x::AbstractSymbolic, f::AbstractSymbolic) = contains(f, x)
 
 # we have some means to query expressions
-# isnumeric -- contains no SymbolicVariable or SymbolicParameter. 
+# isnumeric -- contains no SymbolicVariable or SymbolicParameter.
 # isconstant -- contains no SymbolicVariable (possibly SymbolicParameter)
 # isvariable -- is a SymbolicVariable or SymbolicConstant
-# 
+#
 
 # Tests whether a Symbolic value (character) is numeric.
 Base.isnumeric(x::AbstractSymbolic) = false
@@ -127,7 +117,3 @@ end
 isvariable(expr) = false
 isvariable(::SymbolicVariable) = true
 isvariable(::SymbolicParameter) = true
-
-
-
-

@@ -5,7 +5,6 @@ struct SymbolicGenerator{T <: StaticExpression} <: AbstractSymbolic
 end
 
 Base.show(io::IO, ex::SymbolicGenerator) = print(io, "symbolic generator")
-𝑥𝑝!(ex::SymbolicGenerator) = find_xp(ex)
 
 for fn ∈ (:sum, #:prod by mapreduce
           :map, :filter,
@@ -30,7 +29,7 @@ Base.mapreduce(f, op, iter::AbstractSymbolic, iters...) =
 function (ex::SymbolicGenerator)(x, p=nothing)
     # two layers
     # iter substitute, then f,
-    𝑥,𝑝 = 𝑥𝑝!(ex)
+    𝑥,𝑝 = xp(ex)
     u = ↓(ex)
     if 𝑥 != Δ && p != Δ
         xs = NamedTuple{(𝑥, 𝑝)}((x,p))
@@ -40,7 +39,7 @@ function (ex::SymbolicGenerator)(x, p=nothing)
         xs = NamedTuple{(𝑥,)}((x,))
         u = u(xs)
         if !isa(p, MISSING)
-            𝑥,𝑝 = find_xp(u)
+            𝑥,𝑝 = xp(u)
             if 𝑝 != Δ
                 ps = NamedTuple{(𝑝,)}((p,))
                 u = ↓(u)(ps)
@@ -49,7 +48,7 @@ function (ex::SymbolicGenerator)(x, p=nothing)
     elseif 𝑝 != Δ
         ps = NamedTuple{(𝑝,)}((p,))
         u = u(ps)
-        𝑥,𝑝 = find_xp(u)
+        𝑥,𝑝 = xp(u)
         xs = NamedTuple{(𝑥,)}((x,))
         u = ↓(u)(xs)
     end
@@ -63,4 +62,3 @@ function (ex::SymbolicGenerator)(x, p=nothing)
     end
     u
 end
-

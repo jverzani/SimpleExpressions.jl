@@ -18,7 +18,7 @@ for op ∈ (:/, )
         Base.$op(x::Number, y::AbstractSymbolic) = $op(promote(x,y)...)
     end
 end
-    
+
 ## arrange for *, + to be n-ary
 for op ∈ (:*, :+)
     @eval begin
@@ -303,98 +303,24 @@ function ⨸(x,y)
     iszero(x) && return zero(x)
     !isinf(x) && isinf(y) && return zero(x)
 
-    
-    
+
+
     # can cancel?
     if is_operation(/)(y)
         a, b = arguments(y)
         return (x ⊗ b) ⨸ a
     end
-    
+
     if is_operation(*)(x)
         if contains(x, y) # cancel y in x; return
             out = one(x)
-            for c ∈ sort(arguments(x))
+            for c ∈ sorted_arguments(x)
                 c == y && continue
                 out = out ⊗ c
             end
             return out
         end
     end
-    
+
     return x / y
 end
-
-
-_plus(x::SymbolicNumber, y) = x + y
-_plus(x::𝑉, y) = (x == y) ? 2x : x + y
-function _plus(x::SymbolicExpression, y)
-    isa(y, SymbolicNumber) && return _plus(y, x)
-    isa(y, 𝑉) && return _plus(y,  x)
-    x == y && return 2x
-
-    if is_operation(+)(x)
-        # consolidate if possible
-        no, yes = [],[]
-        for c ∈ arguments(x)
-            contains(c, y) ? push!(yes, c) : push!(no, c)
-        end
-        a = reduce(+, sort(no); init=zero(x))
-        b = _combine(+, yes, y)
-        return a + b
-    elseif is_operation(-)(x)
-        a, b = arguments(x)
-        return _plus(a + (-b), y)
-    elseif is_operation(*)(x)
-        no, yes = [],[]
-        for c ∈ arguments(x)
-            contains(c, y) ? push!(yes, c) : push!(no, c)
-        end
-        a = reduce(*, sort(no); init=zero(x))
-        b = _combine(*, yes, y)
-        return a * b
-    elseif is_operation(/)(x)
-        a, b = arguments(x)
-        contains(a, y) && return _plus(a * (1/b), y)
-    elseif is_operation(^)(x)
-        a, b = arguments(x)
-        contains(a, y) && (@show a, y)
-    else
-
-    end
-    @show :fixthis
-    return x + y
-end
-
-export _plus
-
-function _combine(::typeof(+), xs, y)
-    a, b = 0, 0 # return a*y + b
-    for c in xs
-        @show c
-        if c == y
-            @show c, y
-            a = a + 1
-        elseif is_operation(*)(c)
-            aᵢ, n  =  nothing, 0
-            for cᵢ ∈ arguments(c)
-                if cᵢ == y && n == 0
-                    n = 1
-                else
-                    aᵢ = isnothing(aᵢ) ? cᵢ : aᵢ * cᵢ
-                end
-            end
-            @show n
-            if n > 0
-                a = a + aᵢ
-            else
-                b = b + cᵢ
-            end
-        else
-            b = b + c
-        end
-    end
-    b + a * y
-end
-export _combine    
-    
