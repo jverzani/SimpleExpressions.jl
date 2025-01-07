@@ -24,7 +24,7 @@ for op ∈ (:*, :+)
     @eval begin
         import Base: $op
         Base.$op(x::AbstractSymbolic, y::AbstractSymbolic) =
-            SymbolicExpression(StaticExpression(tuplejoin(_children($op,x), _children($op,y)), $op))
+            SymbolicExpression(StaticExpression(tuplejoin(_arguments($op,x), _arguments($op,y)), $op))
         Base.$op(x::AbstractSymbolic, y::Number) = $op(promote(x,y)...)
         Base.$op(x::Number, y::AbstractSymbolic) = $op(promote(x,y)...)
     end
@@ -85,16 +85,16 @@ end
 
 
 
-_children(::Any, x::SymbolicNumber) = (↓(x),)
-_children(::Any, x::SymbolicVariable) = (↓(x),)
-_children(::Any, x::SymbolicParameter) = (↓(x),)
+_arguments(::Any, x::SymbolicNumber) = (↓(x),)
+_arguments(::Any, x::SymbolicVariable) = (↓(x),)
+_arguments(::Any, x::SymbolicParameter) = (↓(x),)
 
-_children(op, x::SymbolicExpression) = _children(op, operation(x), x)
-_children(::typeof(+), ::typeof(+), x::SymbolicExpression) = ↓(x).children
-_children(::Any, ::typeof(+), x::SymbolicExpression) = (↓(x),)
-_children(::typeof(*), ::typeof(*), x::SymbolicExpression) = ↓(x).children
-_children(::Any, ::typeof(*), x::SymbolicExpression) = (↓(x),)
-_children(::Any, ::Any, x::SymbolicExpression) = (↓(x),)
+_arguments(op, x::SymbolicExpression) = _arguments(op, operation(x), x)
+_arguments(::typeof(+), ::typeof(+), x::SymbolicExpression) = ↓(x).children
+_arguments(::Any, ::typeof(+), x::SymbolicExpression) = (↓(x),)
+_arguments(::typeof(*), ::typeof(*), x::SymbolicExpression) = ↓(x).children
+_arguments(::Any, ::typeof(*), x::SymbolicExpression) = (↓(x),)
+_arguments(::Any, ::Any, x::SymbolicExpression) = (↓(x),)
 
 # cf https://discourse.julialang.org/t/efficient-tuple-concatenation/5398/8
 @inline tuplejoin(x) = x
@@ -234,9 +234,9 @@ end
 
 Base.inv(a::AbstractSymbolic) = SymbolicExpression(inv, (a,))
 Base.inv(a::SymbolicExpression) = _inv(operation(a), a)
-_inv(::typeof(inv), a) = only(children(a))
+_inv(::typeof(inv), a) = only(arguments(a))
 function _inv(::typeof(^), a)
-    u, v = children(a)
+    u, v = arguments(a)
     isa(v, SymbolicNumber) && return u^(-v())
     u^(-v)
 end
@@ -307,14 +307,14 @@ function ⨸(x,y)
     
     # can cancel?
     if is_operation(/)(y)
-        a, b = children(y)
+        a, b = arguments(y)
         return (x ⊗ b) ⨸ a
     end
     
     if is_operation(*)(x)
         if contains(x, y) # cancel y in x; return
             out = one(x)
-            for c ∈ sort(children(x))
+            for c ∈ sort(arguments(x))
                 c == y && continue
                 out = out ⊗ c
             end
@@ -324,3 +324,77 @@ function ⨸(x,y)
     
     return x / y
 end
+
+
+_plus(x::SymbolicNumber, y) = x + y
+_plus(x::𝑉, y) = (x == y) ? 2x : x + y
+function _plus(x::SymbolicExpression, y)
+    isa(y, SymbolicNumber) && return _plus(y, x)
+    isa(y, 𝑉) && return _plus(y,  x)
+    x == y && return 2x
+
+    if is_operation(+)(x)
+        # consolidate if possible
+        no, yes = [],[]
+        for c ∈ arguments(x)
+            contains(c, y) ? push!(yes, c) : push!(no, c)
+        end
+        a = reduce(+, sort(no); init=zero(x))
+        b = _combine(+, yes, y)
+        return a + b
+    elseif is_operation(-)(x)
+        a, b = arguments(x)
+        return _plus(a + (-b), y)
+    elseif is_operation(*)(x)
+        no, yes = [],[]
+        for c ∈ arguments(x)
+            contains(c, y) ? push!(yes, c) : push!(no, c)
+        end
+        a = reduce(*, sort(no); init=zero(x))
+        b = _combine(*, yes, y)
+        return a * b
+    elseif is_operation(/)(x)
+        a, b = arguments(x)
+        contains(a, y) && return _plus(a * (1/b), y)
+    elseif is_operation(^)(x)
+        a, b = arguments(x)
+        contains(a, y) && (@show a, y)
+    else
+
+    end
+    @show :fixthis
+    return x + y
+end
+
+export _plus
+
+function _combine(::typeof(+), xs, y)
+    a, b = 0, 0 # return a*y + b
+    for c in xs
+        @show c
+        if c == y
+            @show c, y
+            a = a + 1
+        elseif is_operation(*)(c)
+            aᵢ, n  =  nothing, 0
+            for cᵢ ∈ arguments(c)
+                if cᵢ == y && n == 0
+                    n = 1
+                else
+                    aᵢ = isnothing(aᵢ) ? cᵢ : aᵢ * cᵢ
+                end
+            end
+            @show n
+            if n > 0
+                a = a + aᵢ
+            else
+                b = b + cᵢ
+            end
+        else
+            b = b + c
+        end
+    end
+    b + a * y
+end
+export _combine    
+    

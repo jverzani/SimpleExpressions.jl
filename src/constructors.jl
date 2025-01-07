@@ -193,7 +193,7 @@ assymbolic(x::Number) = SymbolicNumber(x)
 # all variables become `𝑥` except `p` becomes `𝑝`, a parameter
 assymbolic(x::Expr) = eval(_assymbolic(x))
 function _assymbolic(x)
-    if !isexpr(x)
+    if !iscall(x)
         isa(x, Symbol) && return x == :p ? :(SymbolicParameter(:𝑝)) : :(SymbolicVariable(:𝑥))
         return x
     end

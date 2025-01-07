@@ -27,7 +27,7 @@ D(𝑥::SymbolicVariable, x) = 𝑥 == x ? 1 : 0
 D(𝑥::SymbolicParameter, x) = 𝑥 == x ? 1 : 0
 D(ex::SymbolicEquation, x) = D(ex.lhs, x) ~ D(ex.rhs, x)
 
-D(ex::SymbolicExpression, x) = D(operation(ex), children(ex), x)
+D(ex::SymbolicExpression, x) = D(operation(ex), arguments(ex), x)
 
 
 # idiosyncratic, x is a scalar for D

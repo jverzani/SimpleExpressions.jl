@@ -10,22 +10,22 @@ _show(io::IO, u::DynamicConstant) = print(io, u.value)
 
 function Base.show(io::IO, x::SymbolicExpression)
     broadcast = ""
-    op, arguments = operation(x), children(x)
+    op, args = operation(x), arguments(x)
     if op == Base.broadcasted
         broadcast= "."
-        op′, arguments... = arguments
+        op′, args... = args
         op = ↓(op′).value
     end
 
     infix_ops = (+, - , *, /, //, ^, >=, >, ==, !=, <, <=) # infix
     if op ∈ infix_ops
-        if length(arguments) == 1
+        if length(args) == 1
             print(io, broadcast, string(op), "(")
-            show(io, only(arguments))
+            show(io, only(args))
             print(io, ")")
         else
-            n = length(arguments)
-            for (i, a) ∈ enumerate(arguments)
+            n = length(args)
+            for (i, a) ∈ enumerate(args)
                 isa(a, SymbolicExpression) && operation(a) ∈ infix_ops && print(io, "(")
                 show(io, a)
                 isa(a, SymbolicExpression) && operation(a) ∈ infix_ops && print(io, ")")
@@ -33,19 +33,19 @@ function Base.show(io::IO, x::SymbolicExpression)
             end
         end
     elseif op == ifelse
-        p,a,b = arguments
+        p,a,b = args
         print(io, "𝕀(")
         show(io, p)
         print(io, ")")
     elseif op == getindex
-        a, idx = arguments
+        a, idx = args
         show(io, a)
         print(io, "[")
         show(io, idx)
         print(io, "]")
     else
         print(io, op, broadcast, "(")
-        join(io, arguments, ", ", ", ")
+        join(io, args, ", ", ", ")
         print(io, ")")
 
     end

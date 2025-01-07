@@ -42,7 +42,7 @@ function Base.isless(x::SymbolicExpression, y::SymbolicExpression)
     xo, yo = op_val(operation(x)), op_val(operation(y))
     isless(xo,yo) && return true
     isless(yo, xo) && return false
-    xc, yc = children(x), children(y)
+    xc, yc = arguments(x), arguments(y)
     isless(length(xc), length(yc)) && return true
     isless(length(yc), length(xc)) && return false
     for (cx, cy) ∈ zip(xc, yc)

@@ -1,7 +1,7 @@
 name = "SimpleExpressions"
 uuid = "deba94f7-f32a-40ad-b45e-be020a5ded2f"
 authors = ["jverzani <jverzani@gmail.com> and contributors"]
-version = "1.1.5"
+version = "1.1.6"
 
 [deps]
 CallableExpressions = "391672e0-bbe4-4ab4-8bc9-b89a79cbc2f0"
