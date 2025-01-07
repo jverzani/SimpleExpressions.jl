@@ -51,6 +51,7 @@ end
 
 # return symbols for the symbolic variable and parameter
 function 𝑥𝑝!(ex::SymbolicExpression)
+    return find_xp(ex)
     𝑥, 𝑝 = ex.x[], ex.p[]
     if 𝑥 == Δ && 𝑝 == Δ
         𝑥, 𝑝 = find_xp(ex)
@@ -80,10 +81,10 @@ end
 
 # f contains symbolic variable or expression x
 Base.contains(f::AbstractSymbolic, x) = contains(↓(f), ↓(x))
-Base.contains(f::Any, x::𝑋) where 𝑋 = false 
+Base.contains(f::Any, x::𝑋) where 𝑋 = false
 Base.contains(f::_Variable, x::𝑋) where 𝑋 = (f == x)
 
-function Base.contains(f::StaticExpression, x::𝑋) where 𝑋 
+function Base.contains(f::StaticExpression, x::𝑋) where 𝑋
     f == x && return true
     for c ∈ f.children
         (x == c || contains(c, x)) && return true
@@ -94,10 +95,10 @@ end
 Base.occursin(x::AbstractSymbolic, f::AbstractSymbolic) = contains(f, x)
 
 # we have some means to query expressions
-# isnumeric -- contains no SymbolicVariable or SymbolicParameter. 
+# isnumeric -- contains no SymbolicVariable or SymbolicParameter.
 # isconstant -- contains no SymbolicVariable (possibly SymbolicParameter)
 # isvariable -- is a SymbolicVariable or SymbolicConstant
-# 
+#
 
 # Tests whether a Symbolic value (character) is numeric.
 Base.isnumeric(x::AbstractSymbolic) = false
@@ -127,7 +128,3 @@ end
 isvariable(expr) = false
 isvariable(::SymbolicVariable) = true
 isvariable(::SymbolicParameter) = true
-
-
-
-

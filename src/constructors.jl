@@ -203,6 +203,7 @@ function _assymbolic(x)
     Expr(:call, op, _assymbolic.(arguments)...)
 end
 
+assymbolic(u::DynamicConstant) = SymbolicNumber(u)
 assymbolic(u::StaticVariable) = SymbolicVariable(u)
 assymbolic(u::DynamicVariable) = SymbolicParameter(u)
 
