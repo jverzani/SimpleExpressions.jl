@@ -130,7 +130,8 @@ f(3)           # computing 3 * 3 + 4, using values of `m` and `b` when called
 
 ### Symbolic values are really singletons when calling by position
 
-Though one can make different symbolic variables, the basic call notation by postion treats them as the same:
+Though one can make different symbolic variables, the basic call
+notation by position treats them as the same:
 
 ```julia
 @symbolic x
