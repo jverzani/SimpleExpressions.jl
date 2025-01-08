@@ -87,7 +87,7 @@ assymbolic(u::StaticExpression) = SymbolicExpression(u)
 assymbolic(x::Expr) = eval(_assymbolic(x))
 function _assymbolic(x)
     if !iscall(x)
-        # convert :p --> paramter, other symbol to variable
+        # convert :p --> paramater, other symbol to variable :𝑥
         isa(x, Symbol) && return x == :p ? :(SymbolicParameter(:𝑝)) : :(SymbolicVariable(:𝑥))
         return x
     end
