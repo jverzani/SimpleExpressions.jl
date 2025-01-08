@@ -34,7 +34,6 @@ function (ex::SymbolicGenerator)(x, p=nothing)
     if 𝑥 != Δ && p != Δ
         xs = NamedTuple{(𝑥, 𝑝)}((x,p))
         u = ↓(u)(xs)
-
     elseif 𝑥 != Δ # iter is non Δ
         xs = NamedTuple{(𝑥,)}((x,))
         u = u(xs)
@@ -46,19 +45,22 @@ function (ex::SymbolicGenerator)(x, p=nothing)
             end
         end
     elseif 𝑝 != Δ
+
         ps = NamedTuple{(𝑝,)}((p,))
         u = u(ps)
         𝑥,𝑝 = xp(u)
-        xs = NamedTuple{(𝑥,)}((x,))
-        u = ↓(u)(xs)
+        if 𝑥 != Δ
+            xs = NamedTuple{(𝑥,)}((x,))
+            u = ↓(u)(xs)
+        end
     end
     if isa(u, AbstractSymbolic)
         expression_is_constant(↓(u)) && (u = u())
         u = u(x,p)
         !isa(u, Number) && expression_is_constant(↓(u)) && (u = u())
         return u
+
     else
         return u
     end
-    u
 end

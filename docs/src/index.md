@@ -6,13 +6,28 @@ This package leverages the [`CallableExpressions`](https://gitlab.com/nsajko/Cal
 
 ## Rationale
 
-`Julia` has easy-to-use "anonymous" functions defined through the pattern `(args) -> body` using `->`, notation which mirrors common math notation. However, for students the distinction between an expression, such as defines the "`body`" and a function is sometimes not made, whereas in `Julia` or other computer languages, the distinction is forced. The `SymPy` package, as well as other symbolic packages in `Julia` like `Symbolics` and `SymEngine`, allows symbolic expressions to be created naturally from symbolic variables. This package does just this (and does not provide the many other methods for manipulating symbolic expressions that make using a CAS so powerful). The symbolic expressions subtype `Function`, so can be used where functions are expected.
+`Julia` has easy-to-use "anonymous" functions defined through the
+pattern `(args) -> body` using `->`, notation which mirrors common
+math notation. However, for students the distinction between an
+expression, such as defines the "`body`" and a function is sometimes
+not made, whereas in `Julia` or other computer languages, the
+distinction is forced. The `SymPy` package, as well as other symbolic
+packages in `Julia` like `Symbolics` and `SymEngine`, allows callable
+symbolic expressions to be created naturally from symbolic
+variables. This package does just this (but does not provide the many
+other compelling features of a CAS). The symbolic expressions subtype
+`Function`, so can be used where functions are expected.
 
-The envisioned usage is within resource-constrained environments, such as `binder.org`.
+The envisioned usage is within resource-constrained environments, such
+as `binder.org`.
 
-To keep things as simple as possible, there are only a few types of symbolic values:  symbolic numbers, symbolic variables, symbolic parameters, symbolic expressions, and symbolic equations.
+To keep things as simple as possible, there are only a few types of
+symbolic values: symbolic numbers, symbolic variables, symbolic
+parameters, symbolic expressions, and symbolic equations.
 
-Symbolic variables and parameters are created with the `@symbolic` macro. For the `@symbolic` macro, the first argument names the symbolic variable, the optional second names the symbolic parameter.
+Symbolic variables and parameters are created with the `@symbolic`
+macro. For the `@symbolic` macro, the first argument names the
+symbolic variable, the optional second argument names the symbolic parameter.
 
 Symbolic expressions are built up naturally by using these two types of objects.
 
@@ -47,7 +62,7 @@ f(2)
 The main difference being, `u` can subsequently be algebraically manipulated.
 
 
-The parameter can also be used:
+The parameter can also be used to form an expression:
 
 ```@example expressions
 u = cos(x) - p * x
@@ -60,49 +75,63 @@ The variable or parameter can be substituted in for:
 u(pi/4,:), u(:, 4)
 ```
 
+Or, the expression can be evaluated directly
+
+```@example expressions
+u(pi/4, 4)
+```
+
+
 ## Evaluation
 
-The calling pattern for a symbolic expression `ex` is simple: the first positional argument is for the symbolic value, the second for the symbolic parameter. Leading to:
+The basic calling pattern for a symbolic expression `ex` is simple: the first positional argument is for the symbolic value, the second for the symbolic parameter.
+
+Leading to these rules:
 
 * `ex(x)` to evaluate the expression of just the variable with the value of  `x`; an error is thrown if the expression has both a variable and a parameter.
-* `ex(x, p)` to evaluate an expression of both a  variable and a parameter; if there is no parameter the value of `p` is ignored.
-* `ex(*, p)` to evaluate an expression of just a parameter. The `*` in the `x` slot can be any valid identifier (except for `:`, `nothing`, or `missing`, as they are used for substitution), it is just ignored.
+* `ex(x, p)` to evaluate an expression of both a  variable and a parameter; if there is no parameter the value of the second argument is ignored.
+* `ex(*, p)` to evaluate an expression of just a parameter. The `*` in the `x` slot can be any valid identifier (except for `:`, `nothing`, or `missing`, as they are used for substitution); the value of the first argument is just ignored.
 * `ex()` to evaluate an expression that involves neither a symbolic variable or a parameter.
 
 ## Substitution
 
-Evaluation leaves a non-symbolic value. For substitution, the result is still symbolic. The syntax for substitution is:
+Evaluation leaves a non-symbolic value. For substitution, the result is still symbolic.
+
+The basic syntax for substitution is:
 
 * `ex(:, p)` to substitute in for the parameter.
 * `ex(x, :)` to substitute in for the variable.
-* `replace(ex, args::Pair...)` to substitute in for either a variable, parameter, expression head, or symbolic expression (possibly with a wildcard). The pairs are specified as `variable_name => replacement_value`.
-* `ex(args::Pair...)` redirects to `replace(ex, args::Pair...)`
 
 The use of `:` to indicate the remaining value is borrowed from Julia's array syntax; it can also be either `nothing` or `missing`.
 
-The design of `SimpleExpressions` is to only allow one variable and one parameter in a given expression and to assign these variables to positional arguments. This is just to simplify the usage. The underlying `CallableExpressions` package allows greater flexibility.
+For evaluation and substitution using positional arguments, all instances of symbolic variables and all instances of symbolic parameters are treated identically. To work with multiple symbolic parameters or variables, `replace` can be used to substitute in values for a specific variable.
 
-Two or more variables can be used, as here:
+* `replace(ex, args::Pair...)` to substitute in for either a variable, parameter, expression head, or symbolic expression (possibly with a wildcard). The pairs are specified as `variable_name => replacement_value`.
+* `ex(args::Pair...)` redirects to `replace(ex, args::Pair...)`
+
+To illustrate, two or more variables can be used, as here:
 
 ```@example expressions
-@symbolic y
+@symbolic x
+@symbolic y  # both symbolic variables
 u = x^2 - y^2
 ```
 
-Evaluating `u` with a value in the `x` position will error. This is a deliberate design limitation; it can be worked around via `replace`:
+Evaluating `u` with a value in the `x` position will evaluate both `x` and `y` with that value:
 
-```julia
-u(1,2) # ERROR: more than one variable
+```@example expressions
+u(1) # always 0
+u(1,2) # not 1^2 - 2^2, the second argument is ignored here
 ```
 
-Whereas
+As indicated, this is a deliberate design limitation to simplify usage. It can be worked around via `replace`:
 
 ```@example expressions
 v = replace(u, x=>1, y=>2) # the symbolic value ((1^2)-(2^2))
 v()                        # evaluates to -3
 ```
 
-The `replace` method is a bit more involved. The `key => value` pairs have different dispatches depending on the value of the key. Above, the key is a `SymbolicVariable`, but the key can be
+The `replace` method is a bit more involved than illustrate. The `key => value` pairs have different dispatches depending on the value of the key. Above, the key is a `SymbolicVariable`, but the key can be
 
 * A `SymbolicVariable` or `SymbolicParameter` in which case the simple substitution is applied, as just illustrated.
 * A function, like `sin`. In this case, a matching operation head is replaced by the replacement head. Eg. `sin => cos` will replace a `sin` call with a `cos` call.
@@ -169,7 +198,7 @@ The package grew out of a desire to have a simpler approach to solving `f(x) = g
 Symbolic equations are specified using `~`, a notation borrowed from `Symbolics` for `SymPy` and now on loan to `SimpleExpressions`. Of course `=` is assignment, and `==` and `===` are used for comparisons, so some other syntax is necessary and `~` plays the role of distinguishing the left- and right-hand sides of an equation.
 
 By default, when calling a symbolic equation the difference of the left- and right-hand sides is used, so, in this case, symbolic equations can be passed directly to the `find_zero` method from `Roots`:
- 
+
 ```@example expressions
 using Roots
 @symbolic x p
@@ -188,18 +217,18 @@ solve(cos(x) ~ p*x, (0, pi/2), p=3)
 ```@example expressions
 @symbolic a A
 @symbolic b B
-solve(sin(A)/a ~ sin(B)/b, A)
+solve(sin(A)/a ~ sin(B)/b, A)  # solve not exported, but is imported with Roots above
 ```
 
 This example shows "inverse" functions are applied (without concern for domain/range restrictions) when possible.
 
 ### Plotting
 
-For plotting a symbolic equation, `eq`, the values `eq.lhs` and `eq.rhs` may be used separately to produce a pair of traces. With `Plots`, where a vector of functions may be plotted, `plot([eq...], a, b)` will plot each side with separate trace. Though with `Plots` there is a recipe to plot a symbolic equation as two separate functions; it does not plot the difference of the two functions.
+For plotting a symbolic equation, `eq`, the values `eq.lhs` and `eq.rhs` may be used separately to produce a pair of traces. With `Plots`, where a vector of functions may be plotted, `plot([eq...], a, b)` will plot each side with separate trace. Though with `Plots` there is a recipe to plot a symbolic equation as two separate functions.
 
 ### Derivatives
 
-Symbolic expressions can be easily differentiated, though the operator is not exported. A variable to differentiate by should be specified, though when missing it is assumed there is a lone symbolic variable to differentiate by. The operator differentiates with respect to thevariable assuming it represents a scalar quantity:
+Symbolic expressions can be easily differentiated, though the operator is not exported. A variable to differentiate by should be specified, though when missing it is assumed there is a lone symbolic variable to differentiate by. The operator differentiates with respect to the variable assuming it represents a scalar quantity:
 
 ```@example expressions
 import SimpleExpressions: D
@@ -228,13 +257,4 @@ u = D(exp(x) * (sin(3x) + sin(101x)), x)
 
 #### Simplification
 
-No simplification is done so the expressions can quickly become unwieldy. There is `TermInterface` support, so--in theory--rewriting of expressions, as is possible with the `Metatheory.jl` package is possible.
-
-The scaffolding is in place for `Metatheory` support once the development version is tagged. With this, the following pattern, say, can factor out `exp(x)`:
-
-```
-using Metatheory # need 3.0 to use with TermInterface v"2.0"
-r = @rule (~x * ~a + ~x * ~b --> ~x * (~a + ~b))
-r(u)
-```
-
+No simplification is done so the expressions can quickly become unwieldy. There is `TermInterface` support, so--in theory--rewriting of expressions, as is possible with the `Metatheory.jl` package. The scaffolding is in place, but waits for the development version to be tagged.

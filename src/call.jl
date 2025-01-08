@@ -32,27 +32,51 @@
 
 
 function (ex::SymbolicExpression)(x)
-    𝑥,𝑝 = xp(ex)
-    _call(ex, operation(ex), (𝑥,), x)
+    _call(ex, operation(ex), x)
 end
 
 function (ex::SymbolicExpression)(x,p)
-    𝑥,𝑝 = xp(ex)
-    _call(ex, operation(ex), (𝑥,𝑝), x, p)
+    _call(ex, operation(ex), x, p)
+end
+
+# these **assume** no more than one SymbolicVariable or SymbolicParameter
+# are in expression. See `replace` for more general substitution
+# substitute for 𝑥
+function _substitutex(u, x)
+    pred = x -> isa(x, StaticVariable)
+    mapping = _ -> DynamicConstant(x)
+    expression_map_matched(pred, mapping, u)
+end
+
+# substitute for 𝑝
+function _substitutep(u, p)
+    pred = p -> isa(p, DynamicVariable)
+    mapping = _ -> DynamicConstant(p)
+    expression_map_matched(pred, mapping, u)
+end
+
+function _call(ex, ::Any, x::T) where T
+    # allocates less than creating u((𝑥=x,))
+    u = ↓(ex)
+    u₁ = _substitutex(u, x)
+    return u₁(NamedTuple{}())
+end
+
+function _call(ex, ::Any, x::T, p::S) where {T,S}
+    # allocates less than creating u((𝑥=x,𝑝=p))
+    u = ↓(ex)
+    u₁ = _substitutex(u, x)
+    u₂ = _substitutep(u₁, p)
+    return u₂(NamedTuple{}())
 end
 
 
-
-
-_call(ex, ::Any, 𝑥, x) =  (↓(ex))(NamedTuple{𝑥}((x,)))
-_call(ex, ::Any, 𝑥𝑝, x, p) =  (↓(ex))(NamedTuple{𝑥𝑝}((x,p)))
-
-function _call(ex, ::typeof(Base.broadcasted), 𝑥, x)
-    (↓(ex))(NamedTuple{𝑥}((x,))) |> Base.materialize
+function _call(ex, ::typeof(Base.broadcasted), x::T) where T
+    Base.materialize(_call(ex, nothing, x))
 end
 
-function _call(ex, ::typeof(Base.broadcasted), 𝑥𝑝, x, p)
-    (↓(ex))(NamedTuple{tuple(𝑥𝑝...)}((x,p)))  |> Base.materialize
+function _call(ex, ::typeof(Base.broadcasted),  x::T, p::S) where {T,S}
+    Base.materialize(_call(ex, nothing, x, p))
 end
 
 # directly call with kwargs.
@@ -60,7 +84,7 @@ end
 # specification of the variable/parameter name in the call.
 (𝑥::SymbolicVariable)(;kwargs...) = (↓(𝑥))(NamedTuple(kwargs))
 (𝑝::SymbolicParameter)(;kwargs...) = (↓(𝑝))(NamedTuple(kwargs))
-## This handles case of symbolic expressions which are numeric
+## This also handles case of symbolic expressions which are numeric
 ## have value given by ex()
 (ex::SymbolicExpression)(;kwargs...) = (↓(ex))(NamedTuple(kwargs))
 
@@ -86,27 +110,19 @@ const MISSING = Union{Nothing, Missing, typeof(:)}
 (𝑝::SymbolicParameter)(x,::MISSING) = 𝑝
 (𝑝::SymbolicParameter)(::Missing,::MISSING) = 𝑝
 
-(ex::SymbolicExpression)(::MISSING, p) = substitutep(ex, p)
-(ex::SymbolicExpression)(x,::MISSING) = substitutex(ex, x)
-(ex::SymbolicExpression)(::MISSING, ::Missing) = ex
+function (ex::SymbolicExpression)(::MISSING, p)
+    u = ↓(ex)
+    u₁ = _substitutep(u, p)
+    SymbolicExpression(u₁)
+end
+function (ex::SymbolicExpression)(x,::MISSING)
+    u = ↓(ex)
+    u₁ = _substitutex(u, x)
+    SymbolicExpression(u₁)
+end
+
+(ex::SymbolicExpression)(::MISSING, ::MISSING) = ex
 
 (X::SymbolicEquation)(::MISSING,p) = tilde(X.lhs(:, p),  X.rhs(:, p))
 (X::SymbolicEquation)(x,::MISSING) = tilde(X.lhs(x, :),  X.rhs(x, :))
 (X::SymbolicEquation)(::Missing,::MISSING) = X
-
-
-# these **assume** no more than one SymbolicVariable or SymbolicParameter
-# are in expression. See `replace` for more general substitution
-# substitute for x
-function substitutex(ex, x)
-    pred = x -> isa(x, StaticVariable)
-    mapping = _ -> DynamicConstant(x)
-    SymbolicExpression(expression_map_matched(pred, mapping, ↓(ex)))
-end
-
-# substitute for p
-function substitutep(ex, p)
-    pred = p -> isa(p, DynamicVariable)
-    mapping = _ -> DynamicConstant(p)
-    SymbolicExpression(expression_map_matched(pred, mapping, ↓(ex)))
-end
