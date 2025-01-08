@@ -19,6 +19,10 @@ end
 # used to identify x, p
 # error if more than one found
 # much faster than `free_symbols` as this is type stable
+
+const Δ = :nothing # flag for missing symbols 𝑥, 𝑝
+
+xp(::Any) =  (x=Δ, p=Δ)
 xp(x::AbstractSymbolic) = xp(↓(x))
 xp(x::StaticVariable{T}) where {T} = (x=Symbol(x), p=Δ)
 xp(p::DynamicVariable) = (x=Δ, p=Symbol(p))
@@ -49,24 +53,29 @@ function xp(u::ExpressionTypeAliases.ExpressionLoosely)
 end
 
 
-
-
-# free_symbols return unique collection of symbols for the
-# existing symbolic variables and parameters in the expression
-free_symbols(x) = (x=(), p=())
-free_symbols(x::AbstractSymbolic) = free_symbols(↓(x))
-free_symbols(x::DynamicConstant) = (x=(), p=())
-free_symbols(x::DynamicVariable) = (x=(), p=(Symbol(x),))
-free_symbols(x::StaticVariable) = (x=(Symbol(x),), p=())
-function free_symbols(ex::StaticExpression)
+# free_symbols return set of all variables
+# in expression split by variables and parameters
+free_symbols(::SymbolicNumber)     = (x=(),   p=())
+free_symbols(p::SymbolicParameter) = (x=(),   p=(p,))
+free_symbols(x::SymbolicVariable)  = (x=(x,), p=())
+function free_symbols(ex::SymbolicExpression)
     x,p = (), ()
-    for c ∈ ex.children
+    for c ∈ arguments(ex)
         𝑥, 𝑝 = free_symbols(c)
-        x = _mergetuple(x, 𝑥)
-        p = _mergetuple(p, 𝑝)
+        x = _union(x, 𝑥)
+        p = _union(p, 𝑝)
     end
     (;x, p)
 end
+
+# merge new elements of c′ with c
+function _union(c, c′)
+    for 𝑐 ∈ c′
+        !(𝑐 ∈ c) && (c = TupleTools.vcat(c, 𝑐))
+    end
+    c
+end
+
 
 # f contains symbolic variable or expression x
 Base.contains(f::AbstractSymbolic, x) = contains(↓(f), ↓(x))
@@ -83,6 +92,8 @@ end
 
 Base.occursin(x::AbstractSymbolic, f::AbstractSymbolic) = contains(f, x)
 
+
+
 # we have some means to query expressions
 # isnumeric -- contains no SymbolicVariable or SymbolicParameter.
 # isconstant -- contains no SymbolicVariable (possibly SymbolicParameter)
@@ -95,8 +106,7 @@ Base.isnumeric(x::SymbolicNumber) = true
 Base.isnumeric(x::SymbolicParameter) = false
 Base.isnumeric(x::SymbolicVariable) = false
 function Base.isnumeric(x::SymbolicExpression)
-    x, p = free_symbols(x)
-    isempty(x) && isempty(p)
+    return CallableExpressions.expression_is_constant(↓(x))
 end
 
 # predicate to see if expression contains a symbolic variable

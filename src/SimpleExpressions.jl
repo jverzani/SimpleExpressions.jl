@@ -17,7 +17,7 @@ import TermInterface
 import TermInterface: iscall, operation, arguments, sorted_arguments,
     maketerm, is_operation, metadata
 using CommonEq
-export ≪, ≦, Eq, ⩵, ≶, ≷, ≫, ≧ # \ll, \leqq, \Equal,\lessgtr, \gtrless, \gg,\geqq
+# export ≪, ≦, Eq, ⩵, ≶, ≷, ≫, ≧ # \ll, \leqq, \Equal,\lessgtr, \gtrless, \gg,\geqq
 
 
 export @symbolic

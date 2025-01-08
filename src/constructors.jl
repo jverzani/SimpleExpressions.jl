@@ -1,4 +1,4 @@
-
+## ---- constructors
 """
     @symbolic x [p]
 
@@ -12,6 +12,10 @@ The  `~` infix operator can be used to create equations, which, by default, are 
 
 # Extended help
 
+## Calling or substituting into expressions
+
+To call a symbolic expression regular call notation with positional arguments are used. The first argument maps to *any* symbolic variable; the second -- when given -- to any symbolic parameter. It is an error to call an expression with a parameter using just a single argument; for that substitution is needed.
+
 ## Example
 
 ```julia
@@ -21,6 +25,10 @@ u = x^5 - x - 1
 u(2) # 29 call is u(x)
 
 u.((0,1,2)) # (-1, -1, 29)
+
+u = 2x + p
+u(1)    # errors!
+u(1, 2) # 2(1)+2 or 4
 
 u = sum(x .* p)
 u(2, [1,2]) # 6  call is u(x, p)
@@ -39,32 +47,36 @@ v = u(1,:)(:,2)    # (cos(1)-(2*1)),
 
 The latter can be evaluated using a zero-argument call, e.g. `v()`.
 
-The [`replace`](@ref) generic for symbolic objects takes pairs of values and replaces the left one with the right one working from left to right, leaving a symbolic expression. A symbolic equation may also be used to specify a left- and right-hand value.
+With substitution in this manner, any symbolic variable and any symbolic parameters will receive the same substituted value.
+
+The [`replace`](@ref) generic for symbolic objects takes pairs of values and replaces the left one with the right one working from left to right, leaving a symbolic expression. The `replace` method treats symbolic variables and symbolic parameters with different symbols as unique.
+
+A symbolic equation, defined through `~`, may also be used to specify a left- and right-hand value.
 
 The main use is as an easier-to-type replacement for anonymous functions, though with differences:
 
 ```julia
-1 |> sin(x) |> x^2  # sin(1)^2
+1 |> sin(x) |> x^2  # 0.708… from sin(1)^2
 u = cos(x) - p*x
-2 |> u(:, 3) # u(2,3) alternative
+2 |> u(:, 3) # -6.4161…, a alternative to u(2,3)
 ```
 
 ```julia
 map(x^2, (1, 2)) # (1,4)
 ```
 
-Can be used with other packages, to simplify some function calls at the expense of being non-idiomatic:
+Symbolic expressions an be used with other packages, to simplify some function calls at the expense of being non-idiomatic:
 
 ```julia
 using Roots
 @symbolic x p
-find_zero(x^5 - x - 1, 1)     # 1.167...
-find_zero(x^5 - x ~ p, 1, 4)  # 1.401...
+find_zero(x^5 - x - 1, 1)       # 1.167…
+find_zero(x^5 - x ~ p, 1; p=4)  # 1.401…
 
 using ForwardDiff
 Base.adjoint(𝑓::Function) = x -> ForwardDiff.derivative(𝑓, x)
 u = x^5 - x - 1
-find_zero((u,u'), 1, Roots.Newton()) # 1.167...
+find_zero((u,u'), 1, Roots.Newton()) # 1.167…
 ```
 
 Or
@@ -81,7 +93,6 @@ Or using both positions, so that we call as a bivariate function:
 xs = ys = range(-5, 5, length=100)
 contour(xs, ys, x^2 - y^2 + 2x*y)
 ```
-
 
 Symbolic derivatives can be taken with respect to the symbolic value, symbolic parameters are treated as constant.
 
@@ -117,15 +128,15 @@ u(3)           # still computing 1 * 3 + 2
 f(3)           # computing 3 * 3 + 4, using values of `m` and `b` when called
 ```
 
-### Symbolic values are really singletons
+### Symbolic values are really singletons when calling by position
 
-Though one can make different symbolic variables, evaluation will error
+Though one can make different symbolic variables, the basic call notation by postion treats them as the same:
 
 ```julia
 @symbolic x
 @symbolic y    # both x, y are `SymbolicVariable` type
 u = x + 2y
-u(3)           # Error: more than one variable
+u(3)           # 9 coming from 3 + 2*(3)
 ```
 
 However, this is only to simplify the call interface. Using *keyword* arguments allows evaluation with different values:
@@ -134,8 +145,15 @@ However, this is only to simplify the call interface. Using *keyword* arguments 
 u(;x=3, y=2)   # 7
 ```
 
+Using `replace`, we have:
+
+```julia
+u(x=>3, y=>2)  # 3 + (2 * 2); evaluate with u(x=>3, y=>2)()
+```
+
 The underlying `CallableExpressions` object is directly called in the above manner; that package does not have the narrowed design of this package.
 
+## Containers
 
 The variables may be used as placeholders for containers, e.g.
 
@@ -183,39 +201,3 @@ macro symbolic_expression(expr)
     args = expr.args[2:end]
     Expr(:call, SymbolicExpression, esc(op),  Expr(:tuple, map(esc,args)...))
 end
-
-## -----
-# convert to symbolic; ↑ is an alias
-assymbolic(x::AbstractSymbolic) = x
-assymbolic(x::Symbol) = SymbolicVariable(x)
-assymbolic(x::Number) = SymbolicNumber(x)
-# convert from Expression to SimpleExpression
-# all variables become `𝑥` except `p` becomes `𝑝`, a parameter
-assymbolic(x::Expr) = eval(_assymbolic(x))
-function _assymbolic(x)
-    if !iscall(x)
-        isa(x, Symbol) && return x == :p ? :(SymbolicParameter(:𝑝)) : :(SymbolicVariable(:𝑥))
-        return x
-    end
-
-    op = operation(x)
-    arguments = arguments(x)
-    Expr(:call, op, _assymbolic.(arguments)...)
-end
-
-assymbolic(u::DynamicConstant) = SymbolicNumber(u)
-assymbolic(u::StaticVariable) = SymbolicVariable(u)
-assymbolic(u::DynamicVariable) = SymbolicParameter(u)
-
-assymbolic(u::StaticExpression) = SymbolicExpression(u)
-
-# ↑ \uparrow[tab]; returns SimpleExpression
-↑ = assymbolic
-
-## ---- convert into a CallableExpressions object
-
-# ↓ \downarrow[tab] returns something in `CallableExpressions.jl` language
-↓(x::AbstractSymbolic) = x.u
-↓(x::Number) = DynamicConstant(x)
-↓(x::ExpressionTypeAliases.ExpressionLoosely) = x
-↓(x) = DynamicConstant(x)

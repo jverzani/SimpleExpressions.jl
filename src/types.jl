@@ -1,4 +1,5 @@
 ## ---- types ----
+##
 abstract type AbstractSymbolic <: Function end
 Base.broadcastable(x::AbstractSymbolic) = Ref(x)
 
@@ -34,14 +35,8 @@ end
 Base.zero(::AbstractSymbolic) = SymbolicNumber(0)
 Base.one(::AbstractSymbolic)  = SymbolicNumber(1)
 
-# conveniences
-𝑉 = Union{SymbolicVariable, SymbolicParameter}
-𝐿 = Union{𝑉, SymbolicNumber}
-
-
 
 # Expressions
-const Δ = :nothing # flag for missing symbols 𝑥, 𝑝
 struct SymbolicExpression{T <: StaticExpression} <: AbstractSymbolic
     u::T
 end
@@ -52,9 +47,15 @@ function SymbolicExpression(op, children)
 end
 
 
+# conveniences
+𝑉 = Union{SymbolicVariable, SymbolicParameter}
+𝐿 = Union{𝑉, SymbolicNumber}
 
 ## ----- CallableExpressions
+
 _Variable = CallableExpressions.ExpressionTypeAliases.Variable
+
+
 
 
 ## ----- promotion/conversion
@@ -65,3 +66,45 @@ Base.promote_rule(::Type{<:AbstractSymbolic}, x::Type{T}) where {T <: Number} = 
 Base.convert(::Type{<:AbstractSymbolic}, x::Number) = SymbolicNumber(DynamicConstant(x))
 Base.convert(::Type{<:AbstractSymbolic}, x::SymbolicVariable) = x
 Base.convert(::Type{<:AbstractSymbolic}, x::SymbolicParameter) = x
+
+
+## ---
+
+## --- CallableExpressions --> SimpleExpression
+# convert to symbolic; ↑ is an alias
+assymbolic(x::AbstractSymbolic) = x
+assymbolic(x::Symbol) = SymbolicVariable(x)
+assymbolic(x::Number) = SymbolicNumber(x)
+
+assymbolic(u::DynamicConstant) = SymbolicNumber(u)
+assymbolic(u::StaticVariable) = SymbolicVariable(u)
+assymbolic(u::DynamicVariable) = SymbolicParameter(u)
+
+assymbolic(u::StaticExpression) = SymbolicExpression(u)
+
+# convert from Expression to SimpleExpression
+# all variables become `𝑥` except `p` becomes `𝑝`, a parameter
+assymbolic(x::Expr) = eval(_assymbolic(x))
+function _assymbolic(x)
+    if !iscall(x)
+        # convert :p --> paramter, other symbol to variable
+        isa(x, Symbol) && return x == :p ? :(SymbolicParameter(:𝑝)) : :(SymbolicVariable(:𝑥))
+        return x
+    end
+
+    op = operation(x)
+    args = arguments(x)
+    Expr(:call, op, _assymbolic.(args)...)
+end
+
+
+# ↑ \uparrow[tab]; returns SimpleExpression
+↑ = assymbolic
+
+## ---- SimpleExpressions --> CallableExpressions
+
+# ↓ \downarrow[tab] returns something in `CallableExpressions.jl` language
+↓(x::AbstractSymbolic) = x.u
+↓(x::Number) = DynamicConstant(x)
+↓(x::ExpressionTypeAliases.ExpressionLoosely) = x
+↓(x) = DynamicConstant(x)

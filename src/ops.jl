@@ -1,3 +1,18 @@
+#=
+Below, only a select few operations are defined for symbolic values. To add one could be done as follows.
+
+```@example expressions
+import SimpleExpressions: AbstractSymbolic, SymbolicExpression, D
+import SimpleExpressions.CallableExpressions: StaticExpression
+function Base.fourthroot(x::AbstractSymbolic)
+    u = StaticExpression((x,), fourthroot)
+	SymbolicExpression(u)
+end
+D(::typeof(fourthroot), args,x) = (𝑥 = only(args); D(𝑥,x) * fourthroot(x)^3 / 4)
+
+fourthroot(x^2 + 2)
+```
+=#
 ## ---- operations
 for op ∈ (://, :^,  :≈)
     @eval begin
@@ -24,7 +39,7 @@ for op ∈ (:*, :+)
     @eval begin
         import Base: $op
         Base.$op(x::AbstractSymbolic, y::AbstractSymbolic) =
-            SymbolicExpression(StaticExpression(tuplejoin(_arguments($op,x), _arguments($op,y)), $op))
+            SymbolicExpression(StaticExpression(TupleTools.vcat(_arguments($op,x), _arguments($op,y)), $op))
         Base.$op(x::AbstractSymbolic, y::Number) = $op(promote(x,y)...)
         Base.$op(x::Number, y::AbstractSymbolic) = $op(promote(x,y)...)
     end
@@ -95,18 +110,6 @@ _arguments(::Any, ::typeof(+), x::SymbolicExpression) = (↓(x),)
 _arguments(::typeof(*), ::typeof(*), x::SymbolicExpression) = ↓(x).children
 _arguments(::Any, ::typeof(*), x::SymbolicExpression) = (↓(x),)
 _arguments(::Any, ::Any, x::SymbolicExpression) = (↓(x),)
-
-# cf https://discourse.julialang.org/t/efficient-tuple-concatenation/5398/8
-@inline tuplejoin(x) = x
-@inline tuplejoin(x, y) = (x..., y...)
-@inline tuplejoin(x, y, z...) = (x..., tuplejoin(y, z...)...)
-
-function _mergetuple(c, c′)
-    for 𝑐 ∈ c′
-        !(𝑐 ∈ c) && (c = tuplejoin(c, (𝑐,)))
-    end
-    c
-end
 
 ## comparison operators:
 ## The usual ==, !=, <, <=, >, >= operators are kept

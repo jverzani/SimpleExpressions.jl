@@ -1,6 +1,7 @@
 # basics
 import SimpleExpressions.TermInterface: arguments, sorted_arguments
 import SimpleExpressions: D, solve, coefficients
+import SimpleExpressions: map_matched
 
 @testset "SimpleExpressions.jl" begin
 
@@ -116,9 +117,10 @@ end
 
 
     u__ = replace(u_p, p=>p₀)
+    @test isnumeric(u__)
     @test u__()       == f(x₀,p₀)
     @test u__(x₀)     == f(x₀,p₀)
-    @test_throws "duplicate field name in NamedTuple" u__(x₀, p₀) == f(x₀,p₀)
+    @test u__(x₀, p₀) == f(x₀,p₀) # u isnumeric, but can be called these ways
 
     u = cos(x)*sin(p*x)
     # : = nothing = missing
@@ -188,6 +190,9 @@ end
     @test match((⋯)^(⋯), (x+p)^(x+p)) == x + p
     @test isnothing(match(sin(⋯), sin(x)^2))
 
+    # map_matched
+    @symbolic x p
+    @test map_matched(x*tanh(exp(x)), ==(exp(x)), x -> x^2) == x * tanh(exp(x)^2)
 
 end
 

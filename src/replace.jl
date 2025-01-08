@@ -176,6 +176,7 @@ function _replace(ex::SymbolicExpression, u::Function, v)
     ex = maketerm(SymbolicExpression,op, args′, nothing)
 end
 
+
 ## u::SymbolicExpression, quite possibly having a wildcard
 
 ## We use ⋯ (`\\cdots[tab]`) for a single wildcard that should
@@ -183,14 +184,14 @@ end
 ## * represent branches of an expression tree.
 const WILD = SymbolicVariable(:(⋯))
 
-has_WILD(ex::AbstractSymbolic) = has_WILD(↓(ex)) # a bit faster to work lower level
-has_WILD(ex::Any) = false
-has_WILD(ex::typeof(↓(WILD))) = true
-function has_WILD(ex::StaticExpression)
-    for a ∈ ex.children
+has_WILD(ex::SymbolicNumber) = false
+has_WILD(ex::SymbolicParameter) = false
+has_WILD(ex::SymbolicVariable) = ex == WILD
+function has_WILD(ex::SymbolicExpression)
+    for a ∈ arguments(ex)
         has_WILD(a) && return true
     end
-    false
+    return false
 end
 
 
@@ -282,6 +283,43 @@ function _diff!(xs, xs′)
     xs
 end
 
+
+"""
+    map_matched(ex, is_match, f)
+
+Traverse expression. If `is_match` is true, apply `f` to that part of expression tree and reassemble.
+
+(Basically `CallableExpressions.expression_map_matched` brought forward to variables in `SimpleExpressions`.)
+
+## Example
+```
+julia> u = x*tanh(exp(x))
+x * tanh(exp(x))
+
+julia> SimpleExpressions.map_matched(u, ==(exp(x)), x -> x^2)
+x * tanh(exp(x) ^ 2)
+```
+
+"""
+function map_matched(x::𝐿, is_match::P, f::F) where {P,F}
+    is_match(x) ? f(x) : x
+end
+function map_matched(x::SymbolicExpression, is_match::P, f::F) where {P,F}
+    # copy of  CallableExpressions.expression_map_matched(pred, mapping, u)
+    # but in SimpleExpressions domain
+    if is_match(x)
+        return f(x)
+    end
+    isa(x, 𝐿) && return x
+    children = map_matched.(arguments(x), is_match, f)
+    maketerm(typeof(x), operation(x), children, metadata(x))
+end
+
+function _exact_replace(ex, p, q)
+    map_matched(ex, ==(p), _ -> q)
+end
+
+#=
 ## replace exact piece of tree with something else
 _exact_replace(ex::SymbolicNumber, p, q) = ex == p ? ↑(q) : ex
 _exact_replace(ex::SymbolicVariable, p, q) = ex == p ? ↑(q) : ex
@@ -292,3 +330,4 @@ function _exact_replace(ex::SymbolicExpression, p, q)
     args′ = ((a == p ? q : _exact_replace(a, p, q)) for a in args)
     maketerm(SymbolicExpression, op, args′, nothing)
 end
+=#
