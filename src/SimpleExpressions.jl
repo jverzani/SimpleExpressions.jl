@@ -16,6 +16,7 @@ using CallableExpressions
 import TermInterface
 import TermInterface: iscall, operation, arguments, sorted_arguments,
     maketerm, is_operation, metadata
+using Combinatorics
 using CommonEq
 # export ≪, ≦, Eq, ⩵, ≶, ≷, ≫, ≧ # \ll, \leqq, \Equal,\lessgtr, \gtrless, \gg,\geqq
 
