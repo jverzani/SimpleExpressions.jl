@@ -83,7 +83,7 @@ end
 
 @testset "constant patterns" begin
     @test MatchSequence((a,b,c), (a,b,b)) == ()    # no substitutions
-    @test MatchSequence((a,b,c), (a,b,c)) == ((),) # one trivial subsitution
+    @test MatchSequence((a,b,c), (a,b,c)) == ((),) # one trivial substitution
 end
 
 @testset "matched variables" begin
