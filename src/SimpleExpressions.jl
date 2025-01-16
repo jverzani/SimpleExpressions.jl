@@ -26,7 +26,6 @@ include("constructors.jl")
 include("decl.jl")
 include("equations.jl")
 include("terminterface.jl")
-#include("metatheory.jl")
 include("ops.jl")
 include("show.jl")
 include("introspection.jl")
@@ -36,7 +35,10 @@ include("replace.jl")
 include("comparison.jl")
 include("generators.jl")
 include("scalar-derivative.jl")
-include("simplify.jl")
 include("solve.jl")
+
+#include("simplify.jl")
+#include("metatheory.jl")
+
 
 end

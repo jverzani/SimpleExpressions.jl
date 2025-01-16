@@ -5,6 +5,8 @@
     @symbolic_variables w x[1:3] y() z=>"𝑧" Ω::isinteger
 
 Define multiple symbolic variables or symbolic functions. Guards are ignored.
+
+Not exported.
 """
 macro symbolic_variables(xs...)
     # If the user separates declaration with commas, the top-level expression is a tuple

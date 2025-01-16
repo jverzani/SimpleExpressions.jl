@@ -41,7 +41,7 @@ A = w * h
 
 u = solve(constraint, h)
 A = A(u) # use equation in replacement
-v = solve(D(A, w) ~ 0, w) 
+v = solve(D(A, w) ~ 0, w)
 ```
 """
 CommonSolve.solve(eq::SymbolicEquation, x::𝑉) = _solve(eq.lhs, eq.rhs, x)
@@ -136,6 +136,8 @@ julia> a0, as... = cs = SimpleExpressions.coefficients(eq, x)
 julia> a0 + sum(aᵢ*x^i for (i,aᵢ) ∈ enumerate(Iterators.rest(cs,2)) if !iszero(aᵢ))
 -2 + (-2 * p * (x ^ 1)) + ((2 + (-1 * p)) * (x ^ 2)) + (1 * (x ^ 3))
 ```
+
+Not exported.
 """
 coefficients(ex::SymbolicEquation, x) = coefficients(ex.lhs - ex.rhs, x)
 function coefficients(ex, x)
@@ -154,7 +156,7 @@ function coefficients(ex, x)
     nms = tuple((SimpleExpressions._aᵢ(i) for i in 0:n)...)
 
     NamedTuple{nms}(coeffs)
-    
+
 end
 
 function _aᵢ(i)
@@ -435,7 +437,7 @@ function isolate_x(::Val{:→}, ::typeof(*), l, r, x)
     l′ = one(l)
     for c ∈ arguments(l)
         if contains(c, x)
-            l′ = l′ ⊗ c            
+            l′ = l′ ⊗ c
         else
             r = r ⨸ c
         end
@@ -471,7 +473,7 @@ end
 
 function isolate_x(::Val{:←}, ::Any, l, r, x)
     !contains(r, x) && return l, r  # leave as is if no x
-    
+
     op = operation(r)
     op⁻¹ = get(inverse_functions, op, nothing)
 
@@ -482,7 +484,7 @@ function isolate_x(::Val{:←}, ::Any, l, r, x)
 
     return l, r
 end
-    
+
 
 ## l to r: leave x terms, move others
 
@@ -495,7 +497,3 @@ end
 
 
 # apply inverse?
-
-
-
-

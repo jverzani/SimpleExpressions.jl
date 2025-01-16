@@ -21,6 +21,7 @@ julia> D(D(sin(x))) + sin(x) # no simplification!
 (-(sin(x))) + sin(x)
 ```
 
+Not exported.
 """
 D(𝑥::SymbolicNumber, x) = 0
 D(𝑥::SymbolicVariable, x) = 𝑥 == x ? 1 : 0

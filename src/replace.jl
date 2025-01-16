@@ -44,7 +44,7 @@ The replacement is specified using `variable => value`; these are processed left
 
 There are different methods depending on the type of key in the the `key => value` pairs specified:
 
-* A symbolic variable is replaced by the right-hand side, like `ex(val,:)`
+* A symbolic variable is replaced by the right-hand side, like `ex(val,:)`, though the latter is more performant
 * A symbolic parameter is replaced by the right-hand side, like `ex(:,val)`
 * A function is replaced by the corresponding specified function, as the head of the sub-expression
 * A sub-expression is replaced by the new expression.
@@ -53,9 +53,14 @@ There are different methods depending on the type of key in the the `key => valu
 
 The first two are straightforward.
 
-```julia
+```@repl replace
+julia> using SimpleExpressions
+
+julia> @symbolic x p
+(x, p)
+
 julia> ex = cos(x) - x*p
-cos(x) - (x * p)
+cos(x) + (-1 * x * p)
 
 julia> replace(ex, x => 2) == ex(2, :)
 true
@@ -66,15 +71,14 @@ true
 
 The third, is illustrated by:
 
-```julia
-julia> replace(x + sin(x), sin => cos)
-x + cos(x)
-
+```@repl replace
+julia> replace(sin(x + sin(x + sin(x))), sin => cos)
+cos(x + cos(x + cos(x)))
 ```
 
 The fourth is similar to the third, only an entire expression (not just its head) is replaced
 
-```{julia}
+```@repl replace
 julia> ex = cos(x)^2 + cos(x) + 1
 (cos(x) ^ 2) + cos(x) + 1
 
@@ -87,12 +91,12 @@ julia> replace(ex, cos(x) => u)
 
 Replacements occur only if an entire node in the expression tree is matched:
 
-```julia
+```@repl replace
 julia> u = 1 + x
 1 + x
 
-julia> replace(u + exp(-u), u => x)
-1 + x + exp(-1 * x)
+julia> replace(u + exp(-u), u => x^2)
+1 + x + exp(-1 * (x ^ 2))
 ```
 
 (As this addition has three terms, `1+x` is not a subtree in the expression tree.)
@@ -100,32 +104,30 @@ julia> replace(u + exp(-u), u => x)
 
 The fifth needs more explanation, as there can be wildcards in the expression.
 
-The symbolic variable `⋯` (created with `@symbolic ⋯`, where `⋯` is formed by `\\cdots[tab]`) can be used as a wild card that matches the remainder of an expression tree. The replacement value can have `⋯` as a variable, in which case the identified values will be substituted.
+Wildcards have a naming convention using trailing underscores. One matches one value; two matches one or more values; three match 0, 1, or more values. In addition, the **special** symbol `⋯` (entered with `\\cdots[tab]` is wild.
 
-```julia
-julia> @symbolic x p; @symbolic ⋯
-(⋯,)
+```@repl replace
+julia> @symbolic x p; @symbolic x_
+(x_,)
 
-julia> replace(cos(pi + x^2), cos(pi + ⋯) => -cos(⋯))
--1 * cos(x^2)
+julia> replace(cos(pi + x^2), cos(pi + x_) => -cos(x_))
+-1 * cos(x ^ 2)
+
 ```
 
-```julia
+```@repl replace
 julia> ex = log(sin(x)) + tan(sin(x^2))
 log(sin(x)) + tan(sin(x ^ 2))
 
-julia> replace(ex, sin(⋯) => tan((⋯) / 2))
-log(tan(x / 2)) + tan(tan(x ^ 2 / 2))
+julia> replace(ex, sin(x_) => tan((x_) / 2))
+log(tan(x / 2)) + tan(tan((x ^ 2) / 2))
 
-julia> replace(ex, sin(⋯) => ⋯)
+julia> replace(ex, sin(x_) => x_)
 log(x) + tan(x ^ 2)
 
-julia> replace(x*p, (⋯) * x => ⋯)
+julia> replace(x*p, (x_) * x => x_)
 p
-
 ```
-
-(The wrapping of `(⋯)` in the last example is needed as the symbol parses as an infix operator.)
 
 ## Picture
 
@@ -215,29 +217,45 @@ _replace(ex::AbstractSymbolic, u::SymbolicExpression, v) =
 
 Match expression using a pattern with possible wildcards. Uses a partial implementation of *Non-linear Associative-Commutative Many-to-One Pattern Matching with Sequence Variables* by Manuel Krebber.
 
-If no match, returns `nothing`.
+If there is no match: returns `nothing`.
 
-If there is a match returns a collection of substitutions (σ₁, σ₂, …) -- possibly empty -- with the property `pattern(σ...) == expression` is true.
+If there is a match: returns a collection of substitutions (σ₁, σ₂, …) -- possibly empty -- with the property `pattern(σ...) == expression` is true.
 
-Wildcards are just symbolic variables with a naming convention: using one trailing underscore for a single match, two trailing underscores for a match of one or more, and three trailing underscores for a match on 0, 1, or more.
+Wildcards are just symbolic variables with a naming convention: use one trailing underscore to indicate a single match, two trailing underscores for a match of one or more, and three trailing underscores for a match on 0, 1, or more.
 
 ## Examples
 
-```
-@symbolic a b
-@symbolic x_
-@symbolic x__
+```@repl
+julia> using SimpleExpressions
 
-p, s= x_*cos(x__), a*cos(2 + b)
+julia> SimpleExpressions.@symbolic_variables a b x_ x__ x___
+(a, b, x_, x__, x___)
 
-Θ = match(p, s)
-σ = only(Θ)
-p(σ...) == s
+julia> p, s= x_*cos(x__), a*cos(2 + b)
+(x_ * cos(x__), a * cos(2 + b))
 
-p, s =  p = x_ + x__ + x___,  a + b + a + b + a
-Θ = match(p, s)
-σ = last(Θ)  # 37 matches
-p(σ...) # a + a + (a + b + b)
+julia> Θ = match(p, s)
+((x__ => 2 + b, x_ => a),)
+
+julia> σ = only(Θ)
+(x__ => 2 + b, x_ => a)
+
+julia> p(σ...) == s
+true
+
+julia> p, s =  p = x_ + x__ + x___,  a + b + a + b + a
+(x_ + x__ + x___, a + b + a + b + a)
+
+julia> Θ = match(p, s);
+
+julia> length(Θ)   # 37 matches
+37
+
+julia> σ = last(Θ)
+(x_ => b, x__ => b, x___ => a + a + a)
+
+julia> p(σ...) # a + a + (a + b + b)
+b + b + (a + a + a)
 ```
 
 """

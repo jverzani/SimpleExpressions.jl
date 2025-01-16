@@ -438,6 +438,8 @@ end
 Traverse expression. If `is_match` is true, apply `f` to that part of expression tree and reassemble.
 
 Basically `CallableExpressions.expression_map_matched`.
+
+Not exported.
 """
 map_matched(ex, is_match, f) = map_matched(Val(iscall(ex)), ex, is_match, f)
 map_matched(::Val{false}, x, is_match, f)  = is_match(x) ? f(x) : x
