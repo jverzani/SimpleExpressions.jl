@@ -18,7 +18,7 @@ To call a symbolic expression regular call notation with positional arguments ar
 
 ## Example
 
-```julia
+```@example symbolic
 using SimpleExpressions
 @symbolic x p
 u = x^5 - x - 1
@@ -36,7 +36,7 @@ u(2, [1,2]) # 6  call is u(x, p)
 
 Calling with `nothing`, `missing`, or `:` in a slot *substitutes* in the specified value leaving a symbolic expression, possibly with no variable or parameter.
 
-```julia
+```@example symbolic
 @symbolic x p
 u = cos(x) - p*x
 u(nothing, 2)  # cos(x) - 2 * x
@@ -55,13 +55,13 @@ A symbolic equation, defined through `~`, may also be used to specify a left- an
 
 The main use is as an easier-to-type replacement for anonymous functions, though with differences:
 
-```julia
+```@example symbolic
 1 |> sin(x) |> x^2  # 0.708… from sin(1)^2
 u = cos(x) - p*x
 2 |> u(:, 3) # -6.4161…, a alternative to u(2,3)
 ```
 
-```julia
+```@example symbolic
 map(x^2, (1, 2)) # (1,4)
 ```
 
@@ -115,7 +115,7 @@ Using this is a convenience for *simple* cases. It is easy to run into idiosyncr
 
 Unlike functions, expressions are defined with variables at the time of definition, not when called. For example, with a clean environment:
 
-```julia
+```@example symbolic
 @symbolic x
 u = m*x + b    # errors, `m` not defined
 f(x) = m*x + b # ok
@@ -133,7 +133,7 @@ f(3)           # computing 3 * 3 + 4, using values of `m` and `b` when called
 Though one can make different symbolic variables, the basic call
 notation by position treats them as the same:
 
-```julia
+```@example symbolic
 @symbolic x
 @symbolic y    # both x, y are `SymbolicVariable` type
 u = x + 2y
@@ -142,13 +142,13 @@ u(3)           # 9 coming from 3 + 2*(3)
 
 However, this is only to simplify the call interface. Using *keyword* arguments allows evaluation with different values:
 
-```julia
+```@example symbolic
 u(;x=3, y=2)   # 7
 ```
 
 Using `replace`, we have:
 
-```julia
+```@example symbolic
 u(x=>3, y=>2)  # 3 + (2 * 2); evaluate with u(x=>3, y=>2)()
 ```
 
@@ -158,7 +158,7 @@ The underlying `CallableExpressions` object is directly called in the above mann
 
 The variables may be used as placeholders for containers, e.g.
 
-```julia
+```@example symbolic
 u = sum(xi*pi for (xi, pi) in zip(x,p))
 u((1,2),(3,4))  # 11
 ```
@@ -168,7 +168,7 @@ u((1,2),(3,4))  # 11
 
 Broadcasting a function call works as expected
 
-```julia
+```@example symbolic
 @symbolic x
 u = x^2
 u.((1,2)) # (1, 4)
@@ -176,7 +176,7 @@ u.((1,2)) # (1, 4)
 
 Symbolic expressions can also be constructed that will broadcast the call
 
-```julia
+```@example symbolic
 u = x.^2 .+ sin.(p)
 u((1,2),3)
 

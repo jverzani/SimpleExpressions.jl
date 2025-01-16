@@ -1,3 +1,38 @@
+# implementation specific definitions needed for matching in matchpy
+const ExpressionType = SymbolicExpression
+
+_is_𝐿(x::AbstractSymbolic) = isa(x, 𝐿)
+_is_𝐹₀(x::AbstractSymbolic) = all(isempty(u) for u in free_symbols(x))
+
+function _is_Wild(x::𝑉) # 1
+    𝑥 = string(Symbol(x))
+    endswith(𝑥, "__") && return false
+    endswith(𝑥, "_")
+end
+
+function _is_Plus(x::𝑉) # 1 or more
+    𝑥 = string(Symbol(x))
+    endswith(𝑥, "___") && return false
+    endswith(𝑥, "__")
+end
+
+function _is_Star(x::SymbolicVariable) # 0, 1, or more
+    𝑥 = string(Symbol(x))
+    endswith(𝑥, "___")
+end
+
+function _is_𝑋(x::SymbolicVariable)
+    𝑥 = string(Symbol(x))
+    endswith(𝑥, "_")
+end
+
+# keep ⋯ as match so as not breaking
+_is_Wild(x::SymbolicVariable{:⋯}) = true
+_is_𝑋(x::SymbolicVariable{:⋯}) = true
+
+## ----
+
+
 """
     replace(ex::SymbolicExpression, args::Pair...)
 
@@ -121,7 +156,7 @@ The command wildcard expression `cos(x + ...)` looks at the part of the tree tha
 function Base.replace(ex::AbstractSymbolic, args::Pair...)
     for pr in args
         k,v = pr
-        ex = _replace(ex, k, v)
+        ex = _replace(ex, k, ↑(v))
     end
     ex
 end
@@ -138,19 +173,22 @@ end
 # _replace: basic dispatch in on `u` with (too) many methods
 # for shortcuts based on typeof `ex`
 
-## u::SymbolicVariable
+## u::SymbolicVariable **including** a wild card
 
 function _replace(ex::SymbolicExpression, u::SymbolicVariable,  v)
-    pred = ==(↓(u))
-    mapping = _ -> ↓(v)
-    ex = SymbolicExpression(expression_map_matched(pred, mapping, ↓(ex)))
+    ## intercept wildcards!!!
+    ex′, u′, v′ = map(↓, (ex, u, v))
+    pred = ==(u′)
+    mapping = _ -> v′
+    SymbolicExpression(expression_map_matched(pred, mapping, ex′))
 end
 
 ## u::SymbolicParameter
 function _replace(ex::SymbolicExpression, u::SymbolicParameter,  v)
-    pred = ==(↓(u))
-    mapping = _ -> ↓(v)
-    ex = SymbolicExpression(expression_map_matched(pred, mapping, ↓(ex)))
+    ex′, u′, v′ = map(↓, (ex, u, v))
+    pred = ==(u′)
+    mapping = _ -> v′
+    SymbolicExpression(expression_map_matched(pred, mapping, ex′))
 end
 
 
@@ -159,175 +197,58 @@ _replace(ex::SymbolicParameter, u::SymbolicParameter, v) = ex == u ? ↑(v) : ex
 
 
 ## u::Function (for a head, keeping in mind this is not for SymbolicExpression)
-
 # replace old head with new head in expression
-_replace(ex::SymbolicNumber, u::Function,  v) = ex
-_replace(ex::SymbolicParameter, u::Function,  v) = ex
-_replace(ex::SymbolicVariable, u::Function,  v) = ex
-
-function _replace(ex::SymbolicExpression, u::Function, v)
-    op, args = operation(ex), arguments(ex)
-    if op == u
-        op = v
-    end
-
-    args′ = (_replace(a, u, v) for a ∈ args)
-
-    ex = maketerm(SymbolicExpression,op, args′, nothing)
+function _replace(ex::AbstractSymbolic, u::𝐹, v) where
+    {𝐹 <: Union{Function, SymbolicFunction}}
+    _replace_expression_head(ex, u, v)
 end
-
 
 ## u::SymbolicExpression, quite possibly having a wildcard
 
-## We use ⋯ (`\\cdots[tab]`) for a single wildcard that should
-## * take up remaining terms in `+` or `*` expressions
-## * represent branches of an expression tree.
-const WILD = SymbolicVariable(:(⋯))
-
-has_WILD(ex::SymbolicNumber) = false
-has_WILD(ex::SymbolicParameter) = false
-has_WILD(ex::SymbolicVariable) = ex == WILD
-function has_WILD(ex::SymbolicExpression)
-    for a ∈ arguments(ex)
-        has_WILD(a) && return true
-    end
-    return false
-end
-
-
+#
 # u is symbolic expression possibly wild card
-_replace(ex::SymbolicNumber,    u::SymbolicExpression, v) = ex
-_replace(ex::SymbolicParameter, u::SymbolicExpression, v) = ex
-_replace(ex::SymbolicVariable,  u::SymbolicExpression, v) = ex
+_replace(ex::AbstractSymbolic, u::SymbolicExpression, v) =
+    _replace_arguments(ex, u, v)
 
-function _replace(ex::SymbolicExpression, u::SymbolicExpression, v)
-    if !has_WILD(u)
-        # no wildcard so we must match expression tree completely
-        return _exact_replace(ex, u, v)
-    end
-    ## ⋯ There is a *wild* card for an expression match
-    m = match(u, ex)
-    !isnothing(m) && return has_WILD(v) ? _replace(v, WILD, m) : ↑(v)
+"""
+    match(pattern, expression)
 
-    # peel off
-    op, args = operation(ex), arguments(ex)
-    args′ = _replace.(args, (u,), (v,))
+Match expression using a pattern with possible wildcards. Uses a partial implementation of *Non-linear Associative-Commutative Many-to-One Pattern Matching with Sequence Variables* by Manuel Krebber.
 
-    return maketerm(AbstractSymbolic, op, args′, nothing)
+If no match, returns `nothing`.
 
-end
+If there is a match returns a collection of substitutions (σ₁, σ₂, …) -- possibly empty -- with the property `pattern(σ...) == expression` is true.
 
-# return arguments fill out ⋯ or nothing if not a
-# match in the expression tree
-# this seems like the correct use of the generic
+Wildcards are just symbolic variables with a naming convention: using one trailing underscore for a single match, two trailing underscores for a match of one or more, and three trailing underscores for a match on 0, 1, or more.
+
+## Examples
+
+```
+@symbolic a b
+@symbolic x_
+@symbolic x__
+
+p, s= x_*cos(x__), a*cos(2 + b)
+
+Θ = match(p, s)
+σ = only(Θ)
+p(σ...) == s
+
+p, s =  p = x_ + x__ + x___,  a + b + a + b + a
+Θ = match(p, s)
+σ = last(Θ)  # 37 matches
+p(σ...) # a + a + (a + b + b)
+```
+
+"""
 function Base.match(pat::AbstractSymbolic, ex::AbstractSymbolic)
-    has_WILD(pat) || return (pat == ex ? ex : nothing)
-    m = _ismatch(ex, pat)
-    return m
-end
-
-# ismatch wildcard
-# return hasmatch: this matches or contains a match
-# and expression/missing expression if a match, nothing if not
-_ismatch(ex::AbstractSymbolic, u::SymbolicVariable) = ex == u ? u : nothing
-_ismatch(ex::AbstractSymbolic, u::typeof(WILD)) = ex
-
-_ismatch(ex::SymbolicNumber, u::SymbolicExpression) = nothing
-_ismatch(ex::SymbolicVariable, u::SymbolicExpression) = nothing
-_ismatch(ex::SymbolicParameter, u::SymbolicExpression) = nothing
-
-function _ismatch(ex::SymbolicExpression, u::SymbolicExpression)
-    opₓ, opᵤ = operation(ex), operation(u)
-    opₓ == opᵤ || return nothing
-    argsₓ, argsᵤ = arguments(ex), arguments(u)
-    if opₓ == (+) || opₓ == (*)
-        asₓ, asᵤ = sort(collect(argsₓ)), sort(collect(argsᵤ))
-        if WILD ∈ asᵤ
-            for a ∈ asᵤ
-                a == WILD && continue
-                a ∈ asₓ || return nothing
-            end
-            ex′ = maketerm(AbstractSymbolic, opₓ, _diff!(asₓ, asᵤ), nothing)
-            return ex′
-        else
-            length(asₓ) == length(asᵤ) || return nothing
-            for (a,b) ∈ zip(asₓ, asᵤ)
-                a == b && continue
-                (!has_WILD(b) && a != b) && return nothing
-                matched, m = _ismatch(a, b)
-                matched && !isnothing(m) && return m
-                matched || return nothing
-            end
-        end
+    pred(a) = any(any(_is_𝑋(u) for u in s) for s in free_symbols(a))
+    if pred(pat)
+        out = MatchOneToOne((ex,), pat)
+        out == () && return nothing
+        return out
     else
-        for (a,b) ∈ zip(argsₓ, argsᵤ)
-            if !(has_WILD(b))
-                a == b || return nothing
-            end
-        end
-        for (a,b) ∈ zip(argsₓ, argsᵤ)
-            m = _ismatch(a, b)
-            return m
-        end
+        out = SyntacticMatch(ex, pat)
     end
-    @show :shouldnt_be_here, ex, u
-    return missing
+    out
 end
-
-# remove elements in xs′ that appear in xs but only once!
-function _diff!(xs, xs′)
-    for i in eachindex(xs′)
-        i = only(indexin(xs′[i:i], xs))
-        !isnothing(i) && deleteat!(xs, i)
-    end
-    xs
-end
-
-
-"""
-    map_matched(ex, is_match, f)
-
-Traverse expression. If `is_match` is true, apply `f` to that part of expression tree and reassemble.
-
-(Basically `CallableExpressions.expression_map_matched` brought forward to variables in `SimpleExpressions`.)
-
-## Example
-```
-julia> u = x*tanh(exp(x))
-x * tanh(exp(x))
-
-julia> SimpleExpressions.map_matched(u, ==(exp(x)), x -> x^2)
-x * tanh(exp(x) ^ 2)
-```
-
-"""
-function map_matched(x::𝐿, is_match::P, f::F) where {P,F}
-    is_match(x) ? f(x) : x
-end
-function map_matched(x::SymbolicExpression, is_match::P, f::F) where {P,F}
-    # copy of  CallableExpressions.expression_map_matched(pred, mapping, u)
-    # but in SimpleExpressions domain
-    if is_match(x)
-        return f(x)
-    end
-    isa(x, 𝐿) && return x
-    children = map_matched.(arguments(x), is_match, f)
-    maketerm(typeof(x), operation(x), children, metadata(x))
-end
-
-function _exact_replace(ex, p, q)
-    map_matched(ex, ==(p), _ -> q)
-end
-
-#=
-## replace exact piece of tree with something else
-_exact_replace(ex::SymbolicNumber, p, q) = ex == p ? ↑(q) : ex
-_exact_replace(ex::SymbolicVariable, p, q) = ex == p ? ↑(q) : ex
-_exact_replace(ex::SymbolicParameter, p, q) = ex == p ? ↑(q) : ex
-function _exact_replace(ex::SymbolicExpression, p, q)
-    ex == p && return ↑(q)
-    op, args = operation(ex), arguments(ex)
-    args′ = ((a == p ? q : _exact_replace(a, p, q)) for a in args)
-    maketerm(SymbolicExpression, op, args′, nothing)
-end
-=#

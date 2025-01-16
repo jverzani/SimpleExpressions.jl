@@ -131,9 +131,10 @@ v = replace(u, x=>1, y=>2) # the symbolic value ((1^2)-(2^2))
 v()                        # evaluates to -3
 ```
 
-The `replace` method is a bit more involved than illustrate. The `key => value` pairs have different dispatches depending on the value of the key. Above, the key is a `SymbolicVariable`, but the key can be
+The `replace` method is a bit more involved than illustrated. The `key => value` pairs have different dispatches depending on the value of the key. Above, the key is a `SymbolicVariable`, but the key can be
 
 * A `SymbolicVariable` or `SymbolicParameter` in which case the simple substitution is applied, as just illustrated.
+
 * A function, like `sin`. In this case, a matching operation head is replaced by the replacement head. Eg. `sin => cos` will replace a `sin` call with a `cos` call.
 
 ```@example expressions
@@ -148,16 +149,27 @@ v = 1 + (x+1)^1 + 2*(x+1)^2 + 3*(x+1)^3
 replace(v, x+1 => x)
 ```
 
-
-* A symbolic expression *with* a *wildcard*. The **special** symbol `⋯`, when made into a symbolic variable via `@symbolic  ⋯` (where ` ⋯` is entered as `\cdots[tab]`) is treated as a wildcard for matching purposes. The `⋯` can be used in the replacement.
+* A symbolic expression *with* a *wildcard*. Wildcards have a naming convention using trailing slashes. One matches one value; two matches one or more values; three match 0, 1, or more values. In addition, the **special** symbol `⋯` (entered with `\cdots[tab]` is wild.
 
 ```@example expressions
 v = log(1 + x) + log(1 + x^2/2)
-@symbolic ⋯ # create wildcard
-replace(v, log(1 + ⋯) => log1p(⋯))
+@symbolic x_
+replace(v, log(1 + x_) => log1p(x_)) # log1p(x) + log1p((x ^ 2) / 2)
 ```
 
+Substitution uses `match(pattern, subject)` for expression matching with wildcards:
 
+```@example expressions
+subject, pattern = log(1 + x^2/2), log(1+x_)
+ms = match(pattern, subject)
+```
+
+The return value is `nothing` (for no match) or a collection of valid substitutions. Substituting one into the pattern should return the subject:
+
+```@expressions expressions
+σ = first(ms)
+pattern(σ...)
+```
 
 
 ## Symbolic containers
