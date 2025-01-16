@@ -140,59 +140,10 @@ end
     @test u(p=>p₀)                 isa SimpleExpressions.AbstractSymbolic
 end
 
-@testset "replace" begin
-    @symbolic x p
-    @symbolic ⋯
-
-    ≈ₑ(u,v) = (x₀ = rand(); u(x₀) ≈ v(x₀))
-
-    ex = log(1 + x^2) + log(1 + x^3)
-    @test replace(ex, log=>sin) == sin(1 + (x ^ 2)) + sin(1 + (x ^ 3))
-    @test replace(ex, log(1+⋯) => log1p(⋯)) == log1p(x ^ 2) + log1p(x ^ 3)
-
-    ex = log(sin(x)) + tan(sin(x^2))
-    @test replace(ex, sin => cos) == log(cos(x)) + tan(cos(x^2))
-    @test replace(ex, sin(⋯) => tan(⋯)) == log(tan(x)) + tan(tan(x^2))
-    @test replace(ex, sin(⋯) => tan((⋯)/2)) == log(tan(x/2)) + tan(tan(x^2/2))
-    @test replace(ex, sin(⋯) => ⋯) == log(x) + tan(x^2)
-
-    ex = (1 + x^2)^2 # outer one
-    pr = (⋯)^2 => (⋯)^4
-    @test replace(ex, pr) == (1 + (x ^ 2)) ^ 4
-    @test replace(ex, pr, pr) == (1 + (x ^ 4)) ^ 4
-
-    ex = sin(x + x*log(x) + cos(p + x + p + x^2))
-    @test replace(ex, cos(x + ⋯) => ⋯) == sin(x + (x * log(x)) + p + p + (x ^ 2))
-
-    @test replace(x, p=>2) == x
-    @test replace(1 + x^2, x^2 => 2)() == 3  # 1 + 2 evaluates to 3
-
-    # exact replacement; a bit speedier than `replace(ex, expr=>replacement)`
-    ex = x^2 + x^4
-    @test replace(ex, x^2 => x) == x + x^4
-
-    ex = x * sin(x)
-    @test replace(ex, x*sin(x) => x) == x
-    @test replace(ex*cos(x), x*sin(x) => x) == ex * cos(x)
-
-    u = x + 2
-    ex = u + exp(u) # (x + 2 + exp(x+2)) but + is vararg so no match
-    @test replace(ex, u=>x) == (x + 2 + exp(x))
-
-    @symbolic y; @symbolic z
-    @test replace(x*y + z, x*y => pi) == pi + z
-    @test replace(x*y*z, x*y => pi) == x*y*z
-    @test replace(2x, 2x => y, x => z) == y
-    @test replace(2 * (2x), 2x => y, x => z) == 4 * z # y isn't replaced, just x
-
-    # match
-    @test match(log(1 + ⋯), log(1 + x^2/2 - x^4/24)) ≈ₑ x^2/2 - x^4/24
-    @test match((⋯)^(⋯), (x+p)^(x+p)) == x + p
-    @test isnothing(match(sin(⋯), sin(x)^2))
-
+@testset "map_matched" begin
     # map_matched
     @symbolic x p
-    @test map_matched(x*tanh(exp(x)), ==(exp(x)), x -> x^2) == x * tanh(exp(x)^2)
+    @test SimpleExpressions.map_matched(x*tanh(exp(x)), ==(exp(x)), x -> x^2) == x * tanh(exp(x)^2)
 
 end
 

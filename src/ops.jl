@@ -29,21 +29,25 @@ for op ∈ (:/, )
         import Base: $op
         Base.$op(x::AbstractSymbolic, y::AbstractSymbolic) =
             SymbolicExpression(StaticExpression((↓(x), ↓(y)), $op))
-        Base.$op(x::AbstractSymbolic, y::Number) = $op(promote(x,y)...)
+        Base.$op(x::AbstractSymbolic, y::Number) = _isunit(*,y) ? x : $op(promote(x,y)...)
         Base.$op(x::Number, y::AbstractSymbolic) = $op(promote(x,y)...)
     end
 end
 
 ## arrange for *, + to be n-ary
+_isunit(::typeof(+), y::Number) = iszero(y)
+_isunit(::typeof(*), y::Number) = isone(y)
+
 for op ∈ (:*, :+)
     @eval begin
         import Base: $op
         Base.$op(x::AbstractSymbolic, y::AbstractSymbolic) =
             SymbolicExpression(StaticExpression(TupleTools.vcat(_arguments($op,x), _arguments($op,y)), $op))
-        Base.$op(x::AbstractSymbolic, y::Number) = $op(promote(x,y)...)
-        Base.$op(x::Number, y::AbstractSymbolic) = $op(promote(x,y)...)
+        Base.$op(x::AbstractSymbolic, y::Number) = _isunit($op, y) ? x : $op(promote(x,y)...)
+        Base.$op(x::Number, y::AbstractSymbolic) = _isunit($op, x) ? y : $op(promote(x,y)...)
     end
 end
+
 
 Base.:-(x::AbstractSymbolic, y::AbstractSymbolic) = x + (-1)*y
 Base.:-(x::AbstractSymbolic, y::Number) = x + (-1)*y
@@ -264,8 +268,8 @@ function Base.broadcasted(::typeof(Base.literal_pow), u, a::AbstractSymbolic,
 end
 
 
-
 # simplifying operations
+# XXX These are really in need of removal
 ## plus
 ⊕(x::SymbolicNumber,y::SymbolicNumber) = SymbolicNumber(x() + y())
 function ⊕(x,y)
@@ -281,6 +285,7 @@ function ⊖(x,y)
     iszero(y) && return x
     return x - y
 end
+
 
 ## times
 ⊗(x::SymbolicNumber,y::SymbolicNumber) = SymbolicNumber(x() * y())

@@ -12,6 +12,7 @@ end
 SymbolicVariable(x::SymbolicVariable) = x
 SymbolicVariable(x::Symbol) = SymbolicVariable(StaticVariable{x}())
 SymbolicVariable(x::AbstractString) = SymbolicVariable(Symbol(x))
+SymbolicVariable(x::Tuple) = SymbolicVariable.(x)
 
 struct SymbolicParameter{T <: DynamicVariable} <: AbstractSymbolic
     u::T
@@ -33,7 +34,10 @@ function SymbolicNumber(c::S) where {S <: Number}
 end
 
 Base.zero(::AbstractSymbolic) = SymbolicNumber(0)
+Base.zero(::Type{<:AbstractSymbolic}) = SymbolicNumber(0)
 Base.one(::AbstractSymbolic)  = SymbolicNumber(1)
+Base.one(::Type{<:AbstractSymbolic}) = SymbolicNumber(1)
+
 
 
 # Expressions
@@ -46,21 +50,32 @@ function SymbolicExpression(op, children)
     SymbolicExpression(u)
 end
 
+## ----------
+# @symbolic_variables has room for functions and guarded functions
+# for symbolic functions, different call
+struct SymbolicFunction{X, T <: StaticVariable{X}} <: AbstractSymbolic
+    u::T
+    SymbolicFunction(u::T) where {X, T <: StaticVariable{X}} = new{X,T}(u)
+end
+SymbolicFunction(x::Symbol) = SymbolicFunction(StaticVariable{x}())
+SymbolicFunction(x::AbstractString) = SymbolicFunction(Symbol(x))
+(f::SymbolicFunction)(xs...) = SymbolicExpression(f, xs)
+
+## we *could* do more here adding a guard for matching purposes?
+GuardedSymbolicVariable(u;kwargs...) = SymbolicVariable(u)
+
+
+## ----------
 
 # conveniences
 𝑉 = Union{SymbolicVariable, SymbolicParameter}
-𝐿 = Union{𝑉, SymbolicNumber}
+𝐿 = Union{𝑉, SymbolicNumber} # not constant expressions though
 
 ## ----- CallableExpressions
 
 _Variable = CallableExpressions.ExpressionTypeAliases.Variable
 
-
-
-
 ## ----- promotion/conversion
-
-
 Base.promote_rule(::Type{<:AbstractSymbolic}, x::Type{T}) where {T <: Number} = AbstractSymbolic
 
 Base.convert(::Type{<:AbstractSymbolic}, x::Number) = SymbolicNumber(DynamicConstant(x))
@@ -72,6 +87,7 @@ Base.convert(::Type{<:AbstractSymbolic}, x::SymbolicParameter) = x
 
 ## --- CallableExpressions --> SimpleExpression
 # convert to symbolic; ↑ is an alias
+assymbolic(x) = x
 assymbolic(x::AbstractSymbolic) = x
 assymbolic(x::Symbol) = SymbolicVariable(x)
 assymbolic(x::Number) = SymbolicNumber(x)

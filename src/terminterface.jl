@@ -22,8 +22,12 @@ TermInterface.isexpr(ex::SymbolicExpression) = true
 TermInterface.isexpr(ex::AbstractSymbolic) = false
 
 
-function TermInterface.maketerm(T::Type{<:AbstractSymbolic}, head, children, metadata)
+function TermInterface.maketerm(T::Type{<:SymbolicExpression}, head, children, metadata)
     head(assymbolic.(children)...)
+end
+
+function TermInterface.maketerm(T::Type{<:SymbolicExpression}, head::SymbolicVariable, children, metadata)
+    SymbolicExpression(head, children)
 end
 
 function TermInterface.maketerm(T::Type{<:SymbolicNumber}, ::Nothing, children, metadata)
