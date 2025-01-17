@@ -1,6 +1,6 @@
 # basics
 import SimpleExpressions.TermInterface: arguments, sorted_arguments
-import SimpleExpressions: D, solve, coefficients
+import SimpleExpressions: D, solve, coefficients, combine
 import SimpleExpressions: map_matched
 
 @testset "SimpleExpressions.jl" begin
@@ -149,7 +149,6 @@ end
 
 
 
-
 @testset "show" begin
     # test show
     # note *,+ do **not** do light simplification and sort arguments
@@ -166,6 +165,35 @@ end
 
     @test repr((1+x)^2) == "(1 + x) ^ 2"
 
+end
+
+@testset "combine" begin
+    # simplish simplification
+    @symbolic x
+    
+    ex = 2x + x
+    @test combine(ex) == 3x
+    @test combine(ex + 2x) == 5x
+
+    ex = x * x^2 * x^3
+    @test combine(ex) == x^6
+
+    ex = x * cos(x) * x^2 * x^3
+    u = combine(ex)
+    @test u ∈ (x^6 * cos(x), cos(x)*x^6)
+
+    ex = x + 2x + x*x*x
+    u = combine(ex)
+    @test u ∈ (3x + x^3, x^3 + 3x)
+
+    ex = sum(n + n*x + n^2*x^2 for n in 1:5)
+    u = combine(ex)
+    @test coefficients(u, x) == (a₀ = 15, a₁ = 15, a₂ = 55)
+
+    ex = sum(n + n*x + (n*x)^2 for n in 1:5)
+    u = combine(ex)
+    @test coefficients(u, x) == (a₀ = 15, a₁ = 15, a₂ = 55)
+    
 end
 
 @testset "broadcast/generators" begin

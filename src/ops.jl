@@ -6,7 +6,7 @@ import SimpleExpressions: AbstractSymbolic, SymbolicExpression, D
 import SimpleExpressions.CallableExpressions: StaticExpression
 function Base.fourthroot(x::AbstractSymbolic)
     u = StaticExpression((x,), fourthroot)
-	SymbolicExpression(u)
+    SymbolicExpression(u)
 end
 D(::typeof(fourthroot), args,x) = (𝑥 = only(args); D(𝑥,x) * fourthroot(x)^3 / 4)
 
@@ -14,7 +14,7 @@ fourthroot(x^2 + 2)
 ```
 =#
 ## ---- operations
-for op ∈ (://, :^,  :≈)
+for op ∈ (://,  :≈)
     @eval begin
         import Base: $op
         Base.$op(x::AbstractSymbolic, y::AbstractSymbolic) =
@@ -24,34 +24,67 @@ for op ∈ (://, :^,  :≈)
     end
 end
 
-for op ∈ (:/, )
+# commutative ops
+for op ∈ (:*, :+)
     @eval begin
         import Base: $op
-        Base.$op(x::AbstractSymbolic, y::AbstractSymbolic) =
-            SymbolicExpression(StaticExpression((↓(x), ↓(y)), $op))
-        Base.$op(x::AbstractSymbolic, y::Number) = _isunit(*,y) ? x : $op(promote(x,y)...)
+        Base.$op(x::SymbolicNumber, y::SymbolicNumber) =$op(x(), y())
+        Base.$op(x::AbstractSymbolic, y::Number) = $op(promote(x,y)...)
         Base.$op(x::Number, y::AbstractSymbolic) = $op(promote(x,y)...)
     end
 end
 
-## arrange for *, + to be n-ary
-_isunit(::typeof(+), y::Number) = iszero(y)
-_isunit(::typeof(*), y::Number) = isone(y)
-
-for op ∈ (:*, :+)
+for op ∈ (:/, :^)
     @eval begin
         import Base: $op
-        Base.$op(x::AbstractSymbolic, y::AbstractSymbolic) =
-            SymbolicExpression(StaticExpression(TupleTools.vcat(_arguments($op,x), _arguments($op,y)), $op))
-        Base.$op(x::AbstractSymbolic, y::Number) = _isunit($op, y) ? x : $op(promote(x,y)...)
-        Base.$op(x::Number, y::AbstractSymbolic) = _isunit($op, x) ? y : $op(promote(x,y)...)
+        Base.$op(x::AbstractSymbolic, y::Number) = $op(promote(x,y)...)
+        Base.$op(x::Number, y::AbstractSymbolic) = $op(promote(x,y)...)
+
     end
 end
-
 
 Base.:-(x::AbstractSymbolic, y::AbstractSymbolic) = x + (-1)*y
 Base.:-(x::AbstractSymbolic, y::Number) = x + (-1)*y
 Base.:-(x::Number, y::AbstractSymbolic) = x + (-1)*y
+
+# do some light simplification on construction
+# ADD
+function Base.:+(x::AbstractSymbolic, y::AbstractSymbolic)
+    iszero(x) && return y
+    iszero(y) && return x
+    as = TupleTools.vcat(_arguments(+,x), _arguments(+,y))
+    SymbolicExpression(StaticExpression(as, +))
+end
+
+# MUL
+function Base.:*(x::AbstractSymbolic, y::AbstractSymbolic)
+    isone(x) && return y
+    isone(y) && return x
+    iszero(x) && return zero(x)
+    iszero(y) && return zero(y)
+    as = TupleTools.vcat(_arguments(*,x), _arguments(*,y))
+    SymbolicExpression(StaticExpression(as, *))
+end
+
+# DIV
+function Base.:/(x::AbstractSymbolic, y::AbstractSymbolic)
+    x == y && return one(x)
+    isone(y) && return x
+    iszero(x) && return zero(x)
+    !isinf(x) && isinf(y) && return zero(x)
+    cs = (↓(x), ↓(y))
+    SymbolicExpression(StaticExpression(cs, /))
+end
+
+## POW
+function Base.:^(x::AbstractSymbolic, y::AbstractSymbolic)
+    iszero(y) && return one(x) # 0^0 is 1
+    iszero(x) && return zero(y)
+    isone(x)  && return x
+
+    cs = (↓(x), ↓(y))
+    SymbolicExpression(StaticExpression(cs, ^))
+end
 
 
 𝑄 = Union{Integer, Rational}
@@ -65,11 +98,14 @@ end
 
 for op ∈ (:/, ://)
     @eval begin
-        Base.$op(x::SymbolicNumber{DynamicConstant{T}},
+        function Base.$op(x::SymbolicNumber{DynamicConstant{T}},
                   y::SymbolicNumber{DynamicConstant{S}}) where {
-                      T<:𝑄, S<:𝑄} =
-                          SymbolicNumber(x()//y())
+                      T<:𝑄, S<:𝑄}
+            u,v = x(), y()
+            isone(v) && return SymbolicNumber(u)
+            SymbolicNumber(u//v)
         end
+    end
 end
 
 for op ∈ (:+, :-, :*, :^, :/ )
@@ -232,13 +268,14 @@ for op ∈ (:zip, :getindex,)
     end
 end
 
-## special cases
+## ---- special cases
+## log
 Base.log(a::Number, x::AbstractSymbolic) = log(x) / log(symbolicnumber(a))
 function Base.broadcasted(::typeof(log), a, b::AbstractSymbolic)
     SymbolicExpression(Base.broadcasted, (log, a, b))
 end
 
-
+## ---- powers
 Base.inv(a::AbstractSymbolic) = SymbolicExpression(inv, (a,))
 Base.inv(a::SymbolicExpression) = _inv(operation(a), a)
 _inv(::typeof(inv), a) = only(arguments(a))
@@ -249,6 +286,7 @@ function _inv(::typeof(^), a)
 end
 _inv(::Any, a) = SymbolicExpression(inv, (a,))
 
+## ---- literal_pow
 ## handle integer powers
 Base.literal_pow(::typeof(^), x::AbstractSymbolic, ::Val{0}) = one(x)
 Base.literal_pow(::typeof(^), x::AbstractSymbolic, ::Val{1}) = x
@@ -261,74 +299,9 @@ function Base.literal_pow(::typeof(^), x::AbstractSymbolic, ::Val{p}) where {p}
     u = SymbolicExpression(^, (x, p′))
     p < 0 ? 1 / u : u
 end
-# broadcast
+
 function Base.broadcasted(::typeof(Base.literal_pow), u, a::AbstractSymbolic,
                           p::Val{N}) where {N}
     SymbolicExpression(Base.broadcasted, (^, a,N))
 end
 
-
-# simplifying operations
-# XXX These are really in need of removal
-## plus
-⊕(x::SymbolicNumber,y::SymbolicNumber) = SymbolicNumber(x() + y())
-function ⊕(x,y)
-    iszero(x) && return y
-    iszero(y) && return x
-    return x + y
-end
-
-## minus
-⊖(x::SymbolicNumber,y::SymbolicNumber) = SymbolicNumber(x() - y())
-function ⊖(x,y)
-    iszero(x) && return -y
-    iszero(y) && return x
-    return x - y
-end
-
-
-## times
-⊗(x::SymbolicNumber,y::SymbolicNumber) = SymbolicNumber(x() * y())
-function ⊗(x,y)
-    isone(x) && return y
-    isone(y) && return x
-    iszero(x) && return zero(x)
-    iszero(y) && return zero(y)
-    return x * y
-end
-
-## div
-function ⨸(x::SymbolicNumber,y::SymbolicNumber)
-    n, d = x(), y()
-    # keep as rational?
-    isa(n, Integer) && isa(d, Integer) && return SymbolicNumber(n // d)
-    SymbolicNumber(x() / y())
-end
-
-function ⨸(x,y)
-    x == y    && return one(x)
-    isone(y)  && return x
-    iszero(x) && return zero(x)
-    !isinf(x) && isinf(y) && return zero(x)
-
-
-
-    # can cancel?
-    if is_operation(/)(y)
-        a, b = arguments(y)
-        return (x ⊗ b) ⨸ a
-    end
-
-    if is_operation(*)(x)
-        if contains(x, y) # cancel y in x; return
-            out = one(x)
-            for c ∈ sorted_arguments(x)
-                c == y && continue
-                out = out ⊗ c
-            end
-            return out
-        end
-    end
-
-    return x / y
-end

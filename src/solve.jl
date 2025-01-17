@@ -63,7 +63,7 @@ function _solve(l, r, x::𝑉)
     if contains(l, x)
         l, r = isolate_x(Val(:→), l, r, x)
     else
-        l, r = zero(l), r ⊖ l
+        l, r = zero(l), r - l
     end
     l == l′  && return _final_solve(l, r, x)
     _solve(l, r, x) # recurse
@@ -83,11 +83,11 @@ function _final_solve(l,r,x)
             return l ~ r
         elseif length(cs) == 2
             a0,a1 = cs
-            return x ~ _combine_numbers((r ⊖ a0)  ⨸ a1)
+            return x ~ _combine_numbers((r - a0)  / a1)
         end
         p = sum(aᵢ * x^i for (i, aᵢ) ∈ enumerate(Iterators.rest(cs,2)))
         # could solve, but ...
-        return p ~ _combine_numbers(r ⊖ first(cs))
+        return p ~ _combine_numbers(r - first(cs))
     end
     l ~ _combine_numbers(r)
 end
@@ -148,7 +148,7 @@ function coefficients(ex, x)
     d = Dict{Any, Any}()
     for c in cs
         (aᵢ, i) = _monomial(c, x)
-        d[i] = aᵢ ⊕ get(d, i, zero(x))
+        d[i] = aᵢ + get(d, i, zero(x))
     end
 
     n = maximum(collect(keys(d)))
@@ -179,7 +179,7 @@ function _monomial(c, x)
 
     if is_operation(*)(c)
         ps = _monomial.(arguments(c), x)
-        aᵢ = reduce(⊗, first.(ps), init=one(x))
+        aᵢ = reduce(*, first.(ps), init=one(x))
         i  = sum(last.(ps))
 
         return (aᵢ, i)
@@ -207,7 +207,7 @@ end
 # a*(b+c) --> a*b + a*c (flatten?)
 # work of distribute_over_plus is op by op
 function _distribute_over_plus(::typeof(+), ex, x)
-    reduce(⊕, _distribute_over_plus.(sorted_arguments(ex), x), init=zero(x))
+    reduce(+, _distribute_over_plus.(sorted_arguments(ex), x), init=zero(x))
 end
 
 function _distribute_over_plus(::typeof(*), ex, x)
@@ -218,22 +218,22 @@ function _distribute_over_plus(::typeof(*), ex, x)
             b = c
             continue
         else
-            a = a ⊗ _distribute_over_plus(c, x)
+            a = a * _distribute_over_plus(c, x)
         end
     end
     isnothing(b) && return a
-    return mapreduce(Base.Fix1(⊗, a), ⊕, sorted_arguments(b), init=zero(x))
+    return mapreduce(Base.Fix1(*, a), +, sorted_arguments(b), init=zero(x))
 end
 
 function _distribute_over_plus(::typeof(-), ex, x)
-    reduce(⊖, _distribute_over_plus.(arguments(ex), x), init=zero(x))
+    reduce(-, _distribute_over_plus.(arguments(ex), x), init=zero(x))
 end
 
 
 function _distribute_over_plus(::typeof(/), ex, x)
     a, b = arguments(ex)
     contains(b, x) && return ex
-    a ⊗ (1 / b)
+    a * (1 / b)
 end
 
 function _distribute_over_plus(::typeof(^), ex, x)
@@ -246,7 +246,7 @@ function _distribute_over_plus(::typeof(^), ex, x)
         n < 0 && return ex
         l = one(x)
         for i in 1:n
-            l = l ⊗ a
+            l = l * a
         end
         return l
     end
@@ -261,12 +261,12 @@ _combine_numbers(ex) = _combine_numbers(operation(ex), ex)
 
 function _combine_numbers(::typeof(+), ex)
     args = _combine_numbers.(sorted_arguments(ex))
-    foldl(⊕, args, init=zero(ex))
+    foldl(+, args, init=zero(ex))
 end
 
 function _combine_numbers(::typeof(*), ex)
     args = _combine_numbers.(sorted_arguments(ex))
-    foldl(⊗, args, init=one(ex))
+    foldl(*, args, init=one(ex))
 end
 
 function _combine_numbers(::Any, ex)
@@ -282,7 +282,7 @@ end
 
 function isolate_x(::Val{:←}, l, r::𝑉, x)
     if r == x
-        l = l ⨸ r
+        l = l / r
         r = one(x)
     end
     l, r
@@ -299,17 +299,17 @@ function isolate_x(::Val{:→}, ::typeof(/), l, r, x)
     if contains(a, x)
         l′ = a
     else
-        r = r ⨸ a
+        r = r / a
     end
     if contains(b, x)
         if !contains(l′, x)  # take reciprocal
-            l′ = b ⨸ l′
-            r = one(x) ⨸ r
+            l′ = b / l′
+            r = one(x) / r
         else
-            l′ = l′ ⨸ b
+            l′ = l′ / b
         end
     else
-        r = r ⊗ b
+        r = r * b
     end
 
     l′, r
@@ -325,7 +325,7 @@ function isolate_x(::Val{:←}, ::typeof(/), l, r, x)
     end
 
     if contains(b, x)
-        l = l ⊗ b
+        l = l * b
     else
         r′ = r′ / b
     end
@@ -339,15 +339,15 @@ function isolate_x(::Val{:→}, ::typeof(-), l, r, x)
     a, b, = arguments(l)
     l′ = zero(l)
     if !contains(a, x)
-        r = r ⊖ a
+        r = r - a
     else
         l′ = a
     end
 
     if !contains(b, x)
-        r = r ⊕ b
+        r = r + b
     else
-        l′ = l′ ⊖ b
+        l′ = l′ - b
     end
 
     l, r′
@@ -357,15 +357,15 @@ function isolate_x(::Val{:←}, ::typeof(-), l, r, x)
     a, b, = arguments(r)
     r′ = zero(r)
     if contains(a, x)
-        l = l ⊖ a
+        l = l - a
     else
         r′ = a
     end
 
     if contains(b, x)
-        l = l ⊕ b
+        l = l + b
     else
-        r′ = r′ ⊖ b
+        r′ = r′ - b
     end
 
     l, r′
@@ -383,7 +383,7 @@ function isolate_x(::Val{:→}, ::typeof(^), l, r, x)
             bb == 2 && return a, sqrt(r)
             bb == 3 && return a, cbrt(r)
         end
-        l,r = a, r^(one(x) ⨸ b)
+        l,r = a, r^(one(x) / b)
     end
     return l, r
 end
@@ -410,9 +410,9 @@ function isolate_x(::Val{:→}, ::typeof(+), l, r, x)
     l′ = zero(l)
     for c ∈ arguments(l)
         if contains(c, x)
-            l′ = l′ ⊕ c
+            l′ = l′ + c
         else
-            r = r ⊖ c
+            r = r - c
         end
     end
     return l′, r
@@ -423,9 +423,9 @@ function isolate_x(::Val{:←}, ::typeof(+), l, r, x)
     r′ = zero(r)
     for c ∈ arguments(r)
         if contains(c, x)
-            l = l ⊖ c
+            l = l - c
         else
-            r′ = r′ ⊕ c
+            r′ = r′ + c
         end
     end
     l, r′
@@ -437,9 +437,9 @@ function isolate_x(::Val{:→}, ::typeof(*), l, r, x)
     l′ = one(l)
     for c ∈ arguments(l)
         if contains(c, x)
-            l′ = l′ ⊗ c
+            l′ = l′ * c
         else
-            r = r ⨸ c
+            r = r / c
         end
     end
     l′, r
@@ -449,9 +449,9 @@ function isolate_x(::Val{:←}, ::typeof(*), l, r, x)
     r′ = one(r)
     for c ∈ arguments(r)
         if contains(c, x)
-            l = l ⨸ c
+            l = l / c
         else
-            r′ = r′ ⊗ c
+            r′ = r′ * c
         end
     end
     l, r′
