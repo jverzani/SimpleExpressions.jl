@@ -271,4 +271,4 @@ u = D(exp(x) * (sin(3x) + sin(101x)), x)
 
 #### Simplification
 
-No simplification is done so the expressions can quickly become unwieldy. There is `TermInterface` support, so--in theory--rewriting of expressions, as is possible with the `Metatheory.jl` package, is supported. The scaffolding is in place, but waits for the development version to be tagged.
+No simplification is done so the expressions can quickly become unwieldy. The unexported `combine` does light simplfication.  There is `TermInterface` support, so--in theory--rewriting of expressions, as is possible with the `Metatheory.jl` package, is supported. The scaffolding is in place, but waits for the development version to be tagged.

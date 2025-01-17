@@ -27,6 +27,7 @@ include("decl.jl")
 include("equations.jl")
 include("terminterface.jl")
 include("ops.jl")
+include("combine.jl")
 include("show.jl")
 include("introspection.jl")
 include("call.jl")
@@ -37,8 +38,7 @@ include("generators.jl")
 include("scalar-derivative.jl")
 include("solve.jl")
 
-#include("simplify.jl")
-#include("metatheory.jl")
+#include("simplify.jl") # wait for Metatheory v3.0 tag
 
 
 end
