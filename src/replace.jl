@@ -219,7 +219,7 @@ Match expression using a pattern with possible wildcards. Uses a partial impleme
 
 If there is no match: returns `nothing`.
 
-If there is a match: returns a collection of substitutions (σ₁, σ₂, …) -- possibly empty -- with the property `pattern(σ...) == expression` is true.
+If there is a match: returns a σ₁ -- with the property `pattern(σ...) == expression` is true. `MatchOneToOne((subject,), pattern)` will return all matches as an iterable object.
 
 Wildcards are just symbolic variables with a naming convention: use one trailing underscore to indicate a single match, two trailing underscores for a match of one or more, and three trailing underscores for a match on 0, 1, or more.
 
@@ -263,8 +263,8 @@ function Base.match(pat::AbstractSymbolic, ex::AbstractSymbolic)
     pred(a) = any(any(_is_𝑋(u) for u in s) for s in free_symbols(a))
     if pred(pat)
         out = MatchOneToOne((ex,), pat)
-        out == () && return nothing
-        return out
+        isempty(out) && return nothing
+        return first(out)
     else
         out = SyntacticMatch(ex, pat)
     end

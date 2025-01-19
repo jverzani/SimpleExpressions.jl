@@ -84,7 +84,7 @@ end
 function union_match_sets(Θ, Θ′)
     Θ == ∅ && return Θ′
     Θ′ == ∅ && return Θ
-    Θ′′ = filter(!in(Θ), Θ′)
+    Θ′′ = filter(!in(Θ), tuple(Θ′...))
     TupleTools.vcat(Θ, Θ′′)
 end
 
@@ -206,6 +206,7 @@ function MatchCommutativeSequence(ss, ps, fₐ=nothing, Θ=((),))
     Θc = ∅
 
     for σ ∈ Θ
+        # XXX reduce xx, ps
         out = _match_matched_variables(ss, ps, σ)
         out == ∅ && return ∅
         ss, ps = out
@@ -216,11 +217,17 @@ function MatchCommutativeSequence(ss, ps, fₐ=nothing, Θ=((),))
         out == ∅ && return ∅
         ss, ps, Θ′ = out
 
-        debug && @show :non_variable, ss, ps, Θ′
+        out = _mnvp(ss, ps, fₐ, σ)
+        ss, ps, Θ′ = out
 
+        debug && @show :non_variable, ss, ps, Θ′
+        @show collect(Θ′)
+        
         for σ′ ∈ Θ′
             ## then repeat matched variable ...
+            @show σ′
             out  = _match_matched_variables(ss, ps, σ′)
+            #out  = _match_matched_variables(ss, ps, first(σ′)            )
             out == ∅ && return out
             ss, ps = out
 
@@ -236,7 +243,8 @@ function MatchCommutativeSequence(ss, ps, fₐ=nothing, Θ=((),))
                     ss, ps, σ = out # XX \sigma or Θ
                     Θ′ = (σ, )
                     if length(ps) > 0
-                    Θ′ = _match_sequence_variables(ss, ps, fₐ, σ)
+                        #Θ′ = _match_sequence_variables(ss, ps, fₐ, σ)
+                        Θ′ = _msv(ss, ps, fₐ, σ)                        
                     end
                     Θc = union_match_sets(Θc, Θ′)
                 end
@@ -292,6 +300,7 @@ function  _match_matched_variables(ss, ps, σ)
 end
 
 # return () or (ss, ps, Θ)
+# XXX THIS IS WRONG
 function _match_non_variable_patterns(ss, ps, fc=nothing, σ=())
     ps′′, ps′ = tuplesplit(!iscall, ps)
     length(ps′) == 0 && return (ss, ps, (σ,))
@@ -315,13 +324,41 @@ function _match_non_variable_patterns(ss, ps, fc=nothing, σ=())
     ss′′, ps′′, Θᵣ
 end
 
+# match non_variable_patterns
+# return iterator of (ss, ps, σ)
+function _mnvp(ss, ps, fc=nothing, σ=())
+    ps′′, ps′ = tuplesplit(!iscall, ps)
+    length(ps′) == 0 && return Iterators.map(identity, (ss, ps, (σ,)))
+    ss′′, ss′ = tuplesplit(!iscall, ss)
+    length(ps′) == length(ss′) || return ∅
+    
+    i = Combinatorics.permutations(1:length(ss′))
+    ii = Iterators.map(i) do inds
+        ss′′′ = ss′[inds]
+        Θ′ = (σ,)
+        for (s,p) ∈ zip(ss′′′, ps′)
+            operation(s) == operation(p) || return nothing
+            Θ′ = MatchSequence(arguments(s), arguments(p), fc, Θ′)
+            Θ′ == ∅ && return nothing
+        end
+        Θ′ == ∅ && return nothing
+        Θ′
+    end
+    ss′′, ps′′, Iterators.filter(!isnothing, ii)
+end
+
+    
+
 # return container of ss, ps, sigma
 function _match_regular_variables(ss, ps, fc=nothing, σ = ())
     # fₐ is  commutative, maybe associative
-    isassociative(fc) && return ((ss, ps, σ),)
+    #isassociative(fc) && return ((ss, ps, σ),)
+    isassociative(fc) && return Iterators.map(identity, ((ss, ps, σ),))
+    
 
     ps_reg, ps′′ = tuplesplit(_is_Wild, ps)
-    isempty(ps_reg) && return ((ss, ps, σ),)
+    #isempty(ps_reg) && return ((ss, ps, σ),)
+    isempty(ps_reg) && Iterators.map(identity, ((ss, ps, σ),))
 
     if length(ps_reg) < length(ss)
         if ps_reg == ps
@@ -333,8 +370,15 @@ function _match_regular_variables(ss, ps, fc=nothing, σ = ())
     dp = _countmap(ps_reg)
     ds = _countmap(ss)
 
-    out = _split_take(ds, dp)
-    out = filter(ab -> iscompatible(first(ab), σ), out)
+    out = _st(ds, dp)
+
+    out = Iterators.filter(ab -> iscompatible(first(ab), σ), out)
+    return Iterators.map(out) do (σ′, ds)
+        σ = union_match(σ, σ′)
+        (_uncountmap(ds), ps′′, σ)
+    end
+
+    #out = _split_take(ds, dp)
     out = [(union_match(σ, σ′), ds) for (σ′,ds) ∈ out]
     # return ss, ps, σ for each in out
     tuple(
@@ -363,10 +407,33 @@ function _split_take(ds, dp)
     out
 end
 
+# XXX make an interator, not ..
+function _st(ds, dp)
+    n = length(ds)
+    
+    k = length(dp)
+    i = Iterators.product((1:n for _ in 1:k)...)
+    ii = Iterators.map(i) do inds
+        ds′ = copy(ds)
+        σ = ()
+        for (i, (p, np)) ∈ zip(inds, (dp))
+            s, ns = ds′[i]
+            np > ns && (σ = (); break) # won't fit
+            ds′[i] = s => (ns - np)
+            σ = union_match(σ, ((p => s),))
+        end
+        σ == () && return nothing
+        (σ, ds′)
+    end
+    iii = Iterators.filter(!isnothing, ii)
+end
 
-function _match_sequence_variables(ss, ps, fc, σ = ())
-    λ = isassociative(fc) ? (x -> _is_Wild(x) ||  _is_Plus(x)) :
-        _is_Plus
+
+function _match_sequence_variables(ss, ps, fc=nothing, σ = ())
+    if isassociative(fc)
+        !isempty(filter(_is_Wild, ps)) && return ()
+    end
+    λ = (x -> _is_Wild(x) ||  _is_Plus(x)) 
     vs = tuplesplit(λ, ps)
     length(first(vs)) > length(ss) && return () # too many plus variables
 
@@ -419,6 +486,87 @@ function brute_force_enumeration(ds, dplus, dstar, fₐ, σ′=())
         end
     end
     Θ
+end
+
+function _msv(ss, ps, fc=nothing, σ′ = ())
+    if !isassociative(ps)
+        !isempty(filter(_is_Wild, ps)) && return ()
+    end
+    
+    λ = x -> (_is_Wild(x) || _is_Plus(x))
+    vs = tuplesplit(λ, ps)
+    length(first(vs)) > length(ss) && return () # too many plus variables
+
+    ds = _countmap(ss)
+    dplus, dstar = _countmap(first(vs)), _countmap(last(vs))
+
+    vars = TupleTools.vcat(tuple(first.(dplus)...), tuple(first.(dstar)...))
+    svars = tuple(first.(ds)...)
+
+    pluses = tuple((v for (k,v) in dplus)...) # unique
+    stars = tuple((v for (k,v) in dstar)...)  # uniqe
+
+    n1, n2 = length(pluses), length(stars)
+    n = n1 + n2
+    ks = TupleTools.vcat(pluses, stars)
+    i = ntuple((a) -> 0, Val(n))
+
+    Θ = ()
+    h = isnothing(fc) ? identity :
+        ((as) -> _maketerm(fc, as))
+
+    # rename
+    ss = tuple((v for (k,v) in ds)...)
+    ii = Iterators.filter(Iterators.product(
+        (Iterators.product((0:s for _ in 1:n)...) for s in ss)...)) do u
+            all(sum(ui .* ks) == si for (ui,si) in zip(u, ss)) &&
+                all(sum(ui[i] for ui in u) > 0 for i in 1:n1)
+        end
+
+    iii = Iterators.map(ii) do u
+        σ = ()
+        for (j, v) ∈ enumerate(vars)
+            vv = ()
+            for (i,s) in enumerate(svars)
+                vi = ntuple((_) -> s, Val(u[i][j]))
+                vv = TupleTools.vcat(vv, vi)
+            end
+            if vv != ()
+                σ = TupleTools.vcat(σ, (v => h(vv),))
+            end
+        end
+        if iscompatible(σ′, σ)
+            σ = union_match(σ′, σ)
+        else
+            nothing
+        end
+    end
+
+    Iterators.filter(!isnothing, iii)
+
+    #=
+    for u ∈ Iterators.product(
+        (Iterators.product((0:s for _ in 1:n)...) for s in ss)...)
+        all(sum(ui .* ks) == si for (ui,si) in zip(u, ss)) || continue
+        all(sum(ui[i] for ui in u) > 0 for i in 1:n1) || continue
+        σ = ()
+        for (j, v) ∈ enumerate(vars)
+            vv = ()
+            for (i,s) in enumerate(svars)
+                vi = ntuple((_) -> s, Val(u[i][j]))
+                vv = TupleTools.vcat(vv, vi)
+            end
+            if vv != ()
+                σ = TupleTools.vcat(σ, (v => h(vv),))
+            end
+        end
+        if iscompatible(σ′, σ)
+            σ = union_match(σ′, σ)
+            Θ = TupleTools.vcat(Θ, (σ,))
+        end
+    end
+    Θ
+    =#
 end
 
 # need unit here
