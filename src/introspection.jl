@@ -127,3 +127,10 @@ end
 isvariable(expr) = false
 isvariable(::SymbolicVariable) = true
 isvariable(::SymbolicParameter) = true
+
+# isnegative
+isnegative(expr) = false
+isnegative(x::𝑉) = false
+isnegative(x::SymbolicNumber) = x() < 0
+isnegative(x::Number) = x < 0
+isnegative(x::SymbolicExpression) = isnumeric(x) && x() < 0

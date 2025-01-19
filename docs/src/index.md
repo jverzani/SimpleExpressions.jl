@@ -242,23 +242,22 @@ For plotting a symbolic equation, `eq`, the values `eq.lhs` and `eq.rhs` may be 
 
 ### Derivatives
 
-Symbolic expressions can be easily differentiated, though the operator is not exported. A variable to differentiate by should be specified, though when missing it is assumed there is a lone symbolic variable to differentiate by. The operator differentiates with respect to the variable assuming it represents a scalar quantity:
+Symbolic expressions can be easily differentiated. A method for `diff` is used, as that name is established in some other languages. A variable to differentiate by should be specified. The operator differentiates with respect to the variable assuming it represents a scalar quantity:
 
 ```@example expressions
-import SimpleExpressions: D
 @symbolic x p
-D(cos(x) - x * p)  # uses x
+diff(cos(x) - x * p, x)
 ```
 
 ```@example expressions
-D(cos(x) ~ x * p, p)
+diff(cos(x) ~ x * p, p)
 ```
 
 Here the derivative is used to take a step of Newton's method::
 
 ```@example expressions
 u = x^5 - x - 1
-du = D(u, x)
+du = diff(u, x)
 x0 = 2
 x0 - u(x0) / du(x0)
 ```
@@ -266,7 +265,7 @@ x0 - u(x0) / du(x0)
 Here the application of the product rule can be seen:
 
 ```@example expressions
-u = D(exp(x) * (sin(3x) + sin(101x)), x)
+u = diff(exp(x) * (sin(3x) + sin(101x)), x)
 ```
 
 #### Simplification

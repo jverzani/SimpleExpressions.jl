@@ -8,6 +8,15 @@
 ## Symbolics   Differential Differential(x) = Base.Fix2(SimpleExpressions.D,x)
 ## Symbolics   derivative
 
+function Base.diff(ex::AbstractSymbolic, x::𝑉, xs...)
+    ex = D(ex, x)
+    for xᵢ ∈ xs
+        ex = D(ex, xᵢ)
+    end
+    combine(ex)
+end
+
+
 """
     D(::AbstractSymbolic, [x])
 
