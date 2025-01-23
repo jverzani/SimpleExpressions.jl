@@ -33,17 +33,15 @@ end
 @testset "match" begin
 
     # match 1
-    @test match((⋯)^(⋯), (x+p)^(x+p)) == (((⋯) => x + p,),)
+    @test match((⋯)^(⋯), (x+p)^(x+p)) == ((⋯) => x + p,)
 
     # match 2 wildcards
-    Θ = match(x_*sin(y_), x*sin(x))
-    σ = first(Θ)
+    σ = match(x_*sin(y_), x*sin(x))
     @test (y_ => x) ∈ σ && (x_ =>x) ∈ σ && length(σ) == 2
 
     # match can have more than 1 substitution
-    Θ = match(f(x__,y__), f(a,b,c))
-    @test length(Θ) == 2
-    @test f(x__, y__)(first(Θ)...) ∈ (f((a,b), (c,)), f((a,), (b,c)))
+    σ = match(f(x__,y__), f(a,b,c))
+    @test f(x__, y__)(σ...) ∈ (f((a,b), (c,)), f((a,), (b,c)))
 
     # empty match returns `nothing`
     @test isnothing(match(sin(⋯), sin(x)^2))
@@ -66,12 +64,12 @@ end
     𝑠 = 1 + a + b
     𝑝 = 1 + x_
     Θ = MatchOneToOne((𝑠,), 1 + x_)
-    @test length(Θ) == 1
+    @test length(collect(Θ)) == 1
     σ = only(Θ)
     @test S.sorted_arguments(last(σ[1])) == (a,b)
 
     Θ = MatchOneToOne((a + b + c,), x__ + y__)
-    @test length(Θ) == 6 # (c, a+b),(a,c+b),(b,c+a),(c+a,b),(c+b,a), (a+b,c)
+    @test length(collect(Θ)) == 6 # (c, a+b),(a,c+b),(b,c+a),(c+a,b),(c+b,a), (a+b,c)
 
     # match
     # should not match
@@ -95,9 +93,9 @@ end
     @test ss′ == (b,c) && ps′ == (y_,z_)
 
     Θ = MatchCommutativeSequence(ss, ps, nothing, ((),))
-    @test length(Θ) == 6
+    @test length(collect(Θ)) == 6
     Θ = MatchCommutativeSequence(ss, ps, nothing, (σ,))
-    @test length(Θ) == 2
+    @test length(collect(Θ)) == 2
 
 end
 
@@ -116,13 +114,13 @@ end
     𝑠 = fₘ(a,a,a,b,b,c)
     𝑝 = fₘ(x_,x_,y___)
     Θ = MatchOneToOne((𝑠,), 𝑝)
-    @test length(Θ) == 1 # σ =  (x_ => a, y___ => (a, b, b, c))
+    @test length(collect(Θ)) == 1 # σ =  (x_ => a, y___ => (a, b, b, c))
     @test (x_ => a, y___ => (a, b, b, c)) ∈ Θ # ordering is ok
 
     𝑠 = fₐₘ(a,a,a,b,b,c)
     𝑝 = fₐₘ(x_,x_,y___) # associative has x_ like x__
     Θ = MatchOneToOne((𝑠,), 𝑝)
-    @test length(Θ) == 3 # (x_ => fₐₘ(a, b), y___ => fₐₘ(a, c))
+    @test length(collect(Θ)) == 3 # (x_ => fₐₘ(a, b), y___ => fₐₘ(a, c))
 
 
 end
@@ -131,7 +129,7 @@ end
     @symbolic_variables u() uₐ() uₘ() uₐₘ()
 
     Θ = MatchSequence((a,b,c), (x__, y__), u)
-    @test length(Θ) == 2 # u(a,b), u(c); u(a), u(b,c)
+    @test length(collect(Θ)) == 2 # u(a,b), u(c); u(a), u(b,c)
 
     Θ = MatchSequence((a,b,c), (x__, y___), u)
     @test length(Θ) == 3 # add u(a,b,c),u()
