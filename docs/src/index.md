@@ -270,4 +270,15 @@ u = diff(exp(x) * (sin(3x) + sin(101x)), x)
 
 #### Simplification
 
-No simplification is done so the expressions can quickly become unwieldy. The unexported `combine` does light simplfication.  There is `TermInterface` support, so--in theory--rewriting of expressions, as is possible with the `Metatheory.jl` package, is supported. The scaffolding is in place, but waits for the development version to be tagged.
+No simplification is done so the expressions can quickly become unwieldy. The unexported `combine` does light simplfication. 
+
+```@example expressions
+ex = 1 + x + 2x + 3x + 4
+```
+
+```@example expressions
+using SimpleExpressions: combine
+combine(ex)
+```
+
+There is `TermInterface` support, so--in theory--rewriting of expressions, as is possible with the `Metatheory.jl` package, is supported. The scaffolding is in place, but waits for the development version to be tagged.

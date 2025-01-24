@@ -8,6 +8,32 @@
 ## Symbolics   Differential Differential(x) = Base.Fix2(SimpleExpressions.D,x)
 ## Symbolics   derivative
 
+"""
+    diff(::AbstractSymbolic, x, [xs...])
+
+Finds derivative of a symbolic expression with respect to a symbolic variable(s) or parameter(s).
+
+* Specify a variable to differentiate by, possibly more than one.
+* There is scant simplification, so the output is not necessarily friendly
+* limited to a select set of functions
+
+# Example
+
+```julia
+julia> @symbolic x p
+(x, p)
+
+julia> diff(exp(sin(x)), x)
+(1 * cos(x)) * exp(sin(x))
+
+julia> dd = diff(x*tanh(exp(x)), x, x); # two derivatives
+
+julia> dd(1)
+-0.11215118863289956
+```
+Not exported.
+"""
+
 function Base.diff(ex::AbstractSymbolic, x::𝑉, xs...)
     ex = D(ex, x)
     for xᵢ ∈ xs
@@ -18,31 +44,6 @@ end
 Base.diff(ex::SymbolicEquation, x::𝑉, xs...) =
     diff(ex.lhs, x, xs...) ~ diff(ex.rhs, x, xs...)
 
-"""
-    D(::AbstractSymbolic, [x])
-
-Finds derivative of a symbolic expression with respect to a symbolic variable or parameter.
-
-* Specify a variable to differentiate by, otherwise the lone symbolic
-  variable (if present) will be used
-* There is scant simplification, so the output is not necessarily friendly
-* limited to a select set of functions
-
-# Example
-
-```julia
-julia> @symbolic x p
-(x, p)
-
-julia> D(exp(sin(x)), x)
-(1 * cos(x)) * exp(sin(x))
-
-julia> D(D(sin(x))) + sin(x) # no simplification!
-(-(sin(x))) + sin(x)
-```
-
-Not exported.
-"""
 D(𝑥::SymbolicNumber, x) = 0
 D(𝑥::SymbolicVariable, x) = 𝑥 == x ? 1 : 0
 D(𝑥::SymbolicParameter, x) = 𝑥 == x ? 1 : 0
