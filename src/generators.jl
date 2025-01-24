@@ -11,7 +11,9 @@ for fn ∈ (:sum, #:prod by mapreduce
           :Generator
           )
     @eval begin
-        Base.$fn(f, iter::AbstractSymbolic) =
+        Base.$fn(f::T, iter::I) where {T,I<:AbstractSymbolic} =
+            SymbolicGenerator(StaticExpression((↓(f), ↓(iter)), Base.$fn))
+        Base.$fn(f::Type{T}, iter::I) where {T,I<:AbstractSymbolic} =
             SymbolicGenerator(StaticExpression((↓(f), ↓(iter)), Base.$fn))
         Base.$fn(iter::SymbolicGenerator) =
             SymbolicGenerator(StaticExpression((↓(identity), ↓(iter)), Base.$fn))

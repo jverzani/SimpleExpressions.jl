@@ -3,7 +3,7 @@
 abstract type AbstractSymbolic <: Function end
 Base.broadcastable(x::AbstractSymbolic) = Ref(x)
 
-# By design we have at most a single variable and a single parameter
+# By design we *typically* have at most a single variable and a single parameter
 struct SymbolicVariable{X, T <: StaticVariable{X}} <: AbstractSymbolic
     u::T
     SymbolicVariable(u::T) where {X, T <: StaticVariable{X}} = new{X,T}(u)
@@ -14,6 +14,7 @@ SymbolicVariable(x::Symbol) = SymbolicVariable(StaticVariable{x}())
 SymbolicVariable(x::AbstractString) = SymbolicVariable(Symbol(x))
 SymbolicVariable(x::Tuple) = SymbolicVariable.(x)
 
+# parameter
 struct SymbolicParameter{T <: DynamicVariable} <: AbstractSymbolic
     u::T
     SymbolicParameter(u::T) where {T <: DynamicVariable} = new{T}(u)
@@ -21,8 +22,6 @@ end
 SymbolicParameter(p::SymbolicParameter) = p
 SymbolicParameter(p::Symbol) = SymbolicParameter(DynamicVariable(p))
 SymbolicParameter(p::AbstractString) = SymbolicParameter(Symbol(p))
-
-
 
 # wrap numbers
 struct SymbolicNumber{T <: DynamicConstant} <: AbstractSymbolic
@@ -61,8 +60,14 @@ SymbolicFunction(x::Symbol) = SymbolicFunction(StaticVariable{x}())
 SymbolicFunction(x::AbstractString) = SymbolicFunction(Symbol(x))
 (f::SymbolicFunction)(xs...) = SymbolicExpression(f, xs)
 
-## we *could* do more here adding a guard for matching purposes?
-GuardedSymbolicVariable(u;kwargs...) = SymbolicVariable(u)
+## Guarded variables can be created by `@symbolic_variables`
+## This just stores the passed value by key, nothing more.
+const GuardedVariables = IdDict()
+function GuardedSymbolicVariable(u; kwargs...)
+    𝑢 = SymbolicVariable(u)
+    GuardedVariables[𝑢] = kwargs
+    𝑢
+end
 
 
 ## ----------
@@ -70,10 +75,6 @@ GuardedSymbolicVariable(u;kwargs...) = SymbolicVariable(u)
 # conveniences
 𝑉 = Union{SymbolicVariable, SymbolicParameter}
 𝐿 = Union{𝑉, SymbolicNumber} # not constant expressions though
-
-## ----- CallableExpressions
-
-_Variable = CallableExpressions.ExpressionTypeAliases.Variable
 
 ## ----- promotion/conversion
 Base.promote_rule(::Type{<:AbstractSymbolic}, x::Type{T}) where {T <: Number} = AbstractSymbolic

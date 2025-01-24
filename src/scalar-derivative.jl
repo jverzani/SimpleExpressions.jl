@@ -15,7 +15,8 @@ function Base.diff(ex::AbstractSymbolic, x::𝑉, xs...)
     end
     combine(ex)
 end
-
+Base.diff(ex::SymbolicEquation, x::𝑉, xs...) =
+    diff(ex.lhs, x, xs...) ~ diff(ex.rhs, x, xs...)
 
 """
     D(::AbstractSymbolic, [x])

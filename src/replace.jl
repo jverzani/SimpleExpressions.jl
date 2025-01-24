@@ -1,4 +1,5 @@
 # implementation specific definitions needed for matching in matchpy
+
 const ExpressionType = SymbolicExpression
 
 _is_𝐿(x::AbstractSymbolic) = isa(x, 𝐿)
@@ -213,15 +214,15 @@ _replace(ex::AbstractSymbolic, u::SymbolicExpression, v) =
     _replace_arguments(ex, u, v)
 
 """
-    match(pattern, expression)
+    match(pattern::AbstractSymbolic, expression::AbstractSymbolic)
 
 Match expression using a pattern with possible wildcards. Uses a partial implementation of *Non-linear Associative-Commutative Many-to-One Pattern Matching with Sequence Variables* by Manuel Krebber.
 
 If there is no match: returns `nothing`.
 
-If there is a match: returns a σ₁ -- with the property `pattern(σ...) == expression` is true. `MatchOneToOne((subject,), pattern)` will return all matches as an iterable object.
+If there is a match: returns a `σ` -- with the property `pattern(σ...) == expression` is true (save possibly when star variables are used). An iterator for all matches is returned by `eachmatch(pattern, expression)`.
 
-Wildcards are just symbolic variables with a naming convention: use one trailing underscore to indicate a single match, two trailing underscores for a match of one or more, and three trailing underscores for a match on 0, 1, or more.
+Wildcards are just symbolic variables with a naming convention: use one trailing underscore to indicate a single match, two trailing underscores for a match of one or more (a plus variable), and three trailing underscores for a match on 0, 1, or more (a star variable).
 
 ## Examples
 
@@ -231,42 +232,55 @@ julia> using SimpleExpressions
 julia> SimpleExpressions.@symbolic_variables a b x_ x__ x___
 (a, b, x_, x__, x___)
 
-julia> p, s= x_*cos(x__), a*cos(2 + b)
+julia> pat, sub= x_*cos(x__), a*cos(2 + b)
 (x_ * cos(x__), a * cos(2 + b))
 
-julia> Θ = match(p, s)
-((x__ => 2 + b, x_ => a),)
-
-julia> σ = only(Θ)
+julia> σ = match(pat, sub)
 (x__ => 2 + b, x_ => a)
 
-julia> p(σ...) == s
+julia> pat(σ...) == sub
 true
 
-julia> p, s =  p = x_ + x__ + x___,  a + b + a + b + a
+julia> pat, sub = x_ + x__ + x___,  a + b + a + b + a
 (x_ + x__ + x___, a + b + a + b + a)
 
-julia> Θ = match(p, s);
+julia> Θ = eachmatch(pat, sub);
 
-julia> length(Θ)   # 37 matches
+julia> length(collect(Θ))   # 37 matches
 37
 
 julia> σ = last(Θ)
-(x_ => b, x__ => b, x___ => a + a + a)
+(x_ => a, x__ => a, x___ => a + b + b)
 
-julia> p(σ...) # a + a + (a + b + b)
-b + b + (a + a + a)
+julia> pat(σ...)
+a + a + (a + b + b)
+
+julia> σ = first(Θ)
+(x__ => a + a + b + b, x_ => a) # x___ star variable has 0 elements in σ
+
+julia> pat(σ..., x___ => 0)
+a + (a + a + b + b) + 0
 ```
 
 """
 function Base.match(pat::AbstractSymbolic, ex::AbstractSymbolic)
+    out = eachmatch(pat, ex)
+    a = iterate(out)
+    isnothing(a) && return nothing
+    first(a)
+end
+
+"""
+    eachmatch(pattern::AbstractSymbolic, expression::AbstractSymbolic)
+
+Return iterator of all matches. See [`match`](@ref) for just the first match.
+"""
+function Base.eachmatch(pat::AbstractSymbolic, ex::AbstractSymbolic)
     pred(a) = any(any(_is_𝑋(u) for u in s) for s in free_symbols(a))
     if pred(pat)
-        out = MatchOneToOne((ex,), pat)
-        isempty(out) && return nothing
-        return first(out)
+        return MatchOneToOne((ex,), pat)
     else
-        out = SyntacticMatch(ex, pat)
+        σ = SyntacticMatch(ex, pat)
+        return isnothing(σ) ? () : (σ,)
     end
-    out
 end

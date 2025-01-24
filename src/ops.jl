@@ -20,6 +20,7 @@ fourthroot(x^2 + 2)
 ## want to flatten *, +
 
 # do some light simplification on construction
+## use combine to combine over + and *
 # ADD
 function Base.:+(x::AbstractSymbolic, y::AbstractSymbolic)
     iszero(x) && return y
@@ -224,7 +225,7 @@ end
 
 ## binary operations
 ## math one with broadcasting
-for fn ∈ (:atan, :≈)
+for fn ∈ (:atan,)# :≈)
     @eval begin
         import Base: $fn
         Base.$fn(x::AbstractSymbolic, y::AbstractSymbolic) =
@@ -272,9 +273,7 @@ for fn ∈ (:eachindex,
         end
 end
 
-
-
-for op ∈ (:zip, :getindex,)
+for op ∈ (:zip,)
     @eval begin
         import Base: $op
         Base.$op(x::AbstractSymbolic, y::AbstractSymbolic) =
@@ -285,6 +284,10 @@ for op ∈ (:zip, :getindex,)
             SymbolicExpression(StaticExpression((↓(x), ↓(y)), $op))
     end
 end
+
+# getindex
+Base.getindex(x::AbstractSymbolic, i::Integer) =
+    SymbolicExpression(getindex, (x, SymbolicNumber(i)))
 
 ## ---- special cases
 ## log

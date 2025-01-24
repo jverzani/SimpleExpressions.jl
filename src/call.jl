@@ -104,11 +104,11 @@ const MISSING = Union{Nothing, Missing, typeof(:)}
 ## we have substitution (using :) or evaluate
 (𝑥::SymbolicVariable)(::MISSING, p) = 𝑥
 (𝑥::SymbolicVariable)(x, ::MISSING) = ↑(x)
-(𝑥::SymbolicVariable)(::Missing, ::MISSING) = 𝑥
+(𝑥::SymbolicVariable)(::MISSING, ::MISSING) = 𝑥
 
 (𝑝::SymbolicParameter)(::MISSING, p) = ↑(p)
 (𝑝::SymbolicParameter)(x,::MISSING) = 𝑝
-(𝑝::SymbolicParameter)(::Missing,::MISSING) = 𝑝
+(𝑝::SymbolicParameter)(::MISSING,::MISSING) = 𝑝
 
 function (ex::SymbolicExpression)(::MISSING, p)
     u = ↓(ex)
@@ -125,4 +125,4 @@ end
 
 (X::SymbolicEquation)(::MISSING,p) = tilde(X.lhs(:, p),  X.rhs(:, p))
 (X::SymbolicEquation)(x,::MISSING) = tilde(X.lhs(x, :),  X.rhs(x, :))
-(X::SymbolicEquation)(::Missing,::MISSING) = X
+(X::SymbolicEquation)(::MISSING,::MISSING) = X

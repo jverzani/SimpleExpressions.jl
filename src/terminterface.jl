@@ -1,5 +1,3 @@
-
-
 ## ---- TermInterface v2.0
 TermInterface.operation(x::AbstractSymbolic) = nothing
 TermInterface.operation(x::SymbolicExpression) = (↓(x)).operation
@@ -22,7 +20,7 @@ TermInterface.isexpr(ex::SymbolicExpression) = true
 TermInterface.isexpr(ex::AbstractSymbolic) = false
 
 
-function TermInterface.maketerm(T::Type{<:SymbolicExpression}, head, children, metadata)
+function TermInterface.maketerm(T::Type{<:AbstractSymbolic}, head, children, metadata)
     head(assymbolic.(children)...)
 end
 

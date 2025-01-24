@@ -28,14 +28,39 @@ isassociative(::typeof(*)) = true
 iscommutative(::typeof(+)) = true
 iscommutative(::typeof(*)) = true
 
-# ExpressionType = SymbolicExpression
+# ExpressionType = SymbolicExpression # defined in replace.jl
+
+## -----
+
+## utils
+function _countmap(x)
+    d = IdDict()
+    [(d[xi] = get(d, xi, 0) + 1) for xi in x]
+    return [k => v for (k,v) ∈ d]
+end
+function _uncountmap(dx)
+    TupleTools.vcat((tuple((k for _ in 1:v)...) for (k,v) in dx)...)
+end
+
+tuplesplit(pred, t) = (t = filter(pred,t), f=filter(!pred, t))
 
 ## ---------------------------------
 ## only TermInterface below this line
 
+## 
+# need unit here
+function _maketerm(fa, xs)
+    isempty(xs) && return
+    fa == (*) ? one(ExpressionType) :
+        fa == (+) ? zero(ExpressionType) :
+        ()
+    maketerm(ExpressionType, fa, xs, nothing)
+end
+
+## -----
 ## matchpy
 
-# Δ could use Dict for this
+# σ: could use Dict for this, we use named tuple
 
 # σ△σ′
 function iscompatible(σ, σ′)
@@ -61,12 +86,6 @@ function union_match(σ, σ′)
     σ
 end
 
-# \sqcup σ -> nothing or (join, )
-function ⊔(σ, σ′)
-    iscompatible(σ, σ′) || return nothing
-    (union_match(σ, σ′),)
-end
-
 # {σ⊔σ′ |σ∈Θ∧σ△σ′}
 function union_matches(Θ, σ′)
     isnothing(Θ) && return (σ′, )
@@ -76,24 +95,7 @@ function union_matches(Θ, σ′)
     out
 end
 
-
-## return iterator -- doesn't seem more performant
-function _union_matches(Θ, σ′)
-    isnothing(Θ) && return Iterators.rest((σ′,), 1)
-    Iterators.map(Iterators.filter(Θ) do σ
-                  iscompatible(σ, σ′)
-                  end ) do σ
-                      union_match(σ, σ′)
-                  end
-end
-
-# Θ ∪ Θ′
-function union_match_sets(Θ, Θ′)
-    Θ == ∅ && return Θ′
-    Θ′ == ∅ && return Θ
-    Θ′′ = filter(!in(Θ), tuple(Θ′...))
-    TupleTools.vcat(Θ, Θ′′)
-end
+## ----
 
 # return substitution tuple (p1 => s1, p2 => s2, ...) possibly empty ()
 # or return nothing if no match
@@ -120,11 +122,9 @@ end
 
 
 # σ is nothing or a substitution tuple, possibly ()
-# Θ is empty, (), or
 ∅ =  () # is not ((),)
 
-# fₐ is +,*, or nothing
-
+# fₐ is function like  + or *, or nothing
 function MatchOneToOne(ss::Tuple, p, fₐ=nothing, Θ=((),))
     n = length(ss)
     if _is_𝐿(p) && !_is_𝑋(p) # 𝐹₀ -- not a SymbolicExpression
@@ -134,7 +134,7 @@ function MatchOneToOne(ss::Tuple, p, fₐ=nothing, Θ=((),))
         n == 1 && return union_matches(Θ, σ′)
     elseif _is_𝑋(p)
         if _is_𝑋(p) && !isnothing(fₐ)
-            σ′ = (p => maketerm(ExpressionType, fₐ, ss, nothing),)
+            σ′ = (p => _maketerm(fₐ, ss),)
         else
             σ′ = (p => ss,)
         end
@@ -170,29 +170,36 @@ function MatchSequence(ss, ps, fₐ=nothing, Θ=((),))
     nseq = nstar + nplus
     Θᵣ = ∅
 
-    for ks ∈ Base.Iterators.product((0:nfree for _ in 1:nseq)...)
-        (!isempty(ks) && sum(ks) != nfree) && continue
-        i, j = 1, 1 # 0,0??
-        Θ′ = Θ
-        for (l,pl) ∈ enumerate(ps)
-            lsub = 1
-            if (_is_Plus(pl) || _is_Star(pl)) ||
-                (_is_Wild(pl) && !isnothing(fₐ))
-                kj = isempty(ks) ? 1 : ks[j]
-                lsub = lsub + kj
-                if _is_Star(pl)
-                    lsub = lsub - 1
+    itr = Base.Iterators.product((0:nfree for _ in 1:nseq)...)
+
+    i = let Θ=Θ, fₐ=fₐ, ss=ss, ps=ps
+        Iterators.map(itr) do ks
+            Θ′ = Θ
+            (!isempty(ks) && sum(ks) != nfree) && return nothing
+            i, j = 1, 1 # 0,0??
+            for (l,pl) ∈ enumerate(ps)
+                lsub = 1
+                if (_is_Plus(pl) || _is_Star(pl)) ||
+                    (_is_Wild(pl) && !isnothing(fₐ))
+                    kj = isempty(ks) ? 1 : ks[j]
+                    lsub = lsub + kj
+                    if _is_Star(pl)
+                        lsub = lsub - 1
+                    end
+                    j = j + 1
                 end
-                j = j + 1
-            end
-            ss′ = ss[i:(i+lsub-1)] # note -1 here
-            Θ′ = MatchOneToOne(ss′, pl, fₐ, Θ′)
-            Θ′ == ∅  && break
+                ss′ = ss[i:(i+lsub-1)] # note -1 here
+                Θ′ = MatchOneToOne(ss′, pl, fₐ, Θ′)
+                Θ′ == ∅  && break
             i = i + lsub
-        end
-        Θᵣ = union_match_sets(Θᵣ, Θ′)
+            end
+            Θ′ == () && return nothing
+            return Θ′
+        end |> Base.Fix1(Iterators.filter, !isnothing)
     end
-    return Θᵣ
+
+    i |> Iterators.flatten 
+
 end
 
 function MatchCommutativeSequence(ss, ps, fₐ = nothing, Θ = ((),))
@@ -215,11 +222,10 @@ function MatchCommutativeSequence(ss, ps, fₐ = nothing, Θ = ((),))
         _match_sequence_variables(ss, ps, fₐ, σ)
     end
 
-
+    # chain together
     itr = let ss=ss,ps=ps,Θ=Θ
         ((ss, ps, σ) for σ ∈ Θ)
     end
-
     
     t1 =  Iterators.map(f1, itr) |>
         Iterators.flatten |>
@@ -232,33 +238,7 @@ function MatchCommutativeSequence(ss, ps, fₐ = nothing, Θ = ((),))
         Base.Fix1(Iterators.filter, !isnothing)
 
     return t3
-
-    #=
-    function f3a(a)
-        ss, ps, σ = a
-        Θ = _match_regular_variables(ss, ps, fₐ, σ)
-        Iterators.map(f2, Θ) |>
-            Iterators.flatten
-    end
-
-    t2 = Iterators.map(f3, t1) |>
-        Iterators.flatten
-    =#
     
-    return t2
-    
-end
-function _check_matched_variables(σ, ss, ps)
-    # check for each match in σ
-    # there are as many subjects as needed for the match
-    for (p,s) ∈ σ
-        # how many times does s appear in pattern
-        inds = findall(==(s), ss)
-        n = length(inds)
-        inds = findall(==(p), ps)
-        length(inds) >= n || return false
-    end
-    return true
 end
 
 # return trimmed ss, ps or nothing
@@ -410,7 +390,7 @@ function _match_sequence_variables(ss, ps, fc=nothing, σ = ())
 
     Θ = ()
     h = isnothing(fc) ? identity :
-        ((as) -> _maketerm(fc, as))
+        (as) -> _maketerm(fc, as)
 
     # rename
     ssᵥ = tuple((v for (k,v) in ds)...) # times in ss
@@ -443,14 +423,6 @@ function _match_sequence_variables(ss, ps, fc=nothing, σ = ())
     iv
 end
 
-# need unit here
-function _maketerm(fa, xs)
-    isempty(xs) && return
-    fa == (*) ? one(ExpressionType) :
-        fa == (+) ? zero(ExpressionType) :
-        ()
-    maketerm(ExpressionType, fa, xs, nothing)
-end
 
 ## -----
 
@@ -495,9 +467,9 @@ end
 function _replace_arguments(ex, u, v)
     iscall(ex) || return (ex == u ? v : ex)
 
-    σ = match(u, ex)
+    σ = match(u, ex) # sigma is nothing, (), or a substitution
     if !isnothing(σ)
-        σ == () && return v
+        σ == () && return v # no substitution
         return v(σ...)
     end
 
@@ -509,25 +481,3 @@ function _replace_arguments(ex, u, v)
 end
 
 
-## -----
-
-## utils
-function _countmap(x)
-    d = IdDict()
-    [(d[xi] = get(d, xi, 0) + 1) for xi in x]
-    return [k => v for (k,v) ∈ d]
-end
-function _uncountmap(dx)
-    TupleTools.vcat((tuple((k for _ in 1:v)...) for (k,v) in dx)...)
-end
-
-tuplesplit(pred, t) = (t = filter(pred,t), f=filter(!pred, t))
-
-# take b out of a, error if b has elements not in a or too many
-function tuplediff(as, bs)
-    for b in bs
-        i = findfirst(==(b), as)
-        as = tuple((as[j] for j in eachindex(as) if j != i)...)
-    end
-    as
-end

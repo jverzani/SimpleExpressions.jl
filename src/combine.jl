@@ -11,9 +11,7 @@ Lightly simplify symbolic expressions.
 ## Example
 
 ```@repl combine
-julia> using SimpleExpressions
-
-julia> import SimpleExpressions: combine
+julia> using SimpleExpressions: @symbolic, combine
 
 julia> @symbolic x
 (x,)

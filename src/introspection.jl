@@ -1,8 +1,6 @@
 ## ---- introspection
-Base.Symbol(x::SymbolicVariable) = Symbol(↓(x))
-Base.Symbol(x::SymbolicParameter) = Symbol(↓(x))
-Base.Symbol(x::DynamicVariable) = x.sym
-Base.Symbol(::StaticVariable{T}) where {T} = T
+Base.Symbol(x::SymbolicVariable{T}) where {T} = T
+Base.Symbol(x::SymbolicParameter) = ↓(x).sym
 
 ## ----
 # convert to Expr
@@ -24,8 +22,8 @@ const Δ = :nothing # flag for missing symbols 𝑥, 𝑝
 
 xp(::Any) =  (x=Δ, p=Δ)
 xp(x::AbstractSymbolic) = xp(↓(x))
-xp(x::StaticVariable{T}) where {T} = (x=Symbol(x), p=Δ)
-xp(p::DynamicVariable) = (x=Δ, p=Symbol(p))
+xp(x::StaticVariable{T}) where {T} = (x=T, p=Δ)
+xp(p::DynamicVariable) = (x=Δ, p=p.sym)
 xp(x::DynamicConstant) = (x=Δ, p=Δ)
 function xp(u::StaticExpression)
     x, p = Δ, Δ
@@ -78,14 +76,13 @@ end
 
 
 # f contains symbolic variable or expression x
-Base.contains(f::AbstractSymbolic, x) = contains(↓(f), ↓(x))
-Base.contains(f::Any, x::𝑋) where 𝑋 = false
-Base.contains(f::_Variable, x::𝑋) where 𝑋 = (f == x)
+Base.contains(f::AbstractSymbolic, x) = false
+Base.contains(f::𝑉, x::𝑋) where 𝑋 = (f == x)
 
-function Base.contains(f::StaticExpression, x::𝑋) where 𝑋
+function Base.contains(f::SymbolicExpression, x::𝑋) where 𝑋
     f == x && return true
-    for c ∈ f.children
-        (x == c || contains(c, x)) && return true
+    for c ∈ arguments(f)
+        (x == c || Base.contains(c, x)) && return true
     end
     return false
 end
@@ -128,7 +125,7 @@ isvariable(expr) = false
 isvariable(::SymbolicVariable) = true
 isvariable(::SymbolicParameter) = true
 
-# isnegative
+# isnegative (used with `combine`)
 isnegative(expr) = false
 isnegative(x::𝑉) = false
 isnegative(x::SymbolicNumber) = x() < 0
