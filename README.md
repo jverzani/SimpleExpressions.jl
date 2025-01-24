@@ -4,7 +4,6 @@
 
 [![Build Status](https://github.com/jverzani/SimpleExpressions.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/jverzani/SimpleExpressions.jl/actions/workflows/CI.yml?query=branch%3Amain)
 
-![Aqua QA](https://raw.githubusercontent.com/JuliaTesting/Aqua.jl/master/badge.svg)](https://github.com/JuliaTesting/Aqua.jl)
 
 A *very* lightweight means to create callable functions using expressions. This uses  [CallableExpressions](https://juliahub.com/ui/Packages/General/SimpleExpressions) as a backend. See also  [DynamicExpressions](https://juliahub.com/ui/Packages/General/DynamicExpressions) for a performant package with similar abilities.
 
