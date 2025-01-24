@@ -14,40 +14,13 @@ fourthroot(x^2 + 2)
 ```
 =#
 ## ---- operations
-for op ∈ (://,  :≈)
-    @eval begin
-        import Base: $op
-        Base.$op(x::AbstractSymbolic, y::AbstractSymbolic) =
-            SymbolicExpression(StaticExpression((↓(x), ↓(y)), $op))
-        Base.$op(x::AbstractSymbolic, y::Number) = $op(promote(x,y)...)
-        Base.$op(x::Number, y::AbstractSymbolic) = $op(promote(x,y)...)
-    end
-end
 
-# commutative ops
-for op ∈ (:*, :+)
-    @eval begin
-        import Base: $op
-        Base.$op(x::SymbolicNumber, y::SymbolicNumber) =$op(x(), y())
-        Base.$op(x::AbstractSymbolic, y::Number) = $op(promote(x,y)...)
-        Base.$op(x::Number, y::AbstractSymbolic) = $op(promote(x,y)...)
-    end
-end
-
-for op ∈ (:/, :^)
-    @eval begin
-        import Base: $op
-        Base.$op(x::AbstractSymbolic, y::Number) = $op(promote(x,y)...)
-        Base.$op(x::Number, y::AbstractSymbolic) = $op(promote(x,y)...)
-
-    end
-end
-
-Base.:-(x::AbstractSymbolic, y::AbstractSymbolic) = x + (-1)*y
-Base.:-(x::AbstractSymbolic, y::Number) = x + (-1)*y
-Base.:-(x::Number, y::AbstractSymbolic) = x + (-1)*y
+## Methods for AbstractSymbolic/AbstractSymbolic
+## want to simplify mulitiplicative/additive units
+## want to flatten *, +
 
 # do some light simplification on construction
+## use combine to combine over + and *
 # ADD
 function Base.:+(x::AbstractSymbolic, y::AbstractSymbolic)
     iszero(x) && return y
@@ -55,6 +28,10 @@ function Base.:+(x::AbstractSymbolic, y::AbstractSymbolic)
     as = TupleTools.vcat(_arguments(+,x), _arguments(+,y))
     SymbolicExpression(StaticExpression(as, +))
 end
+
+## SUB
+Base.:-(x::AbstractSymbolic, y::AbstractSymbolic) = x + (-1)*y
+
 
 # MUL
 function Base.:*(x::AbstractSymbolic, y::AbstractSymbolic)
@@ -72,6 +49,10 @@ function Base.:/(x::AbstractSymbolic, y::AbstractSymbolic)
     isone(y) && return x
     iszero(x) && return zero(x)
     !isinf(x) && isinf(y) && return zero(x)
+    if is_operation(/)(y)
+        a,b = arguments(y)
+        return (x*b)/a
+    end
     cs = (↓(x), ↓(y))
     SymbolicExpression(StaticExpression(cs, /))
 end
@@ -86,6 +67,36 @@ function Base.:^(x::AbstractSymbolic, y::AbstractSymbolic)
     SymbolicExpression(StaticExpression(cs, ^))
 end
 
+for op ∈ (://,)#  :≈)
+    @eval begin
+        import Base: $op
+        Base.$op(x::AbstractSymbolic, y::AbstractSymbolic) =
+            SymbolicExpression(StaticExpression((↓(x), ↓(y)), $op))
+    end
+end
+
+# for flattening *,+
+_arguments(::Any, x::SymbolicNumber) = (↓(x),)
+_arguments(::Any, x::SymbolicVariable) = (↓(x),)
+_arguments(::Any, x::SymbolicParameter) = (↓(x),)
+
+_arguments(op, x::SymbolicExpression) = _arguments(op, operation(x), x)
+_arguments(::typeof(+), ::typeof(+), x::SymbolicExpression) = ↓(x).children
+_arguments(::Any, ::typeof(+), x::SymbolicExpression) = (↓(x),)
+_arguments(::typeof(*), ::typeof(*), x::SymbolicExpression) = ↓(x).children
+_arguments(::Any, ::typeof(*), x::SymbolicExpression) = (↓(x),)
+_arguments(::Any, ::Any, x::SymbolicExpression) = (↓(x),)
+
+## ---- numbers types
+# numbers and Symbolic numbers have different paths based on number types
+# commutative ops
+for op ∈ (:+, :-, :*, :/, :^, ://)#,  :≈)
+    @eval begin
+        import Base: $op
+        Base.$op(x::AbstractSymbolic, y::Number) = $op(promote(x,y)...)
+        Base.$op(x::Number, y::AbstractSymbolic) = $op(promote(x,y)...)
+    end
+end
 
 𝑄 = Union{Integer, Rational}
 for op ∈ (:+, :-, :*, :^)
@@ -103,6 +114,7 @@ for op ∈ (:/, ://)
                       T<:𝑄, S<:𝑄}
             u,v = x(), y()
             isone(v) && return SymbolicNumber(u)
+            u == v && return one(x)
             SymbolicNumber(u//v)
         end
     end
@@ -123,6 +135,8 @@ for op ∈ (:+, :-, :*, :^, :/ )
 end
 
 
+## ----
+
 # broadcasting
 for op ∈ (:-, :*, :+, :/, ://, :^,  :≈)
     @eval begin
@@ -139,17 +153,6 @@ for op ∈ (:-, :*, :+, :/, ://, :^,  :≈)
 end
 
 
-
-_arguments(::Any, x::SymbolicNumber) = (↓(x),)
-_arguments(::Any, x::SymbolicVariable) = (↓(x),)
-_arguments(::Any, x::SymbolicParameter) = (↓(x),)
-
-_arguments(op, x::SymbolicExpression) = _arguments(op, operation(x), x)
-_arguments(::typeof(+), ::typeof(+), x::SymbolicExpression) = ↓(x).children
-_arguments(::Any, ::typeof(+), x::SymbolicExpression) = (↓(x),)
-_arguments(::typeof(*), ::typeof(*), x::SymbolicExpression) = ↓(x).children
-_arguments(::Any, ::typeof(*), x::SymbolicExpression) = (↓(x),)
-_arguments(::Any, ::Any, x::SymbolicExpression) = (↓(x),)
 
 ## comparison operators:
 ## The usual ==, !=, <, <=, >, >= operators are kept
@@ -173,7 +176,7 @@ Base.:(==)(x::Number, y::AbstractSymbolic) = ==(promote(x,y)...)
 Base.:(==)(x::AbstractSymbolic, y::AbstractSymbolic) =
     ↓(x) == ↓(y)
 
-
+## --- unary operations
 ## lists from AbstractNumbers.jl
 unary_ops = (
     :conj, :abs, :sin, :cos, :tan, :sinh, :cosh, :tanh, :asin, :acos, :atan,
@@ -207,6 +210,38 @@ Base.:+(x::AbstractSymbolic) = x
 Base.:*(x::AbstractSymbolic) = x
 Base.identity(x::AbstractSymbolic) = x
 
+## --- binary operations
+## others? is isapprox even sensical?
+for op ∈ ()
+    @eval begin
+        import Base: $op
+        Base.$op(x::AbstractSymbolic, y::AbstractSymbolic) =
+            SymbolicExpression(StaticExpression((↓(x), ↓(y)), $op))
+        Base.$op(x::AbstractSymbolic, y::Number) = $op(promote(x,y)...)
+        Base.$op(x::Number, y::AbstractSymbolic) = $op(promote(x,y)...)
+
+    end
+end
+
+## binary operations
+## math one with broadcasting
+for fn ∈ (:atan,)# :≈)
+    @eval begin
+        import Base: $fn
+        Base.$fn(x::AbstractSymbolic, y::AbstractSymbolic) =
+            SymbolicExpression(StaticExpression((↓(x), ↓(y)), $fn))
+        Base.$fn(x::AbstractSymbolic, y) =
+            SymbolicExpression(StaticExpression((↓(x), ↓(y)), $fn))
+        Base.$fn(x, y::AbstractSymbolic) =
+            SymbolicExpression(StaticExpression((↓(x), ↓(y)), $fn))
+        function Base.broadcasted(::typeof($fn), a::AbstractSymbolic, b)
+            SymbolicExpression(Base.broadcasted, ($fn, a, b))
+        end
+    end
+end
+
+## ---- predicates
+
 ## predicates for numbers; return Boolean, not symbolic expression
 for op in (:isinteger, :ispow2,
            :iszero, :isone,
@@ -238,25 +273,7 @@ for fn ∈ (:eachindex,
         end
 end
 
-
-## binary operations
-## math one with broadcasting
-for fn ∈ (:atan, )
-    @eval begin
-        import Base: $fn
-        Base.$fn(x::AbstractSymbolic, y::AbstractSymbolic) =
-            SymbolicExpression(StaticExpression((↓(x), ↓(y)), $fn))
-        Base.$fn(x::AbstractSymbolic, y) =
-            SymbolicExpression(StaticExpression((↓(x), ↓(y)), $fn))
-        Base.$fn(x, y::AbstractSymbolic) =
-            SymbolicExpression(StaticExpression((↓(x), ↓(y)), $fn))
-        function Base.broadcasted(::typeof($fn), a::AbstractSymbolic, b)
-            SymbolicExpression(Base.broadcasted, ($fn, a, b))
-        end
-    end
-end
-
-for op ∈ (:zip, :getindex,)
+for op ∈ (:zip,)
     @eval begin
         import Base: $op
         Base.$op(x::AbstractSymbolic, y::AbstractSymbolic) =
@@ -267,6 +284,10 @@ for op ∈ (:zip, :getindex,)
             SymbolicExpression(StaticExpression((↓(x), ↓(y)), $op))
     end
 end
+
+# getindex
+Base.getindex(x::AbstractSymbolic, i::Integer) =
+    SymbolicExpression(getindex, (x, SymbolicNumber(i)))
 
 ## ---- special cases
 ## log

@@ -4,9 +4,23 @@
 """
     @symbolic_variables w x[1:3] y() z=>"𝑧" Ω::isinteger
 
-Define multiple symbolic variables or symbolic functions. Guards are ignored.
+Define multiple symbolic variables or symbolic functions. Guards are currently ignored.
 
 Not exported.
+
+```@repl
+julia> using SimpleExpressions: @symbolic_variables
+
+julia> @symbolic_variables  w x[1:3] y() z=>"𝑧" Ω::isinteger
+(w, SimpleExpressions.SymbolicVariable[x₁, x₂, x₃], y, 𝑧, Ω)
+
+julia> x
+3-element Vector{SimpleExpressions.SymbolicVariable}:
+ x₁
+ x₂
+ x₃
+```
+
 """
 macro symbolic_variables(xs...)
     # If the user separates declaration with commas, the top-level expression is a tuple

@@ -29,130 +29,7 @@ function S.iscommutative(x::S.SymbolicFunction)
 end
 
 ## ----
-
-@testset "match" begin
-
-    # match 1
-    @test match((⋯)^(⋯), (x+p)^(x+p)) == (((⋯) => x + p,),)
-
-    # match 2 wildcards
-    Θ = match(x_*sin(y_), x*sin(x))
-    σ = first(Θ)
-    @test (y_ => x) ∈ σ && (x_ =>x) ∈ σ && length(σ) == 2
-
-    # match can have more than 1 substitution
-    Θ = match(f(x__,y__), f(a,b,c))
-    @test length(Θ) == 2
-    @test f(x__, y__)(first(Θ)...) ∈ (f((a,b), (c,)), f((a,), (b,c)))
-
-    # empty match returns `nothing`
-    @test isnothing(match(sin(⋯), sin(x)^2))
-end
-
-@testset "exact" begin
-    𝑝, 𝑠 = cos(sin(a)), cos(sin(a))
-    m = SyntacticMatch(𝑠, 𝑝)
-    @test m == ()
-
-    𝑝, 𝑠 = cos(sin(a)), cos(sin(b))
-    m = SyntacticMatch(𝑠, 𝑝)
-    @test isnothing(m)
-
-    m = SyntacticMatch(sin(cos(a)), cos(a))
-    @test isnothing(m)
-end
-
-@testset "associative" begin
-    𝑠 = 1 + a + b
-    𝑝 = 1 + x_
-    Θ = MatchOneToOne((𝑠,), 1 + x_)
-    @test length(Θ) == 1
-    σ = only(Θ)
-    @test S.sorted_arguments(last(σ[1])) == (a,b)
-
-    Θ = MatchOneToOne((a + b + c,), x__ + y__)
-    @test length(Θ) == 6 # (c, a+b),(a,c+b),(b,c+a),(c+a,b),(c+b,a), (a+b,c)
-
-    # match
-    # should not match
-    𝑠 = log(1 + x^2/2 - x^4/24)
-    @test !isnothing(match(log(1 + ⋯), 𝑠))
-    @test !isnothing(match(log(1 + x__), 𝑠)) # again x_ like x__
-
-end
-
-@testset "constant patterns" begin
-    @test MatchSequence((a,b,c), (a,b,b)) == ()    # no substitutions
-    @test MatchSequence((a,b,c), (a,b,c)) == ((),) # one trivial substitution
-end
-
-@testset "matched variables" begin
-
-    ss, ps = (a,b,c), (x_,y_,z_)
-    σ = (x_ => a,)
-
-    ss′, ps′ = S._match_matched_variables(ss, ps, σ)
-    @test ss′ == (b,c) && ps′ == (y_,z_)
-
-    Θ = MatchCommutativeSequence(ss, ps, nothing, ((),))
-    @test length(Θ) == 6
-    Θ = MatchCommutativeSequence(ss, ps, nothing, (σ,))
-    @test length(Θ) == 2
-
-end
-
-
-@testset "non-variable" begin
-    𝑝 = fₘ(g(a,x_), g(x_,y_), g(z__))
-    𝑠 = fₘ(g(a,b), g(b,a), g(a,c))
-    Θ = MatchOneToOne((𝑠,), 𝑝)
-    σ = only(Θ)
-    @test length(σ) == 3
-    @test (x_ => b) ∈ σ && (y_ => a) ∈ σ && (z__ => (a, c)) ∈ σ
-
-end
-
-@testset "regular variables" begin
-    𝑠 = fₘ(a,a,a,b,b,c)
-    𝑝 = fₘ(x_,x_,y___)
-    Θ = MatchOneToOne((𝑠,), 𝑝)
-    @test length(Θ) == 1 # σ =  (x_ => a, y___ => (a, b, b, c))
-    @test (x_ => a, y___ => (a, b, b, c)) ∈ Θ # ordering is ok
-
-    𝑠 = fₐₘ(a,a,a,b,b,c)
-    𝑝 = fₐₘ(x_,x_,y___) # associative has x_ like x__
-    Θ = MatchOneToOne((𝑠,), 𝑝)
-    @test length(Θ) == 3 # (x_ => fₐₘ(a, b), y___ => fₐₘ(a, c))
-
-
-end
-
-@testset "sequence variables" begin
-    @symbolic_variables u() uₐ() uₘ() uₐₘ()
-
-    Θ = MatchSequence((a,b,c), (x__, y__), u)
-    @test length(Θ) == 2 # u(a,b), u(c); u(a), u(b,c)
-
-    Θ = MatchSequence((a,b,c), (x__, y___), u)
-    @test length(Θ) == 3 # add u(a,b,c),u()
-
-    Θ = MatchSequence((a,b,c), (x___, y___), u)
-    @test length(Θ) == 4
-
-
-    Θ = MatchSequence((a,b,c), (x__, y__), uₘ) # are these right
-    @test length(Θ) == 2 #
-
-    Θ = MatchSequence((a,b,c), (x__, y___), uₘ)
-    @test length(Θ) == 3
-
-
-    Θ = MatchSequence((a,b,c), (x___, y___), uₐₘ)
-    @test length(Θ) == 4
-
-
-end
-
+# Main user interface are methods for `replace`, `match`, `eachmatch`
 @testset "replace head" begin
     # replace operation
     ex = log(1 + x^2) + log(1 + x^3)
@@ -211,3 +88,131 @@ end
     @test replace(ex*cos(x), x*sin(x) => x) == ex * cos(x)
 
 end
+
+@testset "match" begin
+    
+    # match 1
+    @test match((⋯)^(⋯), (x+p)^(x+p)) == ((⋯) => x + p,)
+
+    # match 2 wildcards
+    σ = match(x_*sin(y_), x*sin(x))
+    @test (y_ => x) ∈ σ && (x_ =>x) ∈ σ && length(σ) == 2
+
+    # match can have more than 1 substitution
+    σ = match(f(x__,y__), f(a,b,c))
+    @test f(x__, y__)(σ...) ∈ (f((a,b), (c,)), f((a,), (b,c)))
+
+    # empty match returns `nothing`
+    @test isnothing(match(sin(⋯), sin(x)^2))
+
+    # eachmatch returns iterator
+    sub = a + b + c
+    @test isempty(eachmatch(1 + x_, sub))
+    @test length(collect(eachmatch(x_ + y_, sub))) == 6 # associative
+end
+
+## -- test internal functions
+@testset "exact" begin
+    𝑝, 𝑠 = cos(sin(a)), cos(sin(a))
+    m = SyntacticMatch(𝑠, 𝑝)
+    @test m == ()
+
+    𝑝, 𝑠 = cos(sin(a)), cos(sin(b))
+    m = SyntacticMatch(𝑠, 𝑝)
+    @test isnothing(m)
+
+    m = SyntacticMatch(sin(cos(a)), cos(a))
+    @test isnothing(m)
+end
+
+@testset "associative" begin
+    𝑠 = 1 + a + b
+    𝑝 = 1 + x_
+    Θ = MatchOneToOne((𝑠,), 1 + x_)
+    @test length(collect(Θ)) == 1
+    σ = only(Θ)
+    @test S.sorted_arguments(last(σ[1])) == (a,b)
+
+    Θ = MatchOneToOne((a + b + c,), x__ + y__)
+    @test length(collect(Θ)) == 6 # (c, a+b),(a,c+b),(b,c+a),(c+a,b),(c+b,a), (a+b,c)
+
+    # match
+    # should not match
+    𝑠 = log(1 + x^2/2 - x^4/24)
+    @test !isnothing(match(log(1 + ⋯), 𝑠))
+    @test !isnothing(match(log(1 + x__), 𝑠)) # again x_ like x__
+
+end
+
+@testset "constant patterns" begin
+    @test isempty(MatchSequence((a,b,c), (a,b,b)))    # no substitutions
+    @test only(MatchSequence((a,b,c), (a,b,c))) == () # one trivial substitution
+end
+
+@testset "matched variables" begin
+
+    ss, ps = (a,b,c), (x_,y_,z_)
+    σ = (x_ => a,)
+
+    ss′, ps′ = S._match_matched_variables(ss, ps, σ)
+    @test ss′ == (b,c) && ps′ == (y_,z_)
+
+    Θ = MatchCommutativeSequence(ss, ps, nothing, ((),))
+    @test length(collect(Θ)) == 6
+    Θ = MatchCommutativeSequence(ss, ps, nothing, (σ,))
+    @test length(collect(Θ)) == 2
+
+end
+
+
+@testset "non-variable" begin
+    𝑝 = fₘ(g(a,x_), g(x_,y_), g(z__))
+    𝑠 = fₘ(g(a,b), g(b,a), g(a,c))
+    Θ = MatchOneToOne((𝑠,), 𝑝)
+    σ = only(Θ)
+    @test length(σ) == 3
+    @test (x_ => b) ∈ σ && (y_ => a) ∈ σ && (z__ => (a, c)) ∈ σ
+
+end
+
+@testset "regular variables" begin
+    𝑠 = fₘ(a,a,a,b,b,c)
+    𝑝 = fₘ(x_,x_,y___)
+    Θ = MatchOneToOne((𝑠,), 𝑝)
+    @test length(collect(Θ)) == 1 # σ =  (x_ => a, y___ => (a, b, b, c))
+    @test (x_ => a, y___ => (a, b, b, c)) ∈ Θ # ordering is ok
+
+    𝑠 = fₐₘ(a,a,a,b,b,c)
+    𝑝 = fₐₘ(x_,x_,y___) # associative has x_ like x__
+    Θ = MatchOneToOne((𝑠,), 𝑝)
+    @test length(collect(Θ)) == 3 # (x_ => fₐₘ(a, b), y___ => fₐₘ(a, c))
+
+
+end
+
+@testset "sequence variables" begin
+    @symbolic_variables u() uₐ() uₘ() uₐₘ()
+
+    Θ = MatchSequence((a,b,c), (x__, y__), u)
+    @test length(collect(Θ)) == 2 # u(a,b), u(c); u(a), u(b,c)
+
+    Θ = MatchSequence((a,b,c), (x__, y___), u)
+    @test length(collect(Θ)) == 3 # add u(a,b,c),u()
+
+    Θ = MatchSequence((a,b,c), (x___, y___), u)
+    @test length(collect(Θ)) == 4
+
+
+    Θ = MatchSequence((a,b,c), (x__, y__), uₘ) # are these right
+    @test length(collect(Θ)) == 2 #
+
+    Θ = MatchSequence((a,b,c), (x__, y___), uₘ)
+    @test length(collect(Θ)) == 3
+
+
+    Θ = MatchSequence((a,b,c), (x___, y___), uₐₘ)
+    @test length(collect(Θ)) == 4
+
+
+end
+

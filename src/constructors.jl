@@ -94,16 +94,15 @@ xs = ys = range(-5, 5, length=100)
 contour(xs, ys, x^2 - y^2 + 2x*y)
 ```
 
-Symbolic derivatives can be taken with respect to the symbolic value, symbolic parameters are treated as constant.
+Symbolic derivatives can be taken with respect to the symbolic value, symbolic parameters are treated as constant. We use `diff` as an interface
 
 ```julia
 @symbolic x p
-import SimpleExpressions: D
 u = x^5 - p*x - 1
-D(u)           # (5 * (x ^ 4)) - p
+diff(u, x)           # (5 * (x ^ 4)) - p
 u = u(:, 1)    # set parameter
 a, b = 1, 2
-find_zeros(D(u) ~ (u(b)-u(a)) / (b-a), (a,b)) # [1.577…]
+find_zeros(diff(u,x) ~ (u(b)-u(a)) / (b-a), (a,b)) # [1.577…]
 ```
 
 

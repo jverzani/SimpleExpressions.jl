@@ -1,7 +1,7 @@
 name = "SimpleExpressions"
 uuid = "deba94f7-f32a-40ad-b45e-be020a5ded2f"
 authors = ["jverzani <jverzani@gmail.com> and contributors"]
-version = "1.1.10"
+version = "1.1.11"
 
 [deps]
 CallableExpressions = "391672e0-bbe4-4ab4-8bc9-b89a79cbc2f0"
@@ -29,6 +29,7 @@ SimpleExpressionsSpecialFunctionsExt = "SpecialFunctions"
 
 [compat]
 AbstractTrees = "0.4"
+Aqua = "0.8"
 CallableExpressions = "1.0.0"
 Combinatorics = "1.0.2"
 CommonEq = "0.2.1"
@@ -39,13 +40,15 @@ RecipesBase = "1"
 Roots = "2"
 SpecialFunctions = "1,2"
 TermInterface = "2,3"
+Test = "1"
 TupleTools = "1.6.0"
 julia = "1.10"
 
 [extras]
 AbstractTrees = "1520ce14-60c1-5f80-bbc7-55ef81b5835c"
+Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test"]
+test = ["Test","Aqua"]

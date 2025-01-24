@@ -11,9 +11,7 @@ Lightly simplify symbolic expressions.
 ## Example
 
 ```@repl combine
-julia> using SimpleExpressions
-
-julia> import SimpleExpressions: combine
+julia> using SimpleExpressions: @symbolic, combine
 
 julia> @symbolic x
 (x,)
@@ -35,7 +33,7 @@ julia> combine(ex)
 Not exported.
 
 """
-function combine(ex)
+function combine(@nospecialize(ex))
     c, d = ATERM(ex)
     c + sum(isone(k) ? v : k*v for (v,k) ∈ d if !iszero(k); init=0)
 end
@@ -67,17 +65,37 @@ ATERM(x::SymbolicExpression, d=IdDict()) = ATERM(operation(x), x, d)
 
 function ATERM(::typeof(*), x, d=IdDict())
     c,dx = MTERM(x, IdDict())
-    x′ = prod(isone(k) ? v : v^k for (v,k) ∈ dx if !iszero(k); init=1)
+    x′ =  one(x)
+    for (v, k) ∈ dx
+        iszero(k) && continue
+        if isone(k)
+            x′ *= v
+        elseif isnegative(k)
+            x′ *= isone(-k) ? 1/v : (1/v)^(-k)
+        else
+            x′ *= v^k
+        end
+    end
     d[x′] = get(d, x′, 0) + c
-    Term(0, d)
+    Term(zero(x), d)
 end
 
 
 function ATERM(::typeof(/), x, d=IdDict())
     c, dx = MTERM(x)
-    e = c * prod(isone(k) ? v : v^k for (v,k) ∈ dx if !iszero(k); init=1)
-    d[e] = get(d, e, 0) + 1
-    return Term(0,d)
+    e = one(x)
+    for (v,k) ∈ dx
+        iszero(k) && continue
+        if isone(k)
+            e = e * v
+        elseif isnegative(k)
+            e = e * (isone(-k) ? 1/v : (1/v)^(-k))
+        else
+            e = e * v^k
+        end
+    end
+    d[e] = get(d, e, 0) + c
+    return Term(zero(x), d)
 
     
     a, b = arguments(x)
@@ -135,6 +153,7 @@ function MTERM(x::SymbolicParameter, d=IdDict())
     d[x] = get(d, x, 0) + 1
     Term(1, d)
 end
+
 MTERM(x::SymbolicExpression, d=IdDict()) = MTERM(operation(x), x, d)
 
 function MTERM(::Any, x, d)
@@ -154,9 +173,9 @@ end
 
 function MTERM(::typeof(^), x, d)
     a, b = arguments(x)
-    if iscall(a)
+    if is_operation(*)(a)
         cs,ts = tuplesplit(Base.Fix2(isa, SymbolicNumber), sorted_arguments(a))
-        if isnumeric(b) && b() < 0
+        if isnegative(b)
             c = prod((1/cᵢ)^b for cᵢ in cs; init=1)
         else
             c = prod(cᵢ^b for cᵢ in cs; init=1)
@@ -173,6 +192,7 @@ function MTERM(::typeof(^), x, d)
     Term(c, d)
 end
 
+# want c * (x1^p1 * x2^p2 ...)
 function MTERM(::typeof(/), x, d)
     a, b = arguments(x)
     ac, ad = MTERM(a, d)
@@ -192,3 +212,9 @@ function MTERM(::typeof(/), x, d)
 end
 
 
+function MTERM(::typeof(+), x, d)
+    a, b = ATERM(+, x, IdDict())
+    c = a + sum(k*v for (v,k) ∈ b; init=zero(x))
+    d[c] = get(d, c, 0) + 1
+    Term(one(x), d)
+end

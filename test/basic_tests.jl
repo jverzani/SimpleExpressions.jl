@@ -284,19 +284,24 @@ end
 
     ex = cos(x)*sin(x^2+x)
     @test D(ex, x)(x₀) ≈ ∂(ex, x₀) atol=1e-4
-
+    @test diff(ex, x)(x₀) ≈ ∂(ex, x₀) atol=1e-4
+    
     ex = exp(x^2 - 2) * log(x + sin(x))
     @test D(ex,x)(x₀) ≈ ∂(ex, x₀) atol=1e-4
-
+    @test diff(ex, x)(x₀) ≈ ∂(ex, x₀) atol=1e-4
+    
     ex = log1p(x^2) * sqrt(1 + sin(x)^2)
     @test D(ex,x)(x₀) ≈ ∂(ex, x₀) atol=1e-4
-
+    @test diff(ex, x)(x₀) ≈ ∂(ex, x₀) atol=1e-4
+    
     ex = (x^2 + 1) / (x^2 - x)
     @test D(ex,x)(x₀) ≈ ∂(ex, x₀) atol=1e-4
-
+    @test diff(ex, x)(x₀) ≈ ∂(ex, x₀) atol=1e-4
+    
     ex = abs(inv(x))
     @test D(ex,x)(x₀) ≈ ∂(ex, x₀) atol=1e-4
-
+    @test diff(ex, x)(x₀) ≈ ∂(ex, x₀) atol=1e-4
+    
     ex = log(x)
     u = D(D(ex,x),x) - D(1/x,x)
     @test u(x₀) == 0
@@ -305,6 +310,7 @@ end
     # sum rule (vararg)
     ex = sin(x) + cos(x) + tan(x)
     @test D(ex, x)(x₀) ≈ ∂(ex, x₀) atol=1e-4
+        @test diff(ex, x)(x₀) ≈ ∂(ex, x₀) atol=1e-4
 
     # different variables
     @symbolic w p
@@ -312,6 +318,12 @@ end
     @test D(ex, w) == D(ex) # finds w from expression
     @test D(ex, p) == -w
 
+    # diff
+    @test_throws MethodError diff(x) # must specify variable
+    @test diff(sin(x),x) == cos(x)
+    @test diff(sin(x),x, x) == -sin(x)
+    @test diff(sin(x),x,x,x,x) == sin(x)
+    
 end
 
 @testset "solve" begin
