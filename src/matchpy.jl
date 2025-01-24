@@ -381,7 +381,7 @@ function _match_sequence_variables(ss, ps, fc=nothing, σ = ())
     svars = tuple(first.(ds)...)
 
     pluses = tuple((v for (k,v) in dplus)...) # unique
-    stars = tuple((v for (k,v) in dstar)...)  # uniqe
+    stars = tuple((v for (k,v) in dstar)...)  # unique
 
     n1, n2 = length(pluses), length(stars)
     n = n1 + n2
