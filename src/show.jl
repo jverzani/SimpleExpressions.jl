@@ -4,7 +4,7 @@
 Base.show(io::IO, ::MIME"text/plain", x::AbstractSymbolic) = show(io, x)
 Base.show(io::IO, x::AbstractSymbolic) = _show(io, ↓(x))
 
-_show(io::IO, u::DynamicVariable) = print(io, Symbol(u))
+_show(io::IO, u::DynamicVariable) = print(io, u.sym)
 _show(io::IO, u::StaticVariable{S}) where {S} = print(io, S)
 _show(io::IO, u::DynamicConstant) = print(io, u.value)
 
@@ -60,4 +60,3 @@ end
 
 # catch others
 _show(io::IO, x) = show(io, x)
-
