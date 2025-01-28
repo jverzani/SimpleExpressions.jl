@@ -270,7 +270,7 @@ u = diff(exp(x) * (sin(3x) + sin(101x)), x)
 
 #### Simplification
 
-No simplification is done so the expressions can quickly become unwieldy. The unexported `combine` does light simplfication. 
+No simplification is done so the expressions can quickly become unwieldy. The unexported `combine` does light simplfication.
 
 ```@example expressions
 ex = 1 + x + 2x + 3x + 4
@@ -280,5 +280,7 @@ ex = 1 + x + 2x + 3x + 4
 using SimpleExpressions: combine
 combine(ex)
 ```
+
+(Unlike `SymbolicUtils` and `SymEngine` -- where the basic representation includes specialized storage for additive and multiplicative terms -- this package does not. The `combine` function has to represent terms in that manner, simplify, and reproduce which is a bit excessive to make a default, as the point here is reasonably fast callable functions.)
 
 There is `TermInterface` support, so--in theory--rewriting of expressions, as is possible with the `Metatheory.jl` package, is supported. The scaffolding is in place, but waits for the development version to be tagged.

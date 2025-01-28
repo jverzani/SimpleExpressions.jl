@@ -152,8 +152,8 @@ function coefficients(ex, x)
     end
 
     n = maximum(collect(keys(d)))
-    coeffs = tuple((_combine_numbers(get(d,i,zero(x))) for i in 0:n)...)
-    nms = tuple((SimpleExpressions._aᵢ(i) for i in 0:n)...)
+    coeffs = Tuple(_combine_numbers(get(d,i,zero(x))) for i in 0:n)
+    nms = Tuple(SimpleExpressions._aᵢ(i) for i in 0:n)
 
     NamedTuple{nms}(coeffs)
 

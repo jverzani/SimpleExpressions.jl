@@ -97,11 +97,11 @@ function ATERM(::typeof(/), x, d=IdDict())
     d[e] = get(d, e, 0) + c
     return Term(zero(x), d)
 
-    
+
     a, b = arguments(x)
     ac, ad = ATERM(a)
     bc, bd = ATERM(b)
-    c = iszero(bc) ? ac : ac / bc 
+    c = iszero(bc) ? ac : ac / bc
     denom = prod(v*k for (v,k) ∈ bd; init=1)
     if isone(denom)
         Term(c, copy(av))
@@ -127,7 +127,7 @@ function ATERM(::typeof(-), x,d)
     a, b = arguments(x)
     TERM(a + (-b))
 end
-    
+
 function ATERM(::Any, x, d)
     d[x] = get(d,x,0) + 1
     Term(0, d)
@@ -197,7 +197,7 @@ function MTERM(::typeof(/), x, d)
     a, b = arguments(x)
     ac, ad = MTERM(a, d)
     if is_operation(*)(b)
-        bs′ = tuple((SymbolicExpression(^, (b, -1)) for b in arguments(b))...)
+        bs′ = Tuple(SymbolicExpression(^, (b, -1)) for b in arguments(b))
         b′ = maketerm(SymbolicExpression, *, bs′, nothing)
         bc, bd = MTERM(b′,ad)
     else
