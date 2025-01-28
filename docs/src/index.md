@@ -290,7 +290,7 @@ There is `TermInterface` support, so--in theory--rewriting of expressions, as is
 It is possible to leverage the CAS abilities of `SymPy`. (Though, if using `SymPy` there isn't much need to use this package.) This example illustrates.
 
 ```julia
-# subject to changes in SymPy
+# **subject to changes in SymPy**
 using SimpleExpressions
 import SymPy
 @symbolic x p
