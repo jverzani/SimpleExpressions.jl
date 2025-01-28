@@ -39,7 +39,7 @@ function _countmap(x)
     return [k => v for (k,v) ∈ d]
 end
 function _uncountmap(dx)
-    TupleTools.vcat((tuple((k for _ in 1:v)...) for (k,v) in dx)...)
+    TupleTools.vcat((Tuple(k for _ in 1:v) for (k,v) in dx)...)
 end
 
 tuplesplit(pred, t) = (t = filter(pred,t), f=filter(!pred, t))
@@ -47,7 +47,7 @@ tuplesplit(pred, t) = (t = filter(pred,t), f=filter(!pred, t))
 ## ---------------------------------
 ## only TermInterface below this line
 
-## 
+##
 # need unit here
 function _maketerm(fa, xs)
     isempty(xs) && return
@@ -90,8 +90,8 @@ end
 function union_matches(Θ, σ′)
     isnothing(Θ) && return (σ′, )
     in(σ′, Θ) && return Θ
-    out = tuple((union_match(σ, σ′) for σ ∈ Θ
-                 if iscompatible(σ, σ′))...)
+    out = Tuple(union_match(σ, σ′) for σ ∈ Θ
+                if iscompatible(σ, σ′))
     out
 end
 
@@ -198,7 +198,7 @@ function MatchSequence(ss, ps, fₐ=nothing, Θ=((),))
         end |> Base.Fix1(Iterators.filter, !isnothing)
     end
 
-    i |> Iterators.flatten 
+    i |> Iterators.flatten
 
 end
 
@@ -207,7 +207,7 @@ function MatchCommutativeSequence(ss, ps, fₐ = nothing, Θ = ((),))
     out = _match_constant_patterns(ss, ps)
     isnothing(out) && return ∅
     ss, ps = out
-    
+
     function f1(a)
         ss, ps, σ = a
         _match_non_variable_patterns(ss, ps, fₐ, σ)
@@ -216,7 +216,7 @@ function MatchCommutativeSequence(ss, ps, fₐ = nothing, Θ = ((),))
         ss, ps, σ = a
         _match_regular_variables(ss, ps, fₐ, σ)
     end
-    
+
     function f3(a)
         ss, ps, σ = a
         _match_sequence_variables(ss, ps, fₐ, σ)
@@ -226,7 +226,7 @@ function MatchCommutativeSequence(ss, ps, fₐ = nothing, Θ = ((),))
     itr = let ss=ss,ps=ps,Θ=Θ
         ((ss, ps, σ) for σ ∈ Θ)
     end
-    
+
     t1 =  Iterators.map(f1, itr) |>
         Iterators.flatten |>
         Base.Fix1(Iterators.filter, !isnothing)
@@ -238,7 +238,7 @@ function MatchCommutativeSequence(ss, ps, fₐ = nothing, Θ = ((),))
         Base.Fix1(Iterators.filter, !isnothing)
 
     return t3
-    
+
 end
 
 # return trimmed ss, ps or nothing
@@ -266,11 +266,11 @@ function  _match_matched_variables(ss, ps, σ)
             for si ∈ itr
                 i = findfirst(==(si), ss)
                 isnothing(i) && return nothing
-                ss = tuple((v for (j,v) ∈ enumerate(ss) if j != i)...)
+                ss = Tuple(v for (j,v) ∈ enumerate(ss) if j != i)
             end
         end
     end
-    ps = tuple((v for v in ps if v ∉ first.(σ))...)
+    ps = Tuple(v for v in ps if v ∉ first.(σ))
     ss, ps
 end
 
@@ -280,12 +280,12 @@ function _match_non_variable_patterns(ss, ps, fc=nothing, σ=())
     out = _match_matched_variables(ss, ps, σ)
     isnothing(out) && return nothing
     ss, ps = out
-    
+
     ps′, ps′′ = tuplesplit(iscall, ps)
     length(ps′) == 0 && return ((ss, ps, σ),)
     ss′′, ss′ = tuplesplit(!iscall, ss)
     length(ps′) == length(ss′) || return nothing # ∅
-    
+
     i = Combinatorics.permutations(1:length(ss′))
     ii = Iterators.map(i) do inds
         ss′′′ = ss′[inds]
@@ -307,7 +307,7 @@ end
 function _match_regular_variables(ss, ps, fc=nothing, σ = ())
     out =  _match_matched_variables(ss, ps, σ)
     isnothing(out) && return ()
-    
+
     ss, ps = out
     # fₐ is  commutative, maybe associative
     isassociative(fc) && return ((ss, ps, σ),)
@@ -342,7 +342,7 @@ end
 # different ways to grab the pie
 function _split_take(ds, dp)
     n = length(ds)
-    
+
     k = length(dp)
     i = Iterators.product((1:n for _ in 1:k)...)
     ii = Iterators.map(i) do inds
@@ -366,7 +366,7 @@ function _match_sequence_variables(ss, ps, fc=nothing, σ = ())
     out =  _match_matched_variables(ss, ps, σ)
     isnothing(out) && return ()
     ss, ps = out
-    
+
     if !isassociative(fc)
         !isempty(filter(_is_Wild, ps)) && return ()
     end
@@ -380,8 +380,8 @@ function _match_sequence_variables(ss, ps, fc=nothing, σ = ())
     vars = TupleTools.vcat(tuple(first.(dplus)...), tuple(first.(dstar)...))
     svars = tuple(first.(ds)...)
 
-    pluses = tuple((v for (k,v) in dplus)...) # unique
-    stars = tuple((v for (k,v) in dstar)...)  # unique
+    pluses = Tuple(v for (k,v) in dplus) # unique
+    stars = Tuple(v for (k,v) in dstar)  # unique
 
     n1, n2 = length(pluses), length(stars)
     n = n1 + n2
@@ -393,13 +393,13 @@ function _match_sequence_variables(ss, ps, fc=nothing, σ = ())
         (as) -> _maketerm(fc, as)
 
     # rename
-    ssᵥ = tuple((v for (k,v) in ds)...) # times in ss
+    ssᵥ = Tuple(v for (k,v) in ds) # times in ss
     ii = Iterators.filter(Iterators.product(
         (Iterators.product((0:s for _ in 1:n)...) for s in ssᵥ)...)) do u
             all(sum(ui .* ks) == si for (ui,si) in zip(u, ssᵥ)) &&
                 all(sum(ui[i] for ui in u) > 0 for i in 1:n1)
         end
-    
+
     iii = Iterators.map(ii) do u
         σ′ = σ
         for (j, v) ∈ enumerate(vars)
@@ -479,5 +479,3 @@ function _replace_arguments(ex, u, v)
 
     return maketerm(ExpressionType, op, args′, nothing)
 end
-
-
