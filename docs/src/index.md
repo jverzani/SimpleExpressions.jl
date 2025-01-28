@@ -281,7 +281,7 @@ using SimpleExpressions: combine
 combine(ex)
 ```
 
-(Unlike `SymbolicUtils` and `SymEngine` -- where the basic represention includes specialized storage for additive and multiplicative terms -- this package does not. The `combine` function has to represent terms in that manner, simplify, and reproduce which is a bit excessive to make a default, as the point here is reasonably fast callable functions.)
+(Unlike `SymbolicUtils` and `SymEngine` -- where the basic representation includes specialized storage for additive and multiplicative terms -- this package does not. The `combine` function has to represent terms in that manner, simplify, and reproduce which is a bit excessive to make a default, as the point here is reasonably fast callable functions.)
 
 There is `TermInterface` support, so--in theory--rewriting of expressions, as is possible with the `Metatheory.jl` package, is supported. The scaffolding is in place, but waits for the development version to be tagged.
 
