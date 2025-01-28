@@ -270,7 +270,7 @@ u = diff(exp(x) * (sin(3x) + sin(101x)), x)
 
 #### Simplification
 
-No simplification is done so the expressions can quickly become unwieldy. The unexported `combine` does light simplfication. 
+No simplification is done so the expressions can quickly become unwieldy. The unexported `combine` does light simplfication.
 
 ```@example expressions
 ex = 1 + x + 2x + 3x + 4
@@ -281,4 +281,33 @@ using SimpleExpressions: combine
 combine(ex)
 ```
 
+(Unlike `SymbolicUtils` and `SymEngine` -- where the basic represention includes specialized storage for additive and multiplicative terms -- this package does not. The `combine` function has to represent terms in that manner, simplify, and reproduce which is a bit excessive to make a default, as the point here is reasonably fast callable functions.)
+
 There is `TermInterface` support, so--in theory--rewriting of expressions, as is possible with the `Metatheory.jl` package, is supported. The scaffolding is in place, but waits for the development version to be tagged.
+
+#### Interop
+
+It is possible to leverage the CAS abilities of `SymPy`. (Though, if using `SymPy` there isn't much need to use this package.) This example illustrates.
+
+```julia
+# subject to changes in SymPy
+using SimpleExpressions
+import SymPy
+@symbolic x p
+ex = cos(x) + p
+
+# integrate in x
+T = SymPy.Sym
+𝑇 = SimpleExpressions.AbstractSymbolic
+
+import SymPyCore: exchange, _issymbol, _value, _makesymbol
+_issymbol(x::𝑇) = SimpleExpressions.isvariable(x)
+_value(x::𝑇) = x()
+_makesymbol(::Type{<:𝑇}, 𝑥::Symbol) = SimpleExpressions.SymbolicVariable(𝑥)
+
+𝑒𝑥 = exchange(T, ex)
+𝑥 = exchange(T, x)
+∫𝑒𝑥 = SymPy.integrate(𝑒𝑥, 𝑥)
+
+exchange(𝑇, ∫𝑒𝑥) # (p * x) + sin(x)
+```
