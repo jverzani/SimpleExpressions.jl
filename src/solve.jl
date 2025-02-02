@@ -193,6 +193,7 @@ function _monomial(c, x)
 end
 
 
+
 ## _distribute_over_plus out to + terms
 _distribute_over_plus(ex::Number, x; __cnt=1) = error(ex)
 _distribute_over_plus(ex::𝐿, x) = ex
@@ -495,5 +496,6 @@ end
 
 
 
-
 # apply inverse?
+
+

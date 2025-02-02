@@ -41,6 +41,20 @@ function Base.diff(ex::AbstractSymbolic, x::𝑉, xs...)
     end
     combine(ex)
 end
+
+function Base.diff(ex::AbstractSymbolic, x::𝑉, n::Int)
+    n < 0 && throw(ArgumentError("n must be positive"))
+    for _ in 1:n
+        ex = D(ex, x)
+    end
+    combine(ex)
+end
+
+function Base.diff(ex::AbstractSymbolic, x::𝑉, n::Int, xs...)
+    ex = diff(ex, x, n)
+    diff(ex, xs...)
+end
+
 Base.diff(ex::SymbolicEquation, x::𝑉, xs...) =
     diff(ex.lhs, x, xs...) ~ diff(ex.rhs, x, xs...)
 

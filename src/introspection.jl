@@ -1,6 +1,8 @@
 ## ---- introspection
 Base.Symbol(x::SymbolicVariable{T}) where {T} = T
 Base.Symbol(x::SymbolicParameter) = ↓(x).sym
+Base.nameof(x::SymbolicVariable{T}) where {T} = T
+Base.nameof(x::SymbolicParameter) = ↓(x).sym
 
 ## ----
 # convert to Expr
