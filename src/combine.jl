@@ -59,7 +59,7 @@ end
 # ATERM stores c + a₁*ex₁ + a₂*ex₂ as (c, Dict(ex₁=>a₁, ex₂ => a₂,...))
 function _from_aterm(a)
     c,d = a
-    c, sum(v*k for (k,v) ∈ d)
+    c, sum(v*k for (k,v) ∈ d; init=0)
 end
 
 ATERM(ex::Number, d=IdDict()) = Term(0,d)
