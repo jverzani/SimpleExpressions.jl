@@ -34,12 +34,12 @@ Not exported.
 
 """
 function combine(@nospecialize(ex))
-    c, d = ATERM(ex)
-    c + sum(isone(k) ? v : k*v for (v,k) ∈ d if !iszero(k); init=0)
+    u,v = _from_aterm(ATERM(ex))
+    u + v
 end
 
 ## ---- experimental
-## SymEngine uses this structure to add
+## SymEngine, Symbolics, ... use this structure to add
 ## c + (c₁,T₁) + (c₂,T₂) + ⋯
 ## uses a dict to store Tᵢ => cᵢ
 ## TERM should have + or * types (powers or coefficients?)
@@ -54,7 +54,15 @@ function Base.iterate(t::Term, state=nothing)
     nothing
 end
 
-# A term c + k*v
+## -- we have ATERM and MTERM
+
+# ATERM stores c + a₁*ex₁ + a₂*ex₂ as (c, Dict(ex₁=>a₁, ex₂ => a₂,...))
+function _from_aterm(a)
+    c,d = a
+    c, sum(v*k for (k,v) ∈ d)
+end
+
+ATERM(ex::Number, d=IdDict()) = Term(0,d)
 ATERM(ex::SymbolicNumber, d=IdDict()) = Term(ex, d)
 function ATERM(x::𝑉, d=IdDict())
     d[x] = get(d, x, 0) + 1
@@ -63,86 +71,56 @@ end
 
 ATERM(x::SymbolicExpression, d=IdDict()) = ATERM(operation(x), x, d)
 
-function ATERM(::typeof(*), x, d=IdDict())
-    c,dx = MTERM(x, IdDict())
-    x′ =  one(x)
-    for (v, k) ∈ dx
-        iszero(k) && continue
-        if isone(k)
-            x′ *= v
-        elseif isnegative(k)
-            x′ *= isone(-k) ? 1/v : (1/v)^(-k)
+function ATERM(::typeof(+), x::SymbolicExpression, d)
+    c = zero(x)
+    for a ∈ arguments(x)
+        if isnumeric(a)
+            c += a
         else
-            x′ *= v^k
+            # add MTERM to d
+            a′ = MTERM(a)
+            λ, a′′ = _from_mterm(a′)
+            d[a′′] = get(d, a′′, 0) + λ
         end
     end
-    d[x′] = get(d, x′, 0) + c
-    Term(zero(x), d)
+    c, d
 end
 
-
-function ATERM(::typeof(/), x, d=IdDict())
-    c, dx = MTERM(x)
-    e = one(x)
-    for (v,k) ∈ dx
-        iszero(k) && continue
-        if isone(k)
-            e = e * v
-        elseif isnegative(k)
-            e = e * (isone(-k) ? 1/v : (1/v)^(-k))
-        else
-            e = e * v^k
-        end
-    end
-    d[e] = get(d, e, 0) + c
-    return Term(zero(x), d)
-
-
-    a, b = arguments(x)
-    ac, ad = ATERM(a)
-    bc, bd = ATERM(b)
-    c = iszero(bc) ? ac : ac / bc
-    denom = prod(v*k for (v,k) ∈ bd; init=1)
-    if isone(denom)
-        Term(c, copy(av))
-    else
-        d = IdDict()
-        for (v,k) ∈ ad
-            vv = v/denom
-            d[vv] = get(d, vv, 0) + k
-        end
-        Term(c, d)
-    end
-end
-
-# (cxyz)^n -> c^n, x^n y^n z^n => (0, (x^n y^n z^n,c^n)
-function ATERM(::typeof(^), x, d)
-    xc, xd = MTERM(x, IdDict())
-    v = prod(isone(k) ? v : v^k for (v,k) ∈ xd; init=1)
-    d[v] = get(d, v, 0) + xc
-    Term(0,d)
-end
-
-function ATERM(::typeof(-), x,d)
-    a, b = arguments(x)
-    TERM(a + (-b))
-end
-
-function ATERM(::Any, x, d)
-    d[x] = get(d,x,0) + 1
+# fallback
+function ATERM(::Any, x::SymbolicExpression, d)
+    m = MTERM(x)
+    c, k = _from_mterm(m)
+    d[k] = get(d, k, 0) + c
     Term(0, d)
 end
 
-function ATERM(::typeof(+), x, d)
-    c = 0
-    for a in arguments(x)
-        ca, d = ATERM(a,d)
-        c = c + ca
-    end
-    Term(c, d)
-end
+
 
 ## --- multiplicative terms simplified
+# MTERM stores c*a₁^b₁*a₂^b+^2 as (c, Dict(a₁=>b₁, a₂ => b₂,...))
+# -> c*prod
+_abs(x::Number) = abs(x)
+_abs(x::AbstractSymbolic) = abs(x())
+function _from_mterm(m)
+    c, d = m
+    k = __from_mterm(d)
+    c, k
+end
+function __from_mterm(d) # just from the dictionary
+    num = 1
+    den = 1
+    for (k,v) ∈ d
+        v == 0 && continue
+        if isnegative(v)
+            v = _abs(v)
+            den *= isone(v) ? k : k^v
+        else
+            num *= isone(v) ? k : k^v
+        end
+    end
+            
+    num / den
+end
 
 MTERM(x::SymbolicNumber, d= IdDict()) = Term(x, d)
 function MTERM(x::SymbolicVariable, d = IdDict())
@@ -162,55 +140,46 @@ function MTERM(::Any, x, d)
 end
 
 function MTERM(::typeof(*), x, d)
-    cs,ts = tuplesplit(Base.Fix2(isa, SymbolicNumber), sorted_arguments(x))
-    c = prod(cs, init=1)
-    for t ∈ ts
-        ct,d = MTERM(t, d)
-        c = c * ct
+    c = one(x)
+    for xᵢ ∈ arguments(x)
+        if isnumeric(xᵢ)
+            c *= xᵢ
+        else
+            ct, d = MTERM(xᵢ, d)
+            c *= ct
+        end
     end
     Term(c, d)
 end
 
 function MTERM(::typeof(^), x, d)
     a, b = arguments(x)
-    if is_operation(*)(a)
-        cs,ts = tuplesplit(Base.Fix2(isa, SymbolicNumber), sorted_arguments(a))
-        if isnegative(b)
-            c = prod((1/cᵢ)^b for cᵢ in cs; init=1)
-        else
-            c = prod(cᵢ^b for cᵢ in cs; init=1)
-        end
-        for t ∈ ts
-            d[t] = get(d,t,0) + b
-        end
-    elseif isconstant(a) && isconstant(b)
-        return Term(a^b, d)
-    else
-        c = 1
+    if isvariable(b)
         d[a] = get(d, a, 0) + b
+        return Term(1, d)
     end
-    Term(c, d)
+    
+    c, dd = MTERM(a)
+    for (k,v) ∈ dd
+        d[k] = get(d,k,0)  +  v * b
+    end
+    return Term(c^b, d)
 end
 
 # want c * (x1^p1 * x2^p2 ...)
 function MTERM(::typeof(/), x, d)
     a, b = arguments(x)
-    ac, ad = MTERM(a, d)
-    if is_operation(*)(b)
-        bs′ = Tuple(SymbolicExpression(^, (b, -1)) for b in arguments(b))
-        b′ = maketerm(SymbolicExpression, *, bs′, nothing)
-        bc, bd = MTERM(b′,ad)
-    else
-        bc, bd′ = MTERM(b, IdDict())
-        bd = copy(ad)
-        for (v,k) ∈ bd′
-            bd[v] = get(d,v,0) - k
-        end
-    end
-    c = ac / bc
-    Term(c, bd)
-end
+    num, u = MTERM(a,d)
+    den, v = MTERM(b)
 
+    for (var,pow) ∈ v
+        u[var] = get(u, var, 0) - pow
+    end
+
+    return Term(num/den, u)
+    
+
+end
 
 function MTERM(::typeof(+), x, d)
     a, b = ATERM(+, x, IdDict())
@@ -218,3 +187,4 @@ function MTERM(::typeof(+), x, d)
     d[c] = get(d, c, 0) + 1
     Term(one(x), d)
 end
+
