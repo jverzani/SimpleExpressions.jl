@@ -33,7 +33,7 @@ julia> combine(ex)
 Not exported.
 
 """
-function combine(@nospecialize(ex);n=5)
+function combine(@nospecialize(ex), n=5)
     for _ in 1:n
         ex′ = _combine(ex)
         ex′ == ex && return ex
