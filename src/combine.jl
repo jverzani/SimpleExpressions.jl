@@ -33,7 +33,16 @@ julia> combine(ex)
 Not exported.
 
 """
-function combine(@nospecialize(ex))
+function combine(@nospecialize(ex);n=5)
+    for _ in 1:n
+        ex′ = _combine(ex)
+        ex′ == ex && return ex
+        ex = ex′
+    end
+    ex
+end
+
+function _combine(@nospecialize(ex))
     u,v = _from_aterm(ATERM(ex))
     u + v
 end
