@@ -26,14 +26,14 @@ julia> ex = 1 + x^2 + 2x^2 + 3x*x + x^4/x
 1 + (x ^ 2) + (2 * (x ^ 2)) + (3 * x * x) + ((x ^ 4) / x)
 
 julia> combine(ex)
-1 + (6 * (x ^ 2)) + (x ^ 3)
+1 + (x ^ 3) + (6 * (x ^ 2)) 
 
 ```
 
 Not exported.
 
 """
-function combine(@nospecialize(ex), n=5)
+function combine(ex::AbstractSymbolic, n=5)
     for _ in 1:n
         ex′ = _combine(ex)
         ex′ == ex && return ex
@@ -42,8 +42,9 @@ function combine(@nospecialize(ex), n=5)
     ex
 end
 
-function _combine(@nospecialize(ex))
-    u,v = _from_aterm(ATERM(ex))
+function _combine(ex::AbstractSymbolic)
+    m = ATERM(ex)
+    u, v = _from_aterm(m)
     u + v
 end
 
@@ -68,31 +69,31 @@ end
 # ATERM stores c + a₁*ex₁ + a₂*ex₂ as (c, Dict(ex₁=>a₁, ex₂ => a₂,...))
 function _from_aterm(a)
     c,d = a
-    c, sum(v*k for (k,v) ∈ d; init=0)
+    c, sum(v*k for (k,v) ∈ d; init=SymbolicNumber(0))
 end
 
-ATERM(ex::Number, d=IdDict()) = Term(0,d)
+ATERM(ex::Number, d=IdDict()) = Term(SymbolicNumber(0),d)
 ATERM(ex::SymbolicNumber, d=IdDict()) = Term(ex, d)
 function ATERM(x::𝑉, d=IdDict())
     d[x] = get(d, x, 0) + 1
-    Term(0, d)
+    Term(SymbolicNumber(0), d)
 end
 
 ATERM(x::SymbolicExpression, d=IdDict()) = ATERM(operation(x), x, d)
 
 function ATERM(::typeof(+), x::SymbolicExpression, d)
-    c = zero(x)
+    b = SymbolicNumber(0)
     for a ∈ arguments(x)
         if isnumeric(a)
-            c += a
+            b += a
         else
             # add MTERM to d
-            a′ = MTERM(a)
-            λ, a′′ = _from_mterm(a′)
-            d[a′′] = get(d, a′′, 0) + λ
+            m = MTERM(a)
+            c, k = _from_mterm(m)
+            d[k] = get(d, k, 0) + c
         end
     end
-    c, d
+    Term(b, d)
 end
 
 # fallback
@@ -100,7 +101,7 @@ function ATERM(::Any, x::SymbolicExpression, d)
     m = MTERM(x)
     c, k = _from_mterm(m)
     d[k] = get(d, k, 0) + c
-    Term(0, d)
+    Term(SymbolicNumber(0), d)
 end
 
 
@@ -116,10 +117,9 @@ function _from_mterm(m)
     c, k
 end
 function __from_mterm(d) # just from the dictionary
-    num = 1
-    den = 1
+    den = num = SymbolicNumber(1)
     for (k,v) ∈ d
-        v == 0 && continue
+        iszero(v) && continue
         if isnegative(v)
             v = _abs(v)
             den *= isone(v) ? k : k^v
@@ -134,22 +134,22 @@ end
 MTERM(x::SymbolicNumber, d= IdDict()) = Term(x, d)
 function MTERM(x::SymbolicVariable, d = IdDict())
     d[x] = get(d, x, 0) + 1
-    Term(1, d)
+    Term(SymbolicNumber(1), d)
 end
 function MTERM(x::SymbolicParameter, d=IdDict())
     d[x] = get(d, x, 0) + 1
-    Term(1, d)
+    Term(SymbolicNumber(1), d)
 end
 
 MTERM(x::SymbolicExpression, d=IdDict()) = MTERM(operation(x), x, d)
 
-function MTERM(::Any, x, d)
+function MTERM(::Any, x::SymbolicExpression, d)
     d[x] = get(d, x, 0) + 1
-    Term(1, d)
+    Term(SymbolicNumber(1), d)
 end
 
-function MTERM(::typeof(*), x, d)
-    c = one(x)
+function MTERM(::typeof(*), x::SymbolicExpression, d)
+    c = SymbolicNumber(1)
     for xᵢ ∈ arguments(x)
         if isnumeric(xᵢ)
             c *= xᵢ
@@ -161,7 +161,7 @@ function MTERM(::typeof(*), x, d)
     Term(c, d)
 end
 
-function MTERM(::typeof(^), x, d)
+function MTERM(::typeof(^), x::SymbolicExpression, d)
     a, b = arguments(x)
     if isvariable(b)
         d[a] = get(d, a, 0) + b
@@ -176,7 +176,7 @@ function MTERM(::typeof(^), x, d)
 end
 
 # want c * (x1^p1 * x2^p2 ...)
-function MTERM(::typeof(/), x, d)
+function MTERM(::typeof(/), x::SymbolicExpression, d)
     a, b = arguments(x)
     num, u = MTERM(a,d)
     den, v = MTERM(b)
@@ -190,7 +190,7 @@ function MTERM(::typeof(/), x, d)
 
 end
 
-function MTERM(::typeof(+), x, d)
+function MTERM(::typeof(+), x::SymbolicExpression, d)
     a, b = ATERM(+, x, IdDict())
     c = a + sum(k*v for (v,k) ∈ b; init=zero(x))
     d[c] = get(d, c, 0) + 1
