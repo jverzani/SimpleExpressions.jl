@@ -33,7 +33,6 @@ julia> dd(1)
 ```
 Not exported.
 """
-
 function Base.diff(ex::AbstractSymbolic, x::𝑉, xs...)
     ex = D(ex, x)
     for xᵢ ∈ xs
@@ -55,8 +54,13 @@ function Base.diff(ex::AbstractSymbolic, x::𝑉, n::Int, xs...)
     diff(ex, xs...)
 end
 
+function Base.diff(ex::AbstractSymbolic, x::Tuple{<:𝑉, Integer}, xs...)
+    diff(ex, x..., xs...)
+end
+
 Base.diff(ex::SymbolicEquation, x::𝑉, xs...) =
     diff(ex.lhs, x, xs...) ~ diff(ex.rhs, x, xs...)
+
 
 D(𝑥::SymbolicNumber, x) = 0
 D(𝑥::SymbolicVariable, x) = 𝑥 == x ? 1 : 0
