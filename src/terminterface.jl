@@ -44,3 +44,26 @@ end
 
 TermInterface.head(ex::SymbolicExpression) =  TermInterface.operation(ex)
 TermInterface.children(ex::SymbolicExpression) = TermInterface.arguments(ex)
+
+
+# convert string or expression to symbolic value
+# using TermInterface
+"""
+    sympify(ex::String)
+
+Turn a string into an expression, converting unbound names to sybolic variables.
+
+Name comes from SymPy.
+"""
+sympify(ex::String) = asSymbolic(Meta.parse(ex))
+sympify(ex::Expr) = asSymbolic(ex)
+function asSymbolic(ex)
+    if TermInterface.isexpr(ex)
+        maketerm(AbstractSymbolic,
+                 getfield(Base, TermInterface.operation(ex)),
+                 asSymbolic.(TermInterface.arguments(ex)),
+                 nothing)
+    else
+        isa(ex, Symbol) ? SymbolicVariable(ex) : ex
+    end
+end

@@ -170,7 +170,7 @@ end
 @testset "combine" begin
     # simplish simplification
     @symbolic x
-    
+
     ex = 2x + x
     @test combine(ex) == 3x
     @test combine(ex + 2x) == 5x
@@ -193,7 +193,7 @@ end
     ex = sum(n + n*x + (n*x)^2 for n in 1:5)
     u = combine(ex)
     @test coefficients(u, x) == (a₀ = 15, a₁ = 15, a₂ = 55)
-    
+
 end
 
 @testset "broadcast/generators" begin
@@ -285,23 +285,23 @@ end
     ex = cos(x)*sin(x^2+x)
     @test D(ex, x)(x₀) ≈ ∂(ex, x₀) atol=1e-4
     @test diff(ex, x)(x₀) ≈ ∂(ex, x₀) atol=1e-4
-    
+
     ex = exp(x^2 - 2) * log(x + sin(x))
     @test D(ex,x)(x₀) ≈ ∂(ex, x₀) atol=1e-4
     @test diff(ex, x)(x₀) ≈ ∂(ex, x₀) atol=1e-4
-    
+
     ex = log1p(x^2) * sqrt(1 + sin(x)^2)
     @test D(ex,x)(x₀) ≈ ∂(ex, x₀) atol=1e-4
     @test diff(ex, x)(x₀) ≈ ∂(ex, x₀) atol=1e-4
-    
+
     ex = (x^2 + 1) / (x^2 - x)
     @test D(ex,x)(x₀) ≈ ∂(ex, x₀) atol=1e-4
     @test diff(ex, x)(x₀) ≈ ∂(ex, x₀) atol=1e-4
-    
+
     ex = abs(inv(x))
     @test D(ex,x)(x₀) ≈ ∂(ex, x₀) atol=1e-4
     @test diff(ex, x)(x₀) ≈ ∂(ex, x₀) atol=1e-4
-    
+
     ex = log(x)
     u = D(D(ex,x),x) - D(1/x,x)
     @test u(x₀) == 0
@@ -323,7 +323,7 @@ end
     @test diff(sin(x),x) == cos(x)
     @test diff(sin(x),x, x) == -sin(x)
     @test diff(sin(x),x,x,x,x) == sin(x)
-    
+
 end
 
 @testset "solve" begin
@@ -359,4 +359,16 @@ end
     @test length(coefficients(x^2*(x+1)*(x+p) ~ 0, x)) == 4 + 1
     @test isnothing(coefficients(x + 1/x ~ 1, x))
     @test isnothing(coefficients(x + sin(x)*x^2 ~ 1, x))
+end
+
+@testset "sympify" begin
+    ex = SimpleExpressions.sympify("x^2 + 2x - a")
+    fs = SimpleExpressions.free_symbols(ex)
+    @test isempty(fs.p)
+    xs = fs.x
+    @test length(xs) == 2 && all(uᵢ ∈ (:a, :x) for uᵢ in nameof.(xs))
+
+
+    ex = SimpleExpressions.sympify(:(x^5 - x - 1))
+    @test ex(1) == -1
 end
