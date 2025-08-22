@@ -241,7 +241,7 @@ end
     ex = convert(Expr, u)
 
     ## goal with broadcasting
-    ## we want to be able to broadcast functdion calls
+    ## we want to be able to broadcast function calls
     @symbolic x p
     u = x + p
     @test u.([1,2],3) == [4,5]

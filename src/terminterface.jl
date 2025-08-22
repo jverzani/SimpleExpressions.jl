@@ -51,7 +51,7 @@ TermInterface.children(ex::SymbolicExpression) = TermInterface.arguments(ex)
 """
     sympify(ex::String)
 
-Turn a string into an expression, converting unbound names to sybolic variables.
+Turn a string into an expression, converting symbols to symbolic variables.
 
 Name comes from SymPy.
 """
