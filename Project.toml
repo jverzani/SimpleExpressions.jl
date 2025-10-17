@@ -1,7 +1,7 @@
 name = "SimpleExpressions"
 uuid = "deba94f7-f32a-40ad-b45e-be020a5ded2f"
 authors = ["jverzani <jverzani@gmail.com> and contributors"]
-version = "1.1.13"
+version = "1.1.14"
 
 [deps]
 CallableExpressions = "391672e0-bbe4-4ab4-8bc9-b89a79cbc2f0"
@@ -30,7 +30,7 @@ SimpleExpressionsSpecialFunctionsExt = "SpecialFunctions"
 [compat]
 AbstractTrees = "0.4"
 Aqua = "0.8"
-CallableExpressions = "1.0.0"
+CallableExpressions = "10"
 Combinatorics = "1.0.2"
 CommonEq = "0.2.1"
 CommonSolve = "0.2.4"
