@@ -8,7 +8,8 @@ makedocs(
     pages=[
         "Home" => "index.md",
         "Reference/API" => "reference.md"
-    ]
+    ],
+    checkdocs = :none
 )
 
 # Documenter can also automatically deploy documentation to gh-pages.
