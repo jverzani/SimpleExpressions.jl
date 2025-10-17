@@ -270,7 +270,7 @@ u = diff(exp(x) * (sin(3x) + sin(101x)), x)
 
 #### Simplification
 
-No simplification is done so the expressions can quickly become unwieldy. The unexported `combine` does light simplfication.
+No simplification is done so the expressions can quickly become unwieldy. The unexported `combine` does light simplification.
 
 ```@example expressions
 ex = 1 + x + 2x + 3x + 4
