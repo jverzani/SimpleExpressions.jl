@@ -30,7 +30,7 @@ SimpleExpressionsSpecialFunctionsExt = "SpecialFunctions"
 [compat]
 AbstractTrees = "0.4"
 Aqua = "0.8"
-CallableExpressions = "10"
+CallableExpressions = "1.1"
 Combinatorics = "1.0.2"
 CommonEq = "0.2.1"
 CommonSolve = "0.2.4"
