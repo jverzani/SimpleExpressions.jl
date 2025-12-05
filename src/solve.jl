@@ -174,7 +174,7 @@ end
 _monomial(c::𝐿, x) = c == x ? (one(x), 1) : (c, 0)
 function _monomial(c, x)
 
-    @assert TermInterface.iscall(c)
+    @assert iscall(c)
     isconstant(c) && return (c, 0)
 
     if is_operation(*)(c)
@@ -497,5 +497,3 @@ end
 
 
 # apply inverse?
-
-
