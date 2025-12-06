@@ -109,7 +109,7 @@ end
 
 hasrepeats(::SimpleExpressions.AbstractSymbolic)= false
 function hasrepeats(x′::SimpleExpressions.SymbolicExpression)
-    x = TermInterface.arguments(x′)
+    x = SimpleExpressions.arguments(x′)
     length(x) <= 1 && return false
     for i=1:length(x)-1
         if isequal(x[i], x[i+1])

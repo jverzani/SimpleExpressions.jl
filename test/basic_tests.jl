@@ -1,5 +1,5 @@
 # basics
-import SimpleExpressions.TermInterface: arguments, sorted_arguments
+import SimpleExpressions: arguments, sorted_arguments
 import SimpleExpressions: D, solve, coefficients, combine
 import SimpleExpressions: map_matched
 
