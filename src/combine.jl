@@ -112,7 +112,7 @@ ATERM(x::SymbolicExpression, d=IdDict()) = ATERM(operation(x), x, d)
 function ATERM(::typeof(+), x::SymbolicExpression, d)
     b = SymbolicNumber(0)
     for a ∈ arguments(x)
-        if isnumeric(a)
+        if isnumeric(a) || isconstant(a)
             b += a
         else
             # add MTERM to d
@@ -179,7 +179,7 @@ end
 function MTERM(::typeof(*), x::SymbolicExpression, d)
     c = SymbolicNumber(1)
     for xᵢ ∈ arguments(x)
-        if isnumeric(xᵢ)
+        if isnumeric(xᵢ) || isconstant(xᵢ)
             c *= xᵢ
         else
             ct, d = MTERM(xᵢ, d)
