@@ -100,11 +100,11 @@ function _from_aterm(a)
     c, sum(v*k for (k,v) ∈ d; init=SymbolicNumber(0))
 end
 
-ATERM(ex::Number, d=IdDict()) = ATerm( SymbolicNumber(0),d)
-ATERM(ex::SymbolicNumber, d=IdDict()) = ATerm( ex, d)
+ATERM(ex::Number, d=IdDict()) = ATerm(SymbolicNumber(0),d)
+ATERM(ex::SymbolicNumber, d=IdDict()) = ATerm(ex, d)
 function ATERM(x::𝑉, d=IdDict())
     d[x] = get(d, x, 0) + 1
-    ATerm( SymbolicNumber(0), d)
+    ATerm(SymbolicNumber(0), d)
 end
 
 ATERM(x::SymbolicExpression, d=IdDict()) = ATERM(operation(x), x, d)
@@ -121,7 +121,7 @@ function ATERM(::typeof(+), x::SymbolicExpression, d)
             d[k] = get(d, k, 0) + c
         end
     end
-    ATerm( b, d)
+    ATerm(b, d)
 end
 
 # fallback
@@ -129,7 +129,7 @@ function ATERM(::Any, x::SymbolicExpression, d)
     m = MTERM(x)
     c, k = _from_mterm(m)
     d[k] = get(d, k, 0) + c
-    ATerm( SymbolicNumber(0), d)
+    ATerm(SymbolicNumber(0), d)
 end
 
 
@@ -159,21 +159,21 @@ function __from_mterm(d) # just from the dictionary
     num / den
 end
 
-MTERM(x::SymbolicNumber, d= IdDict()) = MTerm( x, d)
+MTERM(x::SymbolicNumber, d= IdDict()) = MTerm(x, d)
 function MTERM(x::SymbolicVariable, d = IdDict())
     d[x] = get(d, x, 0) + 1
-    MTerm( SymbolicNumber(1), d)
+    MTerm(SymbolicNumber(1), d)
 end
 function MTERM(x::SymbolicParameter, d=IdDict())
     d[x] = get(d, x, 0) + 1
-    MTerm( SymbolicNumber(1), d)
+    MTerm(SymbolicNumber(1), d)
 end
 
 MTERM(x::SymbolicExpression, d=IdDict()) = MTERM(operation(x), x, d)
 
 function MTERM(::Any, x::SymbolicExpression, d)
     d[x] = get(d, x, 0) + 1
-    MTerm( SymbolicNumber(1), d)
+    MTerm(SymbolicNumber(1), d)
 end
 
 function MTERM(::typeof(*), x::SymbolicExpression, d)
@@ -186,21 +186,21 @@ function MTERM(::typeof(*), x::SymbolicExpression, d)
             c *= ct
         end
     end
-    MTerm( c, d)
+    MTerm(c, d)
 end
 
 function MTERM(::typeof(^), x::SymbolicExpression, d)
     a, b = arguments(x)
     if isvariable(b)
         d[a] = get(d, a, 0) + b
-        return MTerm( 1, d)
+        return MTerm(1, d)
     end
 
     c, dd = MTERM(a)
     for (k,v) ∈ dd
         d[k] = get(d,k,0)  +  v * b
     end
-    return MTerm( c^b, d)
+    return MTerm(c^b, d)
 end
 
 # want c * (x1^p1 * x2^p2 ...)
@@ -213,7 +213,7 @@ function MTERM(::typeof(/), x::SymbolicExpression, d)
         u[var] = get(u, var, 0) - pow
     end
 
-    return MTerm( num/den, u)
+    return MTerm(num/den, u)
 
 
 end
@@ -222,5 +222,5 @@ function MTERM(::typeof(+), x::SymbolicExpression, d)
     a, b = ATERM(+, x, IdDict())
     c = a + sum(k*v for (v,k) ∈ b; init=zero(x))
     d[c] = get(d, c, 0) + 1
-    MTerm( one(x), d)
+    MTerm(one(x), d)
 end
