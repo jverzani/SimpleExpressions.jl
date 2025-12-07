@@ -83,7 +83,7 @@ function Base.:*(a::MTerm, b::MTerm)
     for (k,v) ∈ bd
         d[k] = get(d,k,0) + v
     end
-    ATerm(ca * ba, d)
+    MTerm(ca * ba, d)
 end
 
 function Base.iterate(t::Term, state=nothing)
