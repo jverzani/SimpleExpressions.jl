@@ -94,12 +94,18 @@ end
 
 
 # polynomial in x?
-function _ispolynomial(ex, x)
+function ispolynomial(ex, x)
     !contains(ex, x) && return true
     x == ex && return true
     (+,-,*,/,^) ⊏ ex || return false
+
+    if is_operation(/)(ex) || is_operation(^)(ex)
+        a,b = arguments(ex)
+        contains(b,x) && return false
+    end
+
     for c ∈ arguments(ex)
-        out = _ispolynomial(c, x)
+        out = ispolynomial(c, x)
         out || return false
         if is_operation(^)(c)
             a, b = arguments(c)
@@ -142,7 +148,7 @@ Not exported.
 coefficients(ex::SymbolicEquation, x) = coefficients(ex.lhs - ex.rhs, x)
 function coefficients(ex, x)
     # x is variable? expression?
-    _ispolynomial(ex, x) || return nothing
+    ispolynomial(ex, x) || return nothing
     ex = _distribute_over_plus(ex, x)
     cs = is_operation(+)(ex) ? arguments(ex) : (ex,)
     d = Dict{Any, Any}()

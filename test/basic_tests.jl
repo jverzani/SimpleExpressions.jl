@@ -1,6 +1,6 @@
 # basics
 import SimpleExpressions: arguments, sorted_arguments
-import SimpleExpressions: D, solve, coefficients, combine
+import SimpleExpressions: D, solve, ispolynomial, coefficients, combine
 import SimpleExpressions: map_matched
 
 @testset "SimpleExpressions.jl" begin
@@ -169,7 +169,8 @@ end
 
 @testset "combine" begin
     # simplish simplification
-    @symbolic x
+    # might relax tests from == to evaluating at a few points
+    @symbolic x p
 
     ex = 2x + x
     @test combine(ex) == 3x
@@ -186,6 +187,31 @@ end
     u = combine(ex)
     @test u ∈ (3x + x^3, x^3 + 3x)
 
+    ex = sin(x + 2x) + sin(3x)
+    u = combine(ex)
+    @test u == 2 * sin(3x)
+
+    ex = 2x + p*x + (2+p)*x
+    u = combine(ex)
+    @test u == (4 + 2p)*x
+
+    ex = (x + 2x) / 3x
+    u = combine(ex)
+    @test u == 1
+
+    ex = (2x) / (3x)
+    u = combine(ex)
+    @test u == 2//3
+
+    ex = (2x) * ((3x)^(-1))
+    u = combine(ex)
+    @test u == 2//3
+
+
+    @test ispolynomial(2x + 3x^4 + 5x^6, x)
+    @test ispolynomial(p*x + p^2 * x^2 + sin(p)*x^3, x)
+    @test !ispolynomial(1/x + 1/x^2, x)
+
     ex = sum(n + n*x + n^2*x^2 for n in 1:5)
     u = combine(ex)
     @test coefficients(u, x) == (a₀ = 15, a₁ = 15, a₂ = 55)
@@ -193,6 +219,7 @@ end
     ex = sum(n + n*x + (n*x)^2 for n in 1:5)
     u = combine(ex)
     @test coefficients(u, x) == (a₀ = 15, a₁ = 15, a₂ = 55)
+
 
 end
 
