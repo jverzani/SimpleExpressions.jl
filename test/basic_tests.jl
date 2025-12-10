@@ -207,10 +207,9 @@ end
     u = combine(ex)
     @test u == 2//3
 
-
-    @test ispolynomial(2x + 3x^4 + 5x^6, x)
-    @test ispolynomial(p*x + p^2 * x^2 + sin(p)*x^3, x)
-    @test !ispolynomial(1/x + 1/x^2, x)
+    ex = sin(x+x) / cos(x + 2x)
+    u = combine(ex)
+    @test u == sin(2x)/cos(3x)
 
     ex = sum(n + n*x + n^2*x^2 for n in 1:5)
     u = combine(ex)
@@ -220,6 +219,20 @@ end
     u = combine(ex)
     @test coefficients(u, x) == (a₀ = 15, a₁ = 15, a₂ = 55)
 
+end
+
+@testset "polynomial" begin
+    @symbolic x p
+
+    @test ispolynomial(2x + 3x^4 + 5x^6, x)
+    @test ispolynomial(p*x + p^2 * x^2 + sin(p)*x^3, x)
+    @test !ispolynomial(1/x + 1/x^2, x)
+
+    @test values(coefficients(x^5 - x - 1, x)) == (-1,-1,0,0,0,1)
+
+    a,b...,c = coefficients(x^20 - 1,x)
+    @test isone(-a) && isone(c)
+    @test all(iszero, b)
 
 end
 

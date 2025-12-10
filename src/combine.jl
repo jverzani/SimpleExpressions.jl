@@ -230,9 +230,9 @@ end
 # want c * (x1^p1 * x2^p2 ...)
 function MTERM(::typeof(/), x::SymbolicExpression, d; _isnumber=isconstant)
     a, b = arguments(x)
-
-    num, u = MTERM(a, d; _isnumber)
-    den, v = MTERM(b; _isnumber)
+    a′, b′ = combine.((a,b), _isnumber)
+    num, u = MTERM(a′, d; _isnumber)
+    den, v = MTERM(b′; _isnumber)
 
     for (var,pow) ∈ v
         u[var] = get(u, var, 0) - pow
