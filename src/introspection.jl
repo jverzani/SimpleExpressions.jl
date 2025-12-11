@@ -89,8 +89,17 @@ function Base.contains(f::SymbolicExpression, x::𝑋) where 𝑋
     return false
 end
 
+
 Base.occursin(x::AbstractSymbolic, f::AbstractSymbolic) = contains(f, x)
 
+# does expression contain the operation
+function contains_operation(ex::AbstractSymbolic, op)
+    iscall(ex) || return false
+    operation(ex) == op && return true
+    any(contains_operation(op), arguments(ex)) && return true
+    return false
+end
+contains_operation(op) = Base.Fix2(contains_operation, op)
 
 
 # we have some means to query expressions
