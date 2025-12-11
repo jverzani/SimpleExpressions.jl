@@ -37,6 +37,7 @@ Not exported. This will cancel terms such as `x/x`.
 
 """
 function combine(ex::AbstractSymbolic, _isnumber=isconstant; n=5)
+    _isnumber(ex) && return ex
     for _ in 1:n
         ex′ = _combine(ex, _isnumber)
         ex′ == ex && return ex
@@ -182,7 +183,7 @@ end
 MTERM(x::SymbolicNumber, d= IdDict(); _isnumber=isconstant) = MTerm(x, d)
 function MTERM(x::T, d = IdDict(); _isnumber=isconstant) where {T <: Union{SymbolicParameter, SymbolicVariable}}
     if _isnumber(x)
-        Mterm(x, d)
+        MTerm(x, d)
     else
         d[x] = get(d, x, 0) + 1
         MTerm(SymbolicNumber(1), d)

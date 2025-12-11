@@ -305,6 +305,10 @@ function _inv(::typeof(^), a)
     isa(v, SymbolicNumber) && return u^(-v())
     u^(-v)
 end
+function _inv(::typeof(/), a)
+    u, v = arguments(a)
+    v/u
+end
 _inv(::Any, a) = SymbolicExpression(inv, (a,))
 
 ## ---- literal_pow
@@ -325,4 +329,3 @@ function Base.broadcasted(::typeof(Base.literal_pow), u, a::AbstractSymbolic,
                           p::Val{N}) where {N}
     SymbolicExpression(Base.broadcasted, (^, a,N))
 end
-
