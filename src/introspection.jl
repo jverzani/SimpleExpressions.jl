@@ -117,6 +117,7 @@ function Base.isnumeric(x::SymbolicExpression)
     return CallableExpressions.expression_is_constant(↓(x))
 end
 
+
 # predicate to see if expression contains a symbolic variable
 # see also contains(expr, x) for a specific variable
 isconstant(x::Number) = true
@@ -142,3 +143,11 @@ isnegative(x::𝑉) = false
 isnegative(x::SymbolicNumber) = x() < 0
 isnegative(x::Number) = x < 0
 isnegative(x::SymbolicExpression) = isnumeric(x) && x() < 0
+
+# like Symbolics
+unwrap_const(x::Any) = x
+unwrap_const(x::SymbolicNumber) = x()
+function unwrap_const(x::SymbolicExpression)
+    isconstant(x) && return x()
+    return x
+end

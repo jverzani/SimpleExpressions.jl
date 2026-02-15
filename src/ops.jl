@@ -225,7 +225,7 @@ end
 
 ## binary operations
 ## math one with broadcasting
-for fn ∈ (:atan,)# :≈)
+for fn ∈ (:atan,:gcd)# :≈)
     @eval begin
         import Base: $fn
         Base.$fn(x::AbstractSymbolic, y::AbstractSymbolic) =

@@ -14,7 +14,7 @@ TermInterface.head(x::AbstractSymbolic) = SimpleExpressions.head(x)
 TermInterface.children(x::AbstractSymbolic) = SimpleExpressions.children(x)
 TermInterface.iscall(x::AbstractSymbolic) = SimpleExpressions.iscall(x)
 TermInterface.isexpr(x::AbstractSymbolic) = SimpleExpressions.isexpr(x)
-TermInterface.maketerm(x::AbstractSymbolic) = SimpleExpressions.maketerm(x)
+TermInterface.maketerm(T::Type{<:AbstractSymbolic}, op, args, metadata=nothing) = SimpleExpressions.maketerm(T, op, args, metadata)
 TermInterface.metadata(x::AbstractSymbolic) = SimpleExpressions.metadata(x)
 TermInterface.metadata(x::AbstractSymbolic, md) = SimpleExpressions.metadata(x, md)
 
