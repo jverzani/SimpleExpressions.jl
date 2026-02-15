@@ -320,7 +320,7 @@ function MTERM(::typeof(+), x::SymbolicExpression, d; _isnumber=isconstant)
     MTerm(one(x), d)
 end
 
-## ------ exand top most operation over +
+## ------ expand top most operation over +
 function _expand(::typeof(*), ex)
     as = ATERM.(expand.(arguments(ex)))
     as′ = prod(as)
