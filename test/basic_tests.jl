@@ -1,8 +1,8 @@
 # basics
 import SimpleExpressions: arguments, sorted_arguments
-import SimpleExpressions: D, solve, ispolynomial, coefficients, combine
+import SimpleExpressions: D, solve, ispolynomial, coefficients, poly_degree, combine
 import SimpleExpressions: map_matched
-
+import SimpleExpressions: is_number, isconstant, isvariable
 @testset "SimpleExpressions.jl" begin
 
     @symbolic x p
@@ -81,6 +81,29 @@ end
     @test isinf(a*Inf)
     @test isnan(a*Inf - a*Inf)
     @test !isnan(a)
+
+    @symbolic x p
+    u = (x + sqrt(x))(2,:) # symbolic number
+    @test is_number(2)
+    @test is_number(u)
+    @test !is_number(p)
+    @test !is_number(x)
+
+    @test isnumeric(u)
+    @test !isnumeric(p)
+    @test !isnumeric(x)
+
+    @test isconstant(2)
+    @test isconstant(u)
+    @test isconstant(p)
+    @test !isconstant(x)
+
+    @test !isvariable(2)
+    @test !isvariable(u)
+    @test isvariable(p)
+    @test isvariable(x)
+    @test !isvariable(sin(x))
+
 end
 
 @testset "evaluation/substitution" begin
@@ -117,10 +140,10 @@ end
 
 
     u__ = replace(u_p, p=>p₀)
-    @test isnumeric(u__)
+    @test is_number(u__)
     @test u__()       == f(x₀,p₀)
     @test u__(x₀)     == f(x₀,p₀)
-    @test u__(x₀, p₀) == f(x₀,p₀) # u isnumeric, but can be called these ways
+    @test u__(x₀, p₀) == f(x₀,p₀) # u is numeric, but can be called these ways
 
     u = cos(x)*sin(p*x)
     # : = nothing = missing
@@ -138,6 +161,10 @@ end
     @test u(x=>x₀, p=>p₀)          isa SimpleExpressions.AbstractSymbolic
     @test u(x=>x₀)                 isa SimpleExpressions.AbstractSymbolic
     @test u(p=>p₀)                 isa SimpleExpressions.AbstractSymbolic
+
+    # unwrap_const
+    @test SimpleExpressions.unwrap_const(x) == x
+    @test x(2,:) !== SimpleExpressions.unwrap_const(x(2,:)) === 2
 end
 
 @testset "map_matched" begin
@@ -145,6 +172,14 @@ end
     @symbolic x p
     @test SimpleExpressions.map_matched(x*tanh(exp(x)), ==(exp(x)), x -> x^2) == x * tanh(exp(x)^2)
 
+
+    # occursin/contains
+    @test occursin(x, sin(cos(x)))
+    @test contains(sin(cos(x)), x)
+
+    # contains operation
+    @test SimpleExpressions.contains_operation(x*tanh(exp(x)), exp)
+    @test !SimpleExpressions.contains_operation(x*tanh(exp(x)), sin)
 end
 
 
@@ -234,7 +269,15 @@ end
     @test isone(-a) && isone(c)
     @test all(iszero, b)
 
+    @test poly_degree(1 + x + x^5, x) == 5
+    @test poly_degree((1+x)^5, x) == 5
+    @test poly_degree((1+p*x)^5, x) == 5
+    @test poly_degree((1+sin(p)*x)^5, x) == 5
+    @test poly_degree((1+p*sin(x))^5, x) == nothing
+
 end
+
+
 
 @testset "broadcast/generators" begin
     @symbolic x p

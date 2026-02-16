@@ -36,6 +36,7 @@ include("replace.jl")
 include("comparison.jl")
 include("generators.jl")
 include("scalar-derivative.jl")
+include("polynomial-fns.jl")
 include("solve.jl")
 
 #include("simplify.jl") # wait for Metatheory v3.0 tag

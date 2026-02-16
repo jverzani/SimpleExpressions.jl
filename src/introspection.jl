@@ -1,4 +1,6 @@
 ## ---- introspection
+## also see terminteface.jl
+
 Base.Symbol(x::SymbolicVariable{T}) where {T} = T
 Base.Symbol(x::SymbolicParameter) = ↓(x).sym
 Base.nameof(x::SymbolicVariable{T}) where {T} = T
@@ -103,22 +105,43 @@ contains_operation(op) = Base.Fix2(contains_operation, op)
 
 
 # we have some means to query expressions
-# isnumeric -- contains no SymbolicVariable or SymbolicParameter.
+# is_number  -- contains no SymbolicVariable or SymbolicParameter.
 # isconstant -- contains no SymbolicVariable (possibly SymbolicParameter)
 # isvariable -- is a SymbolicVariable or SymbolicConstant
 #
+#
+#              Number Parameter Variable
+# is_number     true   false     false
+# isconstant    true   true      false
+# isvariable    false  true      true
 
-# Tests whether a Symbolic value (character) is numeric.
-Base.isnumeric(x::AbstractSymbolic) = false
-Base.isnumeric(x::SymbolicNumber) = true
-Base.isnumeric(x::SymbolicParameter) = false
-Base.isnumeric(x::SymbolicVariable) = false
-function Base.isnumeric(x::SymbolicExpression)
+
+# Tests whether a Symbolic value is numeric.
+is_number(x::Any) = false
+is_number(x::Number) = true
+is_number(x::AbstractSymbolic) = false
+is_number(x::SymbolicNumber) = true
+is_number(x::SymbolicParameter) = false
+is_number(x::SymbolicVariable) = false
+function is_number(x::SymbolicExpression)
     return CallableExpressions.expression_is_constant(↓(x))
 end
 
+"""
+   isnumeric(x::AbstractSymbolic)
+
+Check if symbolic value contains a variable or a parameter. Puns on `isnumeric(::Char)`. Use
+"""
+Base.isnumeric(x::AbstractSymbolic) = is_number(x)
+
+
 # predicate to see if expression contains a symbolic variable
 # see also contains(expr, x) for a specific variable
+"""
+    isconstant(x)::Bool
+
+Check if x has a symbolic variable. (Symbolic parameters are treated as constant for this method.)
+"""
 isconstant(x::Number) = true
 isconstant(x::AbstractSymbolic) = isconstant(↓(x))
 isconstant(x::DynamicConstant) = true
@@ -131,7 +154,12 @@ function isconstant(x::StaticExpression)
     return true
 end
 
-# isvariable
+# isvariable like x, p different from is expression
+"""
+    isvariable(x)::Bool
+
+Check if `x` is a symbolic variable or parameter
+"""
 isvariable(expr) = false
 isvariable(::SymbolicVariable) = true
 isvariable(::SymbolicParameter) = true

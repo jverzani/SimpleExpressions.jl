@@ -52,7 +52,9 @@ CommonSolve.init(eq::SymbolicEquation) = throw(ArgumentError("Must specify varia
 
 function _solve(l, r, x::𝑉)
     (contains(l, x) || contains(r, x)) || return nothing
+
     l, r = _distribute_over_plus(l,x), _distribute_over_plus(r,x)
+
     l′, r′ = l, r
     # r_to_l move x terms to left
     # l_to_r move non-x terms to right
@@ -91,113 +93,6 @@ function _final_solve(l,r,x)
     end
     l ~ _combine_numbers(r)
 end
-
-
-# polynomial in x?
-function ispolynomial(ex, x)
-    !contains(ex, x) && return true
-    x == ex && return true
-    (+,-,*,/,^) ⊏ ex || return false
-
-    if is_operation(/)(ex) || is_operation(^)(ex)
-        a,b = arguments(ex)
-        contains(b,x) && return false
-    end
-
-    for c ∈ arguments(ex)
-        out = ispolynomial(c, x)
-        out || return false
-        if is_operation(^)(c)
-            a, b = arguments(c)
-            isconstant(b) || return false
-            #contains(a, x) || false
-            𝑥, 𝑝 = free_symbols(b)
-            (!isempty(𝑥) || !isempty(𝑝)) && return false
-            bb = b()
-            (isinteger(bb) && bb >= 0) || return false
-        elseif is_operation(/)(c)
-            a,b = arguments(c)
-            contains(b, x) && return false
-        end
-    end
-    return true
-end
-
-
-"""
-    coefficients(ex, x)
-
-If expression or equation is a polynomial in `x`, return the coefficients. Otherwise return `nothing`.
-
-## Example
-
-```
-julia> @symbolic x p;
-
-julia> eq = x*(x+2)*(x-p) ~ 2;
-
-julia> a0, as... = cs = SimpleExpressions.coefficients(eq, x)
-(a₀ = -2, a₁ = -2 * p, a₂ = 2 + (-1 * p), a₃ = 1)
-
-julia> a0 + sum(aᵢ*x^i for (i,aᵢ) ∈ enumerate(Iterators.rest(cs,2)) if !iszero(aᵢ))
--2 + (-2 * p * (x ^ 1)) + ((2 + (-1 * p)) * (x ^ 2)) + (1 * (x ^ 3))
-```
-
-Not exported.
-"""
-coefficients(ex::SymbolicEquation, x) = coefficients(ex.lhs - ex.rhs, x)
-function coefficients(ex, x)
-    # x is variable? expression?
-    ispolynomial(ex, x) || return nothing
-    ex = _distribute_over_plus(ex, x)
-    cs = is_operation(+)(ex) ? arguments(ex) : (ex,)
-    d = Dict{Any, Any}()
-    for c in cs
-        (aᵢ, i) = _monomial(c, x)
-        d[i] = aᵢ + get(d, i, zero(x))
-    end
-
-    n = maximum(collect(keys(d)))
-    coeffs = Tuple(_combine_numbers(get(d,i,zero(x))) for i in 0:n)
-    nms = Tuple(SimpleExpressions._aᵢ(i) for i in 0:n)
-
-    NamedTuple{nms}(coeffs)
-
-end
-
-function _aᵢ(i)
-    aᵢs = ("₀","₁","₂","₃","₄","₅","₆","₇","₈","₉")
-    io = IOBuffer()
-    print(io, "a")
-    for j in Iterators.reverse(digits(i))
-        print(io, aᵢs[1 + j])
-    end
-    Symbol(take!(io))
-end
-
-
-# take monomial and return aᵢ,i where c = aᵢ ⋅ xⁱ
-_monomial(c::𝐿, x) = c == x ? (one(x), 1) : (c, 0)
-function _monomial(c, x)
-
-    @assert iscall(c)
-    isconstant(c) && return (c, 0)
-
-    if is_operation(*)(c)
-        ps = _monomial.(arguments(c), x)
-        aᵢ = reduce(*, first.(ps), init=one(x))
-        i  = sum(last.(ps))
-
-        return (aᵢ, i)
-    elseif is_operation(^)(c)
-        a, b = arguments(c) # b is symbolic integer
-        u, v = _monomial(a,x) # v is integer
-        return (u^(v*b), (b()^v))
-    else
-        error("$(operation(c)) ")
-    end
-end
-
 
 
 ## _distribute_over_plus out to + terms
@@ -259,8 +154,9 @@ function _distribute_over_plus(::typeof(^), ex, x)
     end
     ex
 end
-
 _distribute_over_plus(::Any, ex, x) = ex # nothing to do?
+
+
 
 ## clean up constants by sorting arguments to +, &
 _combine_numbers(ex::𝐿) = ex

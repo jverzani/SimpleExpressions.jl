@@ -2,8 +2,9 @@
 
 # ax + bx -> (a+b)x
 # x^n*x^m -> x^(n+m)
+
 """
-    combine(ex)
+    combine(ex, isconstant)
 
 Lightly simplify symbolic expressions.
 
@@ -45,6 +46,14 @@ function combine(ex::AbstractSymbolic, _isnumber=isconstant; n=5)
     end
     ex
 end
+combine(x::Number, _isnumber=isconstant; n=5) = x
+
+
+function expand(ex::AbstractSymbolic)
+    !iscall(ex) && return ex
+    _expand(operation(ex), ex)
+end
+
 
 _combine(x::T, _) where {T <: Union{Number, SymbolicNumber, SymbolicParameter, SymbolicVariable}} = x
 
@@ -63,6 +72,14 @@ end
 function _combine(::typeof(/), ex::SymbolicExpression, _isnumber)
     MTERM(ex; _isnumber) |> materialize |> prod
 end
+
+function _combine(::typeof(^), ex::SymbolicExpression, _isnumber)
+    a, b = arguments(ex)
+    iszero(b) && return one(a)
+    isone(b) && return a
+    maketerm(SymbolicExpression, ^, combine.(arguments(ex),(_isnumber,)), nothing)
+end
+
 
 function _combine(op::Any, ex::SymbolicExpression, _isnumber)
     maketerm(SymbolicExpression, op, combine.(arguments(ex),(_isnumber,)), nothing)
@@ -95,7 +112,12 @@ function Base.iterate(t::Term, state=nothing)
     nothing
 end
 
-function Base.:+(a::ATerm, b::ATerm)
+function Base.copy(t::Term)
+    a,d = t
+    typeof(t)(copy(a), copy(d))
+end
+
+function Base.:+(a::ATerm, b::ATerm)::ATerm
     ca, cd = a
     ba, bd = b
     d = copy(cd)
@@ -105,7 +127,47 @@ function Base.:+(a::ATerm, b::ATerm)
     ATerm(ca + ba, d)
 end
 
-function Base.:*(a::MTerm, b::MTerm)
+function Base.:*(a::ATerm, b::MTerm)::ATerm
+    aa, ad = a
+    ba, bd = b
+    c = (aa * ba) * sum(v*k for (k,v) ∈ bd; init=SymbolicNumber(0))
+    d = IdDict()
+    for (aᵢ, cᵢ) ∈ ad
+        bd′ = copy(bd)
+        bd′[aᵢ] = get(bd′, aᵢ, 0) + 1
+        aᵢ′ = sum(v*k for (k,v) ∈ bd′; init=SymbolicNumber(0))
+        d[aᵢ′] = get(d, aᵢ′, 0) + cᵢ
+    end
+    Aterm(c,d)
+end
+Base.:*(a::MTerm, b::ATerm) = b*a
+
+function Base.:*(a::ATerm, b::ATerm)::ATerm
+    aa, ad = a
+    ba, bd = b
+    # (c + a₁b₁ + a₂b₂ + ...) * (d + e₁f₁ + e₂f₂ + ...)
+    # (cd) + a1e1bf + a1e2bf2 + ---
+
+    d = IdDict()
+    c = aa * ba
+
+    for (aᵢ, bᵢ) ∈ ad
+        d[aᵢ] = get(d, aᵢ, 0) + ba * bᵢ
+    end
+    for (eⱼ, fⱼ) ∈ bd
+        d[eⱼ] = get(d, eⱼ, 0) + aa * fⱼ
+    end
+    for (aᵢ, bᵢ) ∈ ad
+        for (eⱼ, fⱼ) ∈ bd
+            k = combine(aᵢ*eⱼ)
+            d[k] = get(d, k, 0) + bᵢ * fⱼ
+        end
+    end
+
+    ATerm(c, d)
+end
+
+function Base.:*(a::MTerm, b::MTerm)::MTerm
     ca, cd = a
     ba, bd = b
     d = copy(cd)
@@ -115,13 +177,17 @@ function Base.:*(a::MTerm, b::MTerm)
     MTerm(ca * ba, d)
 end
 
+function Base.:^(a::ATerm, n::Integer)::ATerm
+    Base.power_by_squaring(a,n)
+end
+
 # materialize ATerm and MTerm as expressions
 function materialize(a::ATerm)
     c,d = a
     c, sum(v*k for (k,v) ∈ d; init=SymbolicNumber(0))
 end
 
-ATERM(ex::Number, d=IdDict(); _isnumber=isconstant) = ATerm(SymbolicNumber(0),d)
+ATERM(ex::Number, d=IdDict(); _isnumber=isconstant) = ATerm(SymbolicNumber(ex),d)
 ATERM(ex::SymbolicNumber, d=IdDict(); _isnumber=isconstant) = ATerm(ex, d)
 function ATERM(x::𝑉, d=IdDict(); _isnumber=isconstant)
     d[x] = get(d, x, 0) + 1
@@ -210,7 +276,7 @@ function MTERM(::typeof(*), x::SymbolicExpression, d; _isnumber=isconstant)
             b *= c
         end
     end
-    b′ = combine(b, isnumeric)
+    b′ = b #combine(b, isnumeric)
     MTerm(b′, d)
 end
 
@@ -247,4 +313,26 @@ function MTERM(::typeof(+), x::SymbolicExpression, d; _isnumber=isconstant)
     c = a + sum(k*v for (v,k) ∈ b; init=zero(x))
     d[c] = get(d, c, 0) + 1
     MTerm(one(x), d)
+end
+
+## ------ expand top most operation over +
+function _expand(::typeof(*), ex)
+    as = ATERM.(expand.(arguments(ex)))
+    as′ = prod(as)
+    sum(materialize(as′))
+end
+
+function _expand(::typeof(^), ex)
+    a, b = arguments(ex)
+    if isinteger(b)
+        a′ = ATERM(a)
+        n = unwrap_const(b)
+        sum(materialize(a′^n))
+    else
+        ex
+    end
+end
+
+function _expand(::Any, ex)
+    ex
 end
