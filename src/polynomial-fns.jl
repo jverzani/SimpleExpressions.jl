@@ -45,23 +45,11 @@ Not exported.
 """
 coefficients(ex::SymbolicEquation, x) = coefficients(ex.lhs - ex.rhs, x)
 function coefficients(ex, x)
-    # x is variable? expression?
-    ispolynomial(ex, x) || return nothing
-    ex = expand(ex)
-
-    cs = is_operation(+)(ex) ? arguments(ex) : (ex,)
-    d = Dict{Any, Any}()
-    for c in cs
-        (aᵢ, i) = _monomial(c, x)
-        d[i] = aᵢ + get(d, i, zero(x))
-    end
-
-    n = maximum(collect(keys(d)))
-    coeffs = Tuple(_combine_numbers(get(d,i,zero(x))) for i in 0:n)
+    n = poly_degree(ex, x)
+    isnothing(n) && return nothing #throw(ArgumentError("expression is not a polynomial"))
+    coeffs, ispoly = is_Πₙ(ex, x, n)
     nms = Tuple(SimpleExpressions._aᵢ(i) for i in 0:n)
-
-    NamedTuple{nms}(coeffs)
-
+    NamedTuple{nms}(tuple(coeffs...))
 end
 
 function _aᵢ(i)
@@ -75,26 +63,87 @@ function _aᵢ(i)
 end
 
 
-# take monomial and return aᵢ,i where c = aᵢ ⋅ xⁱ
-_monomial(c::𝐿, x) = c == x ? (one(x), 1) : (c, 0)
-function _monomial(c, x)
-
-    @assert iscall(c)
-    isconstant(c) && return (c, 0)
-
-    if is_operation(*)(c)
-        ps = _monomial.(arguments(c), x)
-        aᵢ = reduce(*, first.(ps), init=one(x))
-        i  = sum(last.(ps))
-
-        return (aᵢ, i)
-    elseif is_operation(^)(c)
-        a, b = arguments(c) # b is symbolic integer
-        u, v = _monomial(a,x) # v is integer
-        return (u^(v*b), (b()^v))
-    else
-        error("$(operation(c)) ")
+# Πₙ -- polys of degree n *or* less
+function conv!(xs, ys)
+    n,m = length(xs), length(ys)
+    nz, nm = findlast.(!iszero, (xs, ys))
+    !isnothing(nz) && !isnothing(nm) && (nz-1) * (nm-1) > n && return false
+    zs = Any[0 for _ in eachindex(xs)]
+    for i in 0:(n-1)
+        for j in 0:(m-1)
+            i + j + 1 > n && continue
+            aij = xs[i+1] * ys[j+1]
+            zs[i+j+1] += xs[i+1] * ys[j+1]
+        end
     end
+    xs[:] = zs
+    return true
+end
+
+
+function is_Πₙ(ex, x, n)
+    cs = Any[zero(Int) for i in 1: unwrap_const(n)+1]
+    val = is_Πₙ!(cs, ex, x, unwrap_const(n))
+    (cs, val)
+end
+
+function is_Πₙ!(cs, ex, x, n::Integer)
+    @assert n ≥ 0
+    # mutate cs, return bool
+    if is_number(ex) || !contains(ex,x)
+        cs[0+1] = ex
+        return true
+    end
+    if isequal(ex, x)
+        cs[1 + 1] = 1
+        return true
+    end
+    if !iscall(ex)
+        cs[0 + 1] = ex
+        return true
+    end
+    op = operation(ex)
+    cs′ = Any[zero(Int) for i in 1:n+1] #zeros(typeof(x), n+1)
+    if op ∈ (+, -)
+        for a ∈ arguments(ex)
+            cs′ .= 0
+            out = is_Πₙ!(cs′, a, x, n)
+            !out && return false
+            if op == +
+                cs[:] = cs + cs′
+            else
+                cs[:] = cs - cs′
+            end
+        end
+        return true
+    elseif op ∈ (*,)
+        a, as... = arguments(ex)
+        is_Πₙ!(cs, a, x, n) || return false
+        cs′ = Any[zero(c) for c in cs]
+        for aᵢ ∈ as
+            cs′[:] .= 0
+            is_Πₙ!(cs′, aᵢ, x, n) || return false
+            conv!(cs, cs′) || return false
+        end
+        return true
+    elseif op ∈ (/,)
+        a, b = arguments(ex)
+        contains(b,x) && return false
+        is_Πₙ!(cs, a, x, n) || return false
+        cs ./= b
+        return true
+    elseif op ∈ (^,)
+        a, b = arguments(ex)
+        is_number(b) && unwrap_const(b) ≥ 0 || return false
+        cs′ .= 0
+        is_Πₙ!(cs′, a, x, n) || return false
+        cs[:] = cs′[:]
+        for i in 2:unwrap_const(b)
+            conv!(cs, cs′) || return false
+        end
+        return true
+    end
+    return false
 end
 
 # If u is a polynomial in x of degree n, poly_degree(u,x) returns n::Int,
