@@ -3,11 +3,6 @@
 # ax + bx -> (a+b)x
 # x^n*x^m -> x^(n+m)
 
-#              Number Parameter Variable
-# isnumeric     true   false     false
-# isconstant    true   true      false
-# isvariable    false  true      true
-
 """
     combine(ex, isconstant)
 
