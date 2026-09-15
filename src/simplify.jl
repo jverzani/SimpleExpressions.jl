@@ -67,7 +67,7 @@ expand_log = reverse.(logsimp)
 
 trigsimp = [
     :((~!a) * sin(~x)^2 + (~!a) * cos(~x)^2 + ~!b) => :(~a + ~!b),
-    :((~!a) * sinh(~x)^2 + (~!a) * cosh(~x)^2) => :(~a*cos(2*~x)),
+    :((~!a) * sinh(~x)^2 + (~!a) * cosh(~x)^2) => :(~a*cosh(2*~x)),
 
 
     :((~!a) * cos(~x)^2 - (~!a) * sin(~x)^2)   => :(~a * cos(2*~x)),
