@@ -92,7 +92,7 @@ trigsimpa = [
 
 const simplify_rules = vcat(canonicalize, powsimp, expsimp, logsimp,
                       trigsimp, trigsimpa)
-const expand_rules = vcat(canonicalize, expand_pow, expand_exp, expand_trig)
+const expand_rules = vcat(canonicalize_expand, expand_pow, expand_exp, expand_trig)
 
 ## -----------------------------------------------------##
 function walk(ex, inner, outer)
