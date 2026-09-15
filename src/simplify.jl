@@ -33,7 +33,7 @@ canonicalize_expand = [
     :((~x)^(1//2))             => :(sqrt(~x)),
     :((~x)^(1//3))             => :(cbrt(~x)),
 
-    :(ℯ^(~z)) => :(exp(~x)),
+    :(ℯ^(~z)) => :(exp(~z)),
     :(exp(~z::iszero))         => 1,
     :(exp(~z::isone))          => ℯ,
 
