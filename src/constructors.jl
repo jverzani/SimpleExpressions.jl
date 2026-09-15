@@ -4,8 +4,6 @@
 
 Create a symbolic variable and optional symbolic parameter.
 
-# Expressions and equations
-
 Expressions created using these variables subclass `Function` so may be used where functions are expected.
 
 The  `~` infix operator can be used to create equations, which, by default, are treated as `lhs - rhs` when called as functions.

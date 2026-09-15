@@ -12,12 +12,12 @@ $(joinpath(@__DIR__, "..", "README.md") |>
 """
 module SimpleExpressions
 import TupleTools
-using CallableExpressions
-#include("CallableExpressions/CallableExpressions.jl")
-#using .CallableExpressions
+include("CallableExpressions/CallableExpressions.jl")
+using .CallableExpressions
 
 using Combinatorics
 using CommonEq
+using TermInterface
 
 export @symbolic
 
@@ -31,7 +31,6 @@ include("combine.jl")
 include("show.jl")
 include("introspection.jl")
 include("call.jl")
-include("matchpy.jl")
 include("replace.jl")
 include("comparison.jl")
 include("generators.jl")
@@ -39,7 +38,7 @@ include("scalar-derivative.jl")
 include("polynomial-fns.jl")
 include("solve.jl")
 
-#include("simplify.jl") # wait for Metatheory v3.0 tag
-
-
+include("SymbolicIntegration/rule2-mods.jl")
+include("SymbolicIntegration/rule2.jl")
+include("simplify.jl")
 end
