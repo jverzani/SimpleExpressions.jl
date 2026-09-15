@@ -84,8 +84,8 @@ end
     @test replace(x^2, :(~!a * (~x)^(~n)) => :(~a * (~x)^(~n+1)/(~n + 1))) == x^3/3
 
     ## expression with defslots and predicates
-    replace(x^(2), :(~!a * (~x)^(~n::(!=(-1)))) => :(~a * (~x)^(~n+1)/(~n + 1))) == x^3/3
-    replace(x^(-1), :(~!a * (~x)^(~n::(!=(-1)))) => :(~a * (~x)^(~n+1)/(~n + 1))) == x^(-1)
+    @test replace(x^(2), :(~!a * (~x)^(~n::(!=(-1)))) => :(~a * (~x)^(~n+1)/(~n + 1))) == x^3/3
+    @test replace(x^(-1), :(~!a * (~x)^(~n::(!=(-1)))) => :(~a * (~x)^(~n+1)/(~n + 1))) == x^(-1)
 
 end
 
