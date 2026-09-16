@@ -20,8 +20,8 @@ end
 
 function Base.convert(::Type{Expr}, p::SymbolicParameter)
     𝑥 = string(p)
-    endswith(𝑥, "___") && return :(~~$(Symbol(𝑥[1:end-3])))
-    endswith(𝑥, "__") && return :(~~~$(Symbol(𝑥[1:end-2])))
+    endswith(𝑥, "___") && return :(~~~$(Symbol(𝑥[1:end-3])))
+    endswith(𝑥, "__") && return :(~~$(Symbol(𝑥[1:end-2])))
     endswith(𝑥, "_") && return :(~$(Symbol(𝑥[1:end-1])))
     return Symbol(p)
 end
