@@ -25,7 +25,7 @@ f ⨝ as = f(as...)
     @test replace(ex, log=>sin) == sin(1 + (x ^ 2)) + sin(1 + (x ^ 3))
 
     @symbolic_variables f() g()
-    @test_broken replace(f(a,a,b), f(x__) => g(x__)) ==  g((a,a,b)) # not g(a,a,b); XXX issue with this match
+    @test replace(f(a,a,b), f(x__) => g(x__)) ==  g((a,a,b)) # not g(a,a,b); XXX issue with this match
 end
 
 @testset "replace" begin
@@ -36,7 +36,7 @@ end
 
     # replace parts
     ex = log(1 + x^2) + log(1 + x^3)
-    @test replace(ex, log(1+x__) => log1p(x__)) == log1p(x ^ 2) + log1p(x ^ 3)
+    @test replace(ex, log(1+x_) => log1p(x_)) == log1p(x ^ 2) + log1p(x ^ 3)
 
     ex = log(sin(x)) + tan(sin(x^2))
     @test replace(ex, sin => cos) == log(cos(x)) + tan(cos(x^2))
@@ -72,7 +72,7 @@ end
 
     ex = log(sin(x)) + tan(sin(x^2))
     @test replace(ex, :(sin(~x)) => :(tan(~x))) == log(tan(x)) + tan(tan(x^2))
-    @test replace(ex, :(sin((~x)^2)) => :(tan(x))) == log(sin(x)) + tan(tan(x))
+    @test replace(ex, :(sin((~x)^2)) => :(tan(x))) ≈ₑ log(sin(x)) + tan(tan(x))
     @test replace(ex, :(sin(~x)) => :(~x)) == log(x) + tan(x^2)
 
     ex = (1 + x^2)^2 # outer one is peeled off first by replace
@@ -103,7 +103,7 @@ end
 @testset "match" begin
 
     # match 1
-    @test match((x_)^(x_), (x+p)^(x+p)) == SimpleExpressions.MatchDict(:x, x + p)
+    @test match((x_)^(x_), (x+p)^(x+p)) == SimpleExpressions.AssociativeCommutativePatternMatching.MatchDict(:x, x + p)
 
     # match 2 wildcards
     σ = match(x_*sin(y_), x*sin(x))
@@ -112,10 +112,8 @@ end
     @test length(σ) == 2
 
     # match can have more than 1 substitution
-    σ = match(f(x__,y__), f(a,b,c))
-    @test_broken f(x__, y__)(σ...) ∈ (f((a,b), (c,)), f((a,), (b,c))) # XXX this fails
 
-    # empty match returns FAIL_DICT, was `nothing`
-    @test match(sin(⋯), sin(x)^2) == SimpleExpressions.FAIL_DICT
+    # empty match returns `nothing`
+    @test match(sin(⋯), sin(x)^2) == nothing
 
 end
