@@ -16,6 +16,7 @@ include("CallableExpressions/CallableExpressions.jl")
 using .CallableExpressions
 using TermInterface
 using CommonEq
+using Combinatorics
 
 export @symbolic
 
