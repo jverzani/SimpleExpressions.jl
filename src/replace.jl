@@ -249,7 +249,7 @@ function Base.replace(ex::AbstractSymbolic, pat_rhs::Pair{S,T}) where {
 
     pat, rhs = pat_rhs
     σ = match(pat, ex)
-    if σ != nothing #FAIL_DICT
+    if σ != nothing
         if _ismatch(rhs, is_wildcard)
             return AssociativeCommutativePatternMatching._rewrite(AbstractSymbolic, σ, rhs)
         else
@@ -308,7 +308,7 @@ function _replace(ex::AbstractSymbolic, u::Union{Symbol, Expr}, v)
     iscall(ex) || return (ex == u ? v : ex)
 
     σ = match(u, ex) # sigma is nothing, (), or a substitution
-    if σ != nothing #FAIL_DICT
+    if σ != nothing
         return AssociativeCommutativePatternMatching._rewrite(AbstractSymbolic, σ, v)
     end
 

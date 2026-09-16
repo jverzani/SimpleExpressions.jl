@@ -113,7 +113,7 @@ function __apply_rules(x, rs)
     for r ∈ rs
         pat, rhs = r
         σ = match(pat, x)
-        if σ != FAIL_DICT
+        if σ != nothing
             ex =  rewrite(σ, rhs)
             return ex
         end
