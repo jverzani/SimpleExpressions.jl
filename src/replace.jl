@@ -403,7 +403,13 @@ function rewrite(σ::Base.ImmutableDict, rhs::Expr)
     # otherwise call recursively on arguments and then reconstruct expression
     op, args... = rhs.args
     args′ = [rewrite(σ, a) for a in rhs.args[2:end]]
-    op′ = getproperty(Main, op)
+    op′ = if isdefined(@__MODULE__, op)
+        getproperty(@__MODULE__, op)
+    elseif isdefined(Main, op)
+        getproperty(Main, op)
+    else
+        getproperty(Base, op)
+    end
     return maketerm(AbstractSymbolic, op′, args′, nothing)
 end
 
