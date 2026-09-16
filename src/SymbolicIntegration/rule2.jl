@@ -324,7 +324,7 @@ helper function for when you reach the end of the symbolic tree and you either:
             # printdb(5, "about to check defslot predicate $pred with eval")
             !Base.invokelatest(eval(pred),unwrap_const(value_matched)) && return FAIL_DICT
             # printdb(4, "adding defslot match $(rule_symbol.args[1]) => $value_matched")
-            return MatchDict(current_dict, varname(rule_symbol.args[1]), value_matched)::MatchDict
+            return MatchDict(current_dict, varname(rule_symbol), value_matched)::MatchDict
         end
         # if no predicate add match
         # printdb(4, "adding defslot match $rule_symbol => $value_matched to rditct: $(current_dict...)")
