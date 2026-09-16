@@ -89,7 +89,7 @@ end
 (ex::SymbolicExpression)(;kwargs...) = (↓(ex))(NamedTuple(kwargs))
 
 # like Symbolics
-unwrap_const(x::Any) = x
+#unwrap_const(x::Any) = x
 unwrap_const(x::SymbolicNumber) = x()
 function unwrap_const(x::SymbolicExpression)
     is_number(x) && return x()

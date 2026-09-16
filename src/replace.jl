@@ -56,12 +56,19 @@ Base.ImmutableDict{Symbol, SimpleExpressions.AbstractSymbolic} with 2 entries:
 
 """
 function Base.match(pattern::Expr, subject::AbstractSymbolic)
-    σ = MatchDict()
-    check_expr_r(subject, pattern, σ)
+    AssociativeCommutativePatternMatching._match(pattern, subject)
 end
 
 function Base.match(pat::AbstractSymbolic, ex::AbstractSymbolic)
     return match(convert(Expr, pat), ex)
+end
+
+function Base.eachmatch(pattern::Expr, subject::AbstractSymbolic)
+    AssociativeCommutativePatternMatching._eachmatch(pattern, subject)
+end
+
+function Base.eachmatch(pat::AbstractSymbolic, ex::AbstractSymbolic)
+    return eachmatch(convert(Expr, pat), ex)
 end
 
 
@@ -239,18 +246,20 @@ end
 function Base.replace(ex::AbstractSymbolic, pat_rhs::Pair{S,T}) where {
     S <: Expr,
     T <: Union{Number, Symbol, Expr}}
-    pat, rhs = pat_rhs
 
-    ## need to walk the walk
+    pat, rhs = pat_rhs
     σ = match(pat, ex)
-    if σ == FAIL_DICT
-        iscall(ex) || return ex
-        args′ = replace.(arguments(ex), pat_rhs)
-        return maketerm(AbstractSymbolic, operation(ex), args′, nothing)
-    else
-        return rewrite(σ, rhs)
+    if σ != nothing #FAIL_DICT
+        if _ismatch(rhs, is_wildcard)
+            return AssociativeCommutativePatternMatching._rewrite(AbstractSymbolic, σ, rhs)
+        else
+            return maketerm(AbstractSymbolic, identity, (rhs,), nothing)
+        end
     end
-    return ex
+    ## need to walk the walk
+    iscall(ex) || return ex
+    args′ = replace.(arguments(ex), pat_rhs)
+    return maketerm(AbstractSymbolic, operation(ex), args′, nothing)
 end
 
 
@@ -299,9 +308,8 @@ function _replace(ex::AbstractSymbolic, u::Union{Symbol, Expr}, v)
     iscall(ex) || return (ex == u ? v : ex)
 
     σ = match(u, ex) # sigma is nothing, (), or a substitution
-    if σ != FAIL_DICT
-        isempty(σ) && return v # no substitution
-        return v(σ...) # XXX <---
+    if σ != nothing #FAIL_DICT
+        return AssociativeCommutativePatternMatching._rewrite(AbstractSymbolic, σ, v)
     end
 
     # peel off
@@ -362,6 +370,10 @@ function is_wildcard(x::Union{SymbolicVariable, SymbolicParameter})
     endswith(𝑥, "_") || 𝑥 == "⋯"
 end
 is_wildcard(x::AbstractSymbolic) = false
+is_wildcard(::Number) = false
+is_wildcard(::Symbol) = false
+is_wildcard(x::Expr) = x.args[1] == :~
+
 
 function _replace_arguments(ex, u, v)
     if _ismatch(u, is_wildcard)
@@ -391,6 +403,8 @@ end
 rewrite(σ::Base.ImmutableDict, rhs::Number) = rhs
 rewrite(σ::Base.ImmutableDict, rhs::Symbol) = maketerm(AbstractSymbolic, identity, (rhs,), nothing)
 function rewrite(σ::Base.ImmutableDict, rhs::Expr)
+    return AssociativeCommutativePatternMatching._rewrite(AbstractSymbolic, σ, rhs)
+    #=
     if rhs.head == :call && rhs.args[1] == :(~)
         var_name = varname(rhs.args[2])
         if haskey(σ, var_name)
@@ -405,6 +419,7 @@ function rewrite(σ::Base.ImmutableDict, rhs::Expr)
     args′ = [rewrite(σ, a) for a in rhs.args[2:end]]
     op′ = getproperty(Main, op)
     return maketerm(AbstractSymbolic, op′, args′, nothing)
+    =#
 end
 
 rewrite(σ::Base.ImmutableDict, rhs::AbstractSymbolic) = rewrite(σ, convert(Expr, rhs))
