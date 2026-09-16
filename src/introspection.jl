@@ -11,7 +11,7 @@ Base.nameof(x::SymbolicParameter) = ↓(x).sym
 
 function Base.convert(::Type{Expr}, x::SymbolicVariable)
     𝑥 = string(x)
-    endswith(𝑥, "___") && return :(~~$(Symbol(𝑥[1:end-3]))) # no ~~~
+    endswith(𝑥, "___") && return :(~~~$(Symbol(𝑥[1:end-3])))
     endswith(𝑥, "__") && return :(~~$(Symbol(𝑥[1:end-2])))
     endswith(𝑥, "_") && return :(~$(Symbol(𝑥[1:end-1])))
     𝑥 == "⋯" && return :(~x)

@@ -21,13 +21,13 @@ rule against the expression. It's so long and ugly because it's really important
 that is as fast as possible, this can be executed up to hundreds of times for every
 rule, and there are thousands of rules to check.
 - ceoaa and end_of_tree are helper functions for check_expr_r
-- rule2 is a wrapper for check_expr_r that lets you input just the input
-expression and the rule, without working about dictionaries.
-- rule3 is the wrapper for check_expr_r used in the integrate function, that
-already assumes the match ~x => your_integration_var, because all integration
-rules are written with the slot ~x as integration var
-- rewrite is the function that if successful match rewrites the rhs. pretty
-simple
+#- rule2 is a wrapper for check_expr_r that lets you input just the input
+#expression and the rule, without working about dictionaries.
+#- rule3 is the wrapper for check_expr_r used in the integrate function, that
+#already assumes the match ~x => your_integration_var, because all integration
+#rules are written with the slot ~x as integration var
+#- rewrite is the function that if successful match rewrites the rhs. pretty
+#simple
 """
 
 # TODO rule condition inside the process? leads to faster cycling trough all the rules?
