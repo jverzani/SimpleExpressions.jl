@@ -153,7 +153,7 @@ function check_expr_r(data::SymsType, rule::Expr, matches::MatchDict)::MatchDict
     elseif length(rule.args)==2 && isa(rule.args[2], Expr) && rule.args[2].args[1]==:~ && isa(rule.args[2].args[2], Expr) && rule.args[2].args[2].args[1] == :~
         # check operations
         !iscall(data) && return FAIL_DICT::MatchDict
-        (Symbol(operation(data)) !== rule.args[1]) && return FAIL_DICT::MatchDict
+        (Symbol(string(operation(data))) !== rule.args[1]) && return FAIL_DICT::MatchDict
         # return the whole data (not only vector of arguments as in rule1)
         # XXXreturn MatchDict(matches, rule.args[2].args[2].args[2], data)::MatchDict
         args = arguments(data)
@@ -260,7 +260,7 @@ function check_expr_r(data::SymsType, rule::Expr, matches::MatchDict)::MatchDict
 #        printdb(4,"Applying neim trick, new arg_data is $arg_data")
     end
 
-    ((Symbol(operation(data)) !== rule.args[1]) && !neim_pass) && return FAIL_DICT::MatchDict # :):):)
+    ((Symbol(string(operation(data))) !== rule.args[1]) && !neim_pass) && return FAIL_DICT::MatchDict # :):):)
     (length(arg_data) != length(arg_rule)) && return FAIL_DICT::MatchDict # :):):)
 
     # ((7))
@@ -312,9 +312,9 @@ helper function for when you reach the end of the symbolic tree and you either:
 """
 =#
 @inline function end_of_tree(rule_symbol, value_matched, current_dict::MatchDict)
-    if rule_symbol in keys(current_dict)
+    if varname(rule_symbol) in keys(current_dict) # XXX
         # check if it matched the same symbolic expression
-        !isequal(current_dict[rule_symbol], value_matched) && return FAIL_DICT::MatchDict
+        !isequal(current_dict[varname(rule_symbol)], value_matched) && return FAIL_DICT::MatchDict
         return current_dict::MatchDict
     else # if never been matched
         # if there is a predicate, rule_symbol is a expression with ::
@@ -324,7 +324,7 @@ helper function for when you reach the end of the symbolic tree and you either:
             # printdb(5, "about to check defslot predicate $pred with eval")
             !Base.invokelatest(eval(pred),unwrap_const(value_matched)) && return FAIL_DICT
             # printdb(4, "adding defslot match $(rule_symbol.args[1]) => $value_matched")
-            return MatchDict(current_dict, rule_symbol.args[1], value_matched)::MatchDict
+            return MatchDict(current_dict, varname(rule_symbol.args[1]), value_matched)::MatchDict
         end
         # if no predicate add match
         # printdb(4, "adding defslot match $rule_symbol => $value_matched to rditct: $(current_dict...)")

@@ -2,8 +2,10 @@
 
 const ExpressionType = SymbolicExpression
 
+#=
 _is_𝐿(x::AbstractSymbolic) = isa(x, 𝐿)
 _is_𝐹₀(x::AbstractSymbolic) = all(isempty(u) for u in free_symbols(x))
+
 
 function _is_Wild(x::𝑉) # 1
     𝑥 = string(Symbol(x))
@@ -30,6 +32,7 @@ end
 # keep ⋯ as match so as not breaking
 _is_Wild(x::SymbolicVariable{:⋯}) = true
 _is_𝑋(x::SymbolicVariable{:⋯}) = true
+=#
 
 ## ---- match, replace
 """
@@ -137,7 +140,7 @@ The fifth needs more explanation, as there can be wildcards in the expression. W
 
 First, we describe the use of symbolic wildcards.
 
-Wildcards have a naming convention using trailing underscores. One matches one value; two matches one or more values; three match 0, 1, or more values. In addition, the **special** symbol `⋯` (entered with `\\cdots[tab]` is wild.
+Wildcards have a naming convention using trailing underscores. One matches a single subexpression or term; two matches one or more subexpressions. In addition, the **special** symbol `⋯` (entered with `\\cdots[tab]` is wild.
 
 ```@repl replace
 julia> @symbolic x p; @symbolic x_
@@ -162,7 +165,7 @@ julia> replace(x*p, (x_) * x => x_)
 p
 ```
 
-Pattern and replacements can be specified with expressions. The basic wildcard is prefaced with `~`.
+Pattern and replacements can also be specified with Julia expressions. The basic wildcard is prefaced with `~`, a segment is specified with two `~`.
 
 ```@repl replace
 julia> ex = log(sin(x)) + tan(sin(x^2))
