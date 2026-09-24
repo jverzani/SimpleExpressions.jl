@@ -55,9 +55,18 @@ Base.ImmutableDict{Symbol, SimpleExpressions.AbstractSymbolic} with 2 entries:
 
 
 """
+function Base.eachmatch(pattern::Expr, subject::AbstractSymbolic)
+    σs = [MatchDict()]
+    check_expr_r(subject, pattern, σs)
+end
+
+Base.eachmatch(pattern::AbstractSymbolic, subject::AbstractSymbolic) =
+    eachmatch(convert(Expr, pat), ex)
+
 function Base.match(pattern::Expr, subject::AbstractSymbolic)
-    σ = MatchDict()
-    check_expr_r(subject, pattern, σ)
+    σs = eachmatch(pattern, subject)
+    isempty(σs) && return nothing
+    first(σs)
 end
 
 function Base.match(pat::AbstractSymbolic, ex::AbstractSymbolic)
@@ -239,11 +248,13 @@ end
 function Base.replace(ex::AbstractSymbolic, pat_rhs::Pair{S,T}) where {
     S <: Expr,
     T <: Union{Number, Symbol, Expr}}
+
     pat, rhs = pat_rhs
 
     ## need to walk the walk
     σ = match(pat, ex)
-    if σ == FAIL_DICT
+    @show σ
+    if σ == nothing #FAIL_DICT
         iscall(ex) || return ex
         args′ = replace.(arguments(ex), pat_rhs)
         return maketerm(AbstractSymbolic, operation(ex), args′, nothing)
@@ -364,6 +375,7 @@ end
 is_wildcard(x::AbstractSymbolic) = false
 
 function _replace_arguments(ex, u, v)
+    @show u,v
     if _ismatch(u, is_wildcard)
         return replace(ex, convert(Expr, u) => convert(Expr, v))
     else
