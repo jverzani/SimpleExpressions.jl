@@ -253,7 +253,6 @@ function Base.replace(ex::AbstractSymbolic, pat_rhs::Pair{S,T}) where {
 
     ## need to walk the walk
     σ = match(pat, ex)
-    @show σ
     if σ == nothing #FAIL_DICT
         iscall(ex) || return ex
         args′ = replace.(arguments(ex), pat_rhs)
@@ -375,7 +374,6 @@ end
 is_wildcard(x::AbstractSymbolic) = false
 
 function _replace_arguments(ex, u, v)
-    @show u,v
     if _ismatch(u, is_wildcard)
         return replace(ex, convert(Expr, u) => convert(Expr, v))
     else
@@ -401,7 +399,10 @@ end
 
 # _rewrite pattern using dictionary
 rewrite(σ::Base.ImmutableDict, rhs::Number) = rhs
-rewrite(σ::Base.ImmutableDict, rhs::Symbol) = maketerm(AbstractSymbolic, identity, (rhs,), nothing)
+rewrite(σ::Base.ImmutableDict, rhs::Function) = rhs
+function rewrite(σ::Base.ImmutableDict, rhs::Symbol)
+    maketerm(AbstractSymbolic, identity, (rhs,), nothing)
+end
 function rewrite(σ::Base.ImmutableDict, rhs::Expr)
     if rhs.head == :call && rhs.args[1] == :(~)
         var_name = varname(rhs.args[2])

@@ -36,7 +36,7 @@ end
 
     # replace parts
     ex = log(1 + x^2) + log(1 + x^3)
-    @test replace(ex, log(1+x__) => log1p(x__)) == log1p(x ^ 2) + log1p(x ^ 3)
+    @test replace(ex, log(1+x__) => log1p(sum(x__))) == log1p(x ^ 2) + log1p(x ^ 3)
 
     ex = log(sin(x)) + tan(sin(x^2))
     @test replace(ex, sin => cos) == log(cos(x)) + tan(cos(x^2))
@@ -116,6 +116,6 @@ end
     @test_broken f(x__, y__)(σ...) ∈ (f((a,b), (c,)), f((a,), (b,c))) # XXX this fails
 
     # empty match returns FAIL_DICT, was `nothing`
-    @test match(sin(⋯), sin(x)^2) == SimpleExpressions.FAIL_DICT
+    @test match(sin(⋯), sin(x)^2) == nothing
 
 end

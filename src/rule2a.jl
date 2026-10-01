@@ -18,21 +18,40 @@ julia> @btime ACm($ts′); <--- AssociativeCommutativePatternMatching._match
 using TermInterface
 using Combinatorics
 
+## ---- note -----
+#=
+Using Krebber, we have
+* substitution (match) is σ a map between pattern terms and subject terms such that a substitution of the pattern terms returns the subject (σ(t) = s). This uses an ImmutableDict{Symbol, Any} to store a match or a partial match
+* An empty substitution is partial match and a possible match, when there are not wild cards
+* A sentinel is used to indicate *no possible subsitution* and is here a FAIL_DICT
+* A set of matches (`θ` of `σs` allows for different matches due to commutivity/associativity. This set is empty if there are no matches. We use a vector to store this: MatchDict[MatchDict()] is an initial set with no initial match specified.
+
+=#
+
 ## ---- utils.jl -----
-const ∅ = ()
-const MatchDict = Base.ImmutableDict{Symbol, Any}
+
+
+const M = MatchDict = Base.ImmutableDict{Symbol, Any}
 const FAIL_DICT = MatchDict(:_fail, 0)
+
+const NO_MATCH = ∅ = MatchDict[]
+𝑀 = Vector{MatchDict}
+
+
 const PREDICATE_FN_CACHE = IdDict{Any, Any}()
 
-match_dict() = MatchDict()
+##
 _unwrap_const(x) = unwrap_const(x)
 
-function match_dict(kvs::Pair...)
+##
+match_dict() = MatchDict()
+
+function match_dict(kvs::Pair...)::M
     σ = MatchDict()
     match_dict(σ, kvs...)
 end
 
-function match_dict(σ::MatchDict, kvs::Pair...)
+function match_dict(σ::MatchDict, kvs::Pair...)::M
     for (k,v) ∈ kvs
         v = isa(v,Number) ? unwrap_const(v) : v
         if haskey(σ, k)
@@ -46,7 +65,7 @@ function match_dict(σ::MatchDict, kvs::Pair...)
 end
 
 #  σ △ σ′ (\bigtriangleup) for every x in the intersection of the domains has same value
-function iscompatible(σ::MatchDict, σ′::MatchDict)
+function iscompatible(σ::MatchDict, σ′::MatchDict)::Bool
     isempty(σ) && return true
     isempty(σ′) && return true
     for (k, v) ∈ σ
@@ -58,21 +77,54 @@ function iscompatible(σ::MatchDict, σ′::MatchDict)
 end
 
 # σ ⊔ σ′ (\sqcup) is union of two compatible matches
-function merge_match(σ::MatchDict, σ′::MatchDict)
+function merge_match(σ::MatchDict, σ′::MatchDict)::M
     # assume compatible
     for (k,v) ∈ σ′
         σ = match_dict(σ, k => v)
     end
     σ
 end
-merge_match(σ::Tuple, σ′::MatchDict) = σ′
+## XXXmerge_match(σ::Tuple, σ′::MatchDict) = σ′
 
-function union_merge(θ, σ′::MatchDict)
-    (merge_match(σ, σ′) for σ ∈ θ if iscompatible(σ, σ′))
+function union_merge(θ::𝑀, σ′::MatchDict)::𝑀
+    MatchDict[merge_match(σ, σ′) for σ ∈ θ if iscompatible(σ, σ′)]
 end
 
-function union_merge(θ, θ′)
-    (merge_match(σ, σ′) for σ ∈ θ for σ′ ∈ θ′ if iscompatible(σ, σ′))
+## AI generated union_merge
+function _merge_single(σs::𝑀, σ′::M)::𝑀
+    σ′ == FAIL_DICT && return NO_MATCH
+    σs == NO_MATCH &&  return NO_MATCH
+    merged = MatchDict[]
+    sizehint!(merged, length(σs))
+    for σ ∈ σs
+        iscompatible(σ, σ′) || continue
+        push!(merged, merge_match(σ, σ′))
+    end
+    return isempty(merged) ? MatchDict[] : merged
+end
+
+## AI generated union_merge with k=>v
+function _merge_single_expr(σs, k, v)
+    σ = match_dict(k => v)
+    _merge_single(σs, σ)
+    #=
+    σs == FAIL_DICT && return FAIL_DICT
+    merged = MatchDict[]
+    sizehint!(merged, length(σs))
+    for σ ∈ σs
+        if haskey(σ, k)
+            isequal(σ[k], v) && push!(merged, σ)
+        else
+            push!(merged, match_dict(σ, k => v))
+        end
+    end
+    return isempty(merged) ? FAIL_DICT : merged
+    =#
+end
+
+
+function union_merge(θ::𝑀, θ′::𝑀)::𝑀
+    [merge_match(σ, σ′) for σ ∈ θ for σ′ ∈ θ′ if iscompatible(σ, σ′)]
 end
 
 ## utils
@@ -110,32 +162,6 @@ function _tuple_without_indices(arg_data, ind, n)
     return tuple(vals...)
 end
 
-function _merge_single(σs, σ′)
-    σs == FAIL_DICT && return FAIL_DICT
-    merged = MatchDict[]
-    sizehint!(merged, length(σs))
-    for σ ∈ σs
-        iscompatible(σ, σ′) || continue
-        push!(merged, merge_match(σ, σ′))
-    end
-    return isempty(merged) ? FAIL_DICT : merged
-end
-
-function _merge_single_expr(σs, k, v)
-    σs == FAIL_DICT && return FAIL_DICT
-    merged = MatchDict[]
-    sizehint!(merged, length(σs))
-    for σ ∈ σs
-        if haskey(σ, k)
-            isequal(σ[k], v) && push!(merged, σ)
-        else
-            push!(merged, match_dict(σ, k => v))
-        end
-    end
-    return isempty(merged) ? FAIL_DICT : merged
-end
-
-
 
 ## Expression related methods
 _is_operation(op) = ex -> iscall(ex) && operation(ex) ∈ (op, Symbol(op))
@@ -147,7 +173,7 @@ _is_operation(op) = ex -> iscall(ex) && operation(ex) ∈ (op, Symbol(op))
 eq_expr(a::Any, b::Any) = isequal(unwrap_const(a), unwrap_const(b))
 eq_expr(a::Expr, b::Expr) = !isnothing(syntactic_match(unwrap_const(a), unwrap_const(b)))
 
-# to evaluate a guard. (Where is the question?)
+## to evaluate a guard. (Where is the question?)
 function _resolve_predicate(pred)
     haskey(PREDICATE_FN_CACHE, pred) && return PREDICATE_FN_CACHE[pred]
 
@@ -205,7 +231,6 @@ function pterm(op::Union{Expr,Symbol}, args; elide=true)
         return only(args)
     else
         return maketerm(Expr, :call, (op, args...), nothing)
-        #Expr(:call, op, args...)
     end
 end
 
@@ -219,6 +244,7 @@ symtype(::Symbol) = Expr
 symtype(::Expr) = Expr
 symtype(::T) where T = T
 
+# create a term on the subject side
 function sterm(op, args)
     S = symtype(first(args))
     sterm(S, op, args)
@@ -431,19 +457,19 @@ end
 # TODO ~a*(~b*~c) currently will not match a*b*c . a fix is possible
 
 # for when the rule contains a symbol, like ℯ, or a literal number
-function check_expr_r(data, rule::Real, σs)
+function check_expr_r(data, rule::Real, σs::𝑀)::𝑀
     eq_expr(rule, data) && return σs
-    return FAIL_DICT
+    return NO_MATCH
 end
 
-function check_expr_r(data, rule::Symbol, σs)
+function check_expr_r(data, rule::Symbol, σs::𝑀)::𝑀
     eq_expr(data, rule) && return σs
-    return FAIL_DICT
+    return NO_MATCH
 end
 
 # main function
-check_expr_r(data, rule::Expr) = check_expr_r(data, rule, (MatchDict(),))
-function check_expr_r(data, rule::Expr, σs)
+check_expr_r(data, rule::Expr)::𝑀 = check_expr_r(data, rule, [MatchDict()])
+function check_expr_r(data, rule::Expr, σs::𝑀)::𝑀
 
     if !iscall(rule)
         #@show :what_is, rule
@@ -490,10 +516,10 @@ function check_expr_r(data, rule::Expr, σs)
 
     # rule is a normal call, check operation and arguments
     if (operation(rule) == ://) && _is_rational(data)
-        return  has_rational(data, rule, σs)
+        return has_rational(data, rule, σs)
     end
 
-    !iscall(data) && return MatchDict[]
+    !iscall(data) && return NO_MATCH
 
 
     # check opᵣ for special cases where
@@ -513,7 +539,7 @@ function check_expr_r(data, rule::Expr, σs)
     # (the final solution would be remove divisions form rules)
     # * if the rule is a product, at least one of the factors is a power, and data is a division
     neim_pass, arg_data, arg_rule = neim_rewrite(data, rule)
-    opₛ != opᵣ && !neim_pass && return MatchDict[]
+    opₛ != opᵣ && !neim_pass && return NO_MATCH
 
     # segments variables means number of arguments might not match
     if (any(is_segment, arg_rule))
@@ -523,7 +549,7 @@ function check_expr_r(data, rule::Expr, σs)
     (length(arg_data) != length(arg_rule)) && return MatchDict[]
     if iscommutative(opᵣ)
         σ′s = check_commutative(arg_data, arg_rule, σs)
-        return isempty(σ′s) ? FAIL_DICT : σ′s
+        return isempty(σ′s) ? NO_MATCH : σ′s
     end
     # normal checks
     return ceoaa(arg_data, arg_rule, σs)
@@ -531,32 +557,30 @@ end
 
 # check expression of all arguments
 # elements of arg_rule can be Expr or Real
-function ceoaa(arg_data, arg_rule, σs)
+function ceoaa(arg_data, arg_rule, σs::𝑀)::𝑀
     if all(is_𝑋, arg_rule) && !any(is_op, arg_rule)
         nseg = count(is_segment, arg_rule) # no segment? need same wild
         iszero(nseg) && count(is_slot, arg_rule) != length(arg_data) &&
-            return MatchDict[]
+            return NO_MATCH
     end
-    σs == FAIL_DICT && return FAIL_DICT
+    σs == NO_MATCH && return NO_MATCH
     if (any(is_segment, arg_rule))
         return has_any_segment(nothing, arg_data, nothing, arg_rule,  σs)
     end
     σ′s = σs
     for (a, b) in zip(arg_data, arg_rule)
         σ′s = check_expr_r(a, b, σ′s)
-        @show σ′s
-
-        σ′s == FAIL_DICT && return FAIL_DICT
+        σ′s == NO_MATCH && return NO_MATCH
     end
     return σ′s
 end
 
 # match a single variable
-function just_variable(data, rule, σs)
+function just_variable(data, rule, σs::𝑀)::𝑀
     @assert is_𝑋(rule)
     var = varname(rule)
     val = is_segment(rule) ? (data,) : data
-    isempty(σs) && return FAIL_DICT
+    isempty(σs) && return NO_MATCH
     ms = MatchDict[]
     for σ ∈ σs
         if haskey(σ, var) # if the slot has already been matched
@@ -571,7 +595,7 @@ function just_variable(data, rule, σs)
             push!(ms, match_dict(σ, var=> val))
         end
     end
-    return isempty(ms) ? FAIL_DICT : ms
+    return isempty(ms) ? NO_MATCH : ms
 end
 
 # expression has defslot
@@ -588,13 +612,13 @@ function has_defslot(i, data, rule, σs)
     # build rule expr without defslot and check it
     newr = Expr(:call, operation(rule), ps...) # not pterm here!
     σ′s = check_expr_r(data, newr, σs)
-    σ′s != FAIL_DICT && return σ′s # had a match
+    σ′s != MatchDict[] && return σ′s # had a match
 
     # if no normal match, check only the non-defslot part of the rule
     deleteat!(ps, i)
     tmp = pterm(operation(rule), ps)
     σs = check_expr_r(data, tmp, σs)
-    σs == FAIL_DICT && return FAIL_DICT
+    σs == MatchDict[] && return MatchDict[]
 
     var = varname(qᵢ)
     value = get(defslot_op_map, operation(rule), -1)
@@ -624,7 +648,7 @@ end
 
 # make powers equivalent for checking
 # e.g. sqrt(x) --> x^(1//2)
-function different_powers(data, rule, σs)
+function different_powers(data, rule, σs::𝑀)::𝑀
     opᵣ, opₛ = operation(rule), Symbol(operation(data))
     arg_data = arguments(data)
     arg_rule = arguments(rule)
@@ -832,7 +856,6 @@ end
 function has_any_segment(𝑜𝑝ₛ, arg_data,
                          opᵣ, arg_rule, σs)
     σs == FAIL_DICT && return FAIL_DICT
-@show opᵣ
     seg, notseg, seg_positions = _split_segments(arg_rule)
     n,m = length(arg_data), length(notseg)
     if m > n
@@ -865,7 +888,7 @@ function has_any_segment(𝑜𝑝ₛ, arg_data,
                 sub′ = sterm(𝑜𝑝ₛ, arg_data[ind])
                 pat′ = pterm(opᵣ, notseg) # can be an issue!
                 for σ ∈ σs
-                    σ′s = check_expr_r(sub′, pat′, (σ,))
+                    σ′s = check_expr_r(sub′, pat′, [σ])
                     if σ′s != FAIL_DICT
                         # we found a match, assign the rest to first segment
                         for σ′ ∈ σ′s
@@ -964,15 +987,15 @@ function _append_unique!(out, σs)
     return out
 end
 
-function _check_commutative!(out, used, arg_data, arg_rule, order, k, σs)
-    σs == FAIL_DICT && return out
+function _check_commutative!(out, used, arg_data, arg_rule, order, k, σs::𝑀)::𝑀
+    σs == NO_MATCH && return out
     k > length(order) && return _append_unique!(out, σs)
 
     pat = arg_rule[order[k]]
     for j ∈ eachindex(arg_data)
         used[j] && continue
         σ′s = check_expr_r(arg_data[j], pat, σs)
-        σ′s == FAIL_DICT && continue
+        σ′s == NO_MATCH && continue
         used[j] = true
         _check_commutative!(out, used, arg_data, arg_rule, order, k + 1, σ′s)
         used[j] = false
@@ -980,15 +1003,15 @@ function _check_commutative!(out, used, arg_data, arg_rule, order, k, σs)
     return out
 end
 
-function check_commutative(arg_data, arg_rule, σs)
+function check_commutative(arg_data, arg_rule, σs::𝑀)::𝑀
     # commutative checks
-    length(arg_data) != length(arg_rule) && return FAIL_DICT
+    length(arg_data) != length(arg_rule) && return NO_MATCH
 
     order = sortperm(collect(eachindex(arg_rule)); by = i -> _commutative_priority(arg_rule[i]))
     used = falses(length(arg_data))
     σ′′s = MatchDict[]
     _check_commutative!(σ′′s, used, arg_data, arg_rule, order, 1, σs)
-    return isempty(σ′′s) ? FAIL_DICT : σ′′s
+    return isempty(σ′′s) ? NO_MATCH : σ′′s
 end
 
 #=
@@ -1205,7 +1228,7 @@ end
 function R2a(ts)
     r2 = Any[]
     for (i, (pat, sub, len, sub′)) ∈ enumerate(ts)
-        out = R2.check_expr_r(sub′, pat)
+        out = SimpleExpressions.check_expr_r(sub′, pat)
         #@show out
         #push!(r2, (;succes = σ != nothing))#SimpleExpressions.FAIL_DICT))
         push!(r2, (;succes = !isempty(out)))
