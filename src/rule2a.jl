@@ -21,7 +21,11 @@ Rule1 (21/30)
 julia> @btime RR($ts′)
   24.167 μs (870 allocations: 32.80 KiB) <--- half the allocations
 
-Rule
+ACMP 28/30 -- one case is better (but okay)
+julia> @btime ACm($ts′);
+821.042 μs (13139 allocations: 569.09 KiB)
+
+
 =#
 
 #using SimpleExpressions
@@ -1277,7 +1281,7 @@ function ACm(ts′)
     Ac = Any[]
     for (i, (pat, sub, len, sub′)) ∈ enumerate(ts′)
         σ = AssociativeCommutativePatternMatching._match(pat, sub′)
-        push!(Ac, (;success = !isnothing(σ)))
+        push!(Ac, (;i, success = !isnothing(σ)))
     end
     Ac
 end
