@@ -1058,6 +1058,14 @@ function _append_unique!(out, σs)
     return out
 end
 
+# cheap, allocation-avoiding equality check used only to detect/prune
+# duplicate-valued arguments below. Falls back to `isequal` only when the
+# concrete types already match, since comparing mismatched concrete types
+# (e.g. a literal `1` against a symbolic expression) can otherwise fall
+# through to generic, allocating promotion machinery for what can never be
+# a duplicate for pruning purposes.
+@inline _cheap_isequal(a, b) = a === b || (typeof(a) === typeof(b) && isequal(a, b))
+
 function _check_commutative!(out, used, arg_data, arg_rule, order, k, σs::𝑀)::𝑀
     # @show :check_commutative
     σs == NO_MATCH && return out
@@ -1066,7 +1074,30 @@ function _check_commutative!(out, used, arg_data, arg_rule, order, k, σs::𝑀)
     pat = arg_rule[order[k]]
     for j ∈ eachindex(arg_data)
         used[j] && continue
-        σ′s = check_expr_r(arg_data[j], pat, σs)
+        val = arg_data[j]
+
+        # When several unused data elements are equal (a common case:
+        # repeated terms like x + x + y), trying each of them for the
+        # *current* pattern slot explores symmetric branches whose eventual
+        # results are identical (matching only depends on the *value*,
+        # never on which physical index produced it, and the multiset of
+        # values left over for the remaining patterns is the same no matter
+        # which equal-valued index is consumed now). So only the first
+        # unused occurrence of each distinct value needs to be tried at
+        # this level. Detect "already tried at this level" by scanning
+        # backwards for an earlier still-unused index with an equal value;
+        # this needs no extra allocation (arg_data/used are already
+        # available) and is cheap since argument lists are small.
+        isdup = false
+        for jj ∈ 1:(j - 1)
+            if !used[jj] && _cheap_isequal(arg_data[jj], val)
+                isdup = true
+                break
+            end
+        end
+        isdup && continue
+
+        σ′s = check_expr_r(val, pat, σs)
         σ′s == NO_MATCH && continue
         used[j] = true
         _check_commutative!(out, used, arg_data, arg_rule, order, k + 1, σ′s)
