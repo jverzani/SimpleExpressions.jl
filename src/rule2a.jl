@@ -10,7 +10,18 @@ julia> @btime R2a(ts′); <--- rule2a.jl
   179.750 μs (2706 allocations: 106.19 KiB)
 
 julia> @btime ACm($ts′); <--- AssociativeCommutativePatternMatching._match
-  872.417 μs (13155 allocations: 569.59 KiB)
+872.417 μs (13155 allocations: 569.59 KiB)
+
+## After changes
+Rule2 (27/30) -- all failures okay
+julia> @btime R2a($ts′);
+  171.834 μs (2165 allocations: 82.77 KiB)
+
+Rule1 (21/30)
+julia> @btime RR($ts′)
+  24.167 μs (870 allocations: 32.80 KiB) <--- half the allocations
+
+Rule
 =#
 
 #using SimpleExpressions
@@ -26,6 +37,29 @@ Using Krebber, we have
 * A sentinel is used to indicate *no possible subsitution* and is here a FAIL_DICT
 * A set of matches (`θ` of `σs` allows for different matches due to commutivity/associativity. This set is empty if there are no matches. We use a vector to store this: MatchDict[MatchDict()] is an initial set with no initial match specified.
 
+We have:
+~x: match one argument
+~!x: match one argument, possibly through a default
+~~x: match 0, 1, or more arguments (returns a tuple)
+~~~x: match 1 or more arguments (returns a tuple)
+
+
+# test cases                       # ACPM  | Rule2 | Rule1 (match only)
+eachmatch(:(~x), a + b + c)        # 1 | 1 | yes
+eachmatch(:(~x + ~y), a + b + c)   # 6 | 0 | no
+eachmatch(:(~x + ~!y), a + b + c)  # 6 | 1 | yes
+eachmatch(:(~x + ~~y), a+b+c)      # 7^ | 4 | no # ^~x accts like ~~~x
+eachmatch(:(~x + ~~~y), a+b+c)     # 6 | 3 | not
+
+# for rule2
+eachmatch(:(~x + ~~y), a+b+c) gives
+ Base.ImmutableDict(:y => (b, c), :x => a)
+ Base.ImmutableDict(:y => (a, c), :x => b)
+ Base.ImmutableDict(:y => (a, b), :x => c)
+ Base.ImmutableDict(:x => a + b + c, :y => ()) # is correct if ~x is just ~x
+
+eachmatch(:(~x + ~~~y), a+b+c)     # 6 | 0 | no  # Rule2a is wrong here
+should give 3 matches, not 0      # <---- ERROR IS HERE
 =#
 
 ## ---- utils.jl -----
@@ -87,6 +121,7 @@ end
 ## XXXmerge_match(σ::Tuple, σ′::MatchDict) = σ′
 
 function union_merge(θ::𝑀, σ′::MatchDict)::𝑀
+    σ′ == FAIL_DICT && return NO_MATCH
     MatchDict[merge_match(σ, σ′) for σ ∈ θ if iscompatible(σ, σ′)]
 end
 
@@ -136,7 +171,7 @@ function _split_segments(arg_rule)
     notseg = Any[]
     seg_positions = Int[]
     for (i, pat) ∈ enumerate(arg_rule)
-        if is_segment(pat)
+        if is_segment(pat) || is_plus(pat)
             push!(seg, pat)
             push!(seg_positions, i)
         else
@@ -338,23 +373,6 @@ function is_slot(x::Expr)
     return true
 end
 
-function is_defslot(x::Expr)
-
-    is_𝑋(x) || return false
-    _, arg = x.args
-    is_operation(:(!))(arg) && return true
-
-    return false
-end
-
-has_defslot(::Any) = false
-function has_defslot(x::Expr)
-    return is_defslot(x) ||
-        (is_operation(:^)(x) && is_defslot(last(arguments(x))))
-end
-
-is_slot_or_defslot(x) = is_slot(x) || is_defslot(x)
-
 function is_segment(x::Expr)
     is_𝑋(x) || return false # first is ~
     h,x = x.args
@@ -379,6 +397,23 @@ end
 function is_op(x::Expr)
     is_𝑋(x) && iscall(x) && is_𝑋(operation(x))
 end
+
+function is_defslot(x::Expr)
+
+    is_𝑋(x) || return false
+    _, arg = x.args
+    is_operation(:(!))(arg) && return true
+
+    return false
+end
+
+has_defslot(::Any) = false
+function has_defslot(x::Expr)
+    return is_defslot(x) ||
+        (is_operation(:^)(x) && is_defslot(last(arguments(x))))
+end
+
+is_slot_or_defslot(x) = is_slot(x) || is_defslot(x)
 
 
 ## ------
@@ -470,7 +505,7 @@ end
 # main function
 check_expr_r(data, rule::Expr)::𝑀 = check_expr_r(data, rule, [MatchDict()])
 function check_expr_r(data, rule::Expr, σs::𝑀)::𝑀
-
+    # @show :cer, data, rule
     if !iscall(rule)
         #@show :what_is, rule
     end
@@ -478,6 +513,7 @@ function check_expr_r(data, rule::Expr, σs::𝑀)::𝑀
     opᵣ = operation(rule)
 
     if is_𝑋(opᵣ)
+        # @show :is_𝑋, data, rule
         # peel off hope for single argument!
         !iscall(data) && return MatchDict[] # XXX <---
 
@@ -510,7 +546,11 @@ function check_expr_r(data, rule::Expr, σs::𝑀)::𝑀
     # if there is a segment in the (only) argument
     if (iscall(rule) &&
         length(arguments(rule)) == 1 &&
-        is_segment(first(arguments(rule))))
+        is_segment(first(arguments(rule)))
+#        (is_segment(first(arguments(rule))) ||
+#         is_plus(first(arguments(rule))))
+        )
+        # @show :hi
         return only_argument_is_segment(data, rule, σs)
     end
 
@@ -520,7 +560,6 @@ function check_expr_r(data, rule::Expr, σs::𝑀)::𝑀
     end
 
     !iscall(data) && return NO_MATCH
-
 
     # check opᵣ for special cases where
     # powers are represented differently
@@ -543,8 +582,15 @@ function check_expr_r(data, rule::Expr, σs::𝑀)::𝑀
 
     # segments variables means number of arguments might not match
     if (any(is_segment, arg_rule))
+        # @show :has_any
         return has_any_segment(𝑜𝑝ₛ, arg_data, opᵣ, arg_rule,  σs)
     end
+
+    if (any(is_plus, arg_rule))
+        # @show :has_plus, arg_data, arg_rule
+        return has_any_plus(𝑜𝑝ₛ, arg_data, opᵣ, arg_rule,  σs)
+    end
+
 
     (length(arg_data) != length(arg_rule)) && return MatchDict[]
     if iscommutative(opᵣ)
@@ -567,6 +613,9 @@ function ceoaa(arg_data, arg_rule, σs::𝑀)::𝑀
     if (any(is_segment, arg_rule))
         return has_any_segment(nothing, arg_data, nothing, arg_rule,  σs)
     end
+    if (any(is_plus, arg_rule))
+        return has_any_plus(nothing, arg_data, nothing, arg_rule,  σs)
+    end
     σ′s = σs
     for (a, b) in zip(arg_data, arg_rule)
         σ′s = check_expr_r(a, b, σ′s)
@@ -577,6 +626,7 @@ end
 
 # match a single variable
 function just_variable(data, rule, σs::𝑀)::𝑀
+    # @show :jv, data, rule
     @assert is_𝑋(rule)
     var = varname(rule)
     val = is_segment(rule) ? (data,) : data
@@ -600,6 +650,7 @@ end
 
 # expression has defslot
 function has_defslot(i, data, rule, σs)
+    # @show :has_defslot, data, rule
     op = operation(rule)
     if op ∈ (:^, :/)
         i == 1 && return MatchDict[]
@@ -627,6 +678,7 @@ function has_defslot(i, data, rule, σs)
 end
 
 function only_argument_is_segment(data, rule, σs, op=nothing)
+    # @show :only_argument_is_segment, data, rule
     !iscall(data) && return MatchDict[]
     opₛ, opᵣ = Symbol(operation(data)), operation(rule)
     opₛ == opᵣ || return MatchDict[]
@@ -637,6 +689,7 @@ function only_argument_is_segment(data, rule, σs, op=nothing)
 end
 
 function has_rational(data, rule, σs)
+    # @show :has_rational, data, rule
     # rational is a special case, in the integration rules is present only in between numbers, like 1//2
     as = arguments(rule)
     data = _unwrap_const(data)
@@ -649,6 +702,7 @@ end
 # make powers equivalent for checking
 # e.g. sqrt(x) --> x^(1//2)
 function different_powers(data, rule, σs::𝑀)::𝑀
+    # @show :different_powers, data, rule
     opᵣ, opₛ = operation(rule), Symbol(operation(data))
     arg_data = arguments(data)
     arg_rule = arguments(rule)
@@ -855,8 +909,10 @@ end
 
 function has_any_segment(𝑜𝑝ₛ, arg_data,
                          opᵣ, arg_rule, σs)
-    σs == FAIL_DICT && return FAIL_DICT
+    # @show :has_any_segment, arg_data, arg_rule
+    σs == NO_MATCH && return NO_MATCH
     seg, notseg, seg_positions = _split_segments(arg_rule)
+    # @show seg, notseg, seg_positions
     n,m = length(arg_data), length(notseg)
     if m > n
         return MatchDict[]
@@ -889,7 +945,7 @@ function has_any_segment(𝑜𝑝ₛ, arg_data,
                 pat′ = pterm(opᵣ, notseg) # can be an issue!
                 for σ ∈ σs
                     σ′s = check_expr_r(sub′, pat′, [σ])
-                    if σ′s != FAIL_DICT
+                    if σ′s != NO_MATCH
                         # we found a match, assign the rest to first segment
                         for σ′ ∈ σ′s
                             v = first(seg)
@@ -936,7 +992,7 @@ function has_any_segment(𝑜𝑝ₛ, arg_data,
                     nomatch && continue
                     if l > nsegs || i != seg_positions[l]
                         σ′s = check_expr_r(arg_data[j], pat, σ′s)
-                        σ′s == FAIL_DICT && (nomatch = true)
+                        σ′s == NO_MATCH && (nomatch = true)
                         j = j + 1
                     else
                         a = α[l]
@@ -946,32 +1002,43 @@ function has_any_segment(𝑜𝑝ₛ, arg_data,
                         value = arg_data[j:(j+a-1)]
                         σ′ = match_dict(var => value)
                         σ′s = _merge_single(σ′s, σ′)
-                        σ′s == FAIL_DICT && (nomatch = true)
+                        σ′s == NO_MATCH && (nomatch = true)
                         j = j + a
                     end
                 end
-                σ′s == FAIL_DICT && continue
+                σ′s == NO_MATCH && continue
                 !nomatch && append!(σ′′s, σ′s)
             end
-            return isempty(σ′′s) ? FAIL_DICT : σ′′s
+            return isempty(σ′′s) ? NO_MATCH : σ′′s
         end
         if length(seg) > 0
             # match all segments with (), then match the rest
             σ′′′ = match_dict()
             for v ∈ seg
-                σ′′′ = match_dict(σ′′′, varname(v) => ())
+                if is_plus(v)
+                    σ′′′ = FAIL_DICT
+                    break
+                else
+                    σ′′′ = match_dict(σ′′′, varname(v) => ())
+                end
             end
             σ′′′s = union_merge(σs, σ′′′)
             sub′ = sterm(𝑜𝑝ₛ, arg_data)
             pat′ = pterm(opᵣ, notseg)
             σ′′′s = check_expr_r(sub′, pat′, σ′′′s)
-            σ′′′s != FAIL_DICT && append!(σ′′s, σ′′′s)
+            σ′′′s != NO_MATCH && append!(σ′′s, σ′′′s)
         end
 
-        return isempty(σ′′s) ? FAIL_DICT : σ′′s
+        return isempty(σ′′s) ? NO_MATCH : σ′′s
     end
 end
 
+function has_any_plus(𝑜𝑝ₛ, arg_data,
+                      opᵣ, arg_rule, σs)
+    # @show :has_any_plus, arg_data, arg_rule
+    has_any_segment(𝑜𝑝ₛ, arg_data,
+                      opᵣ, arg_rule, σs)
+end
 @inline function _commutative_priority(pat)
     is_defslot(pat) && return 3
     has_predicate(pat) && return 2
@@ -988,6 +1055,7 @@ function _append_unique!(out, σs)
 end
 
 function _check_commutative!(out, used, arg_data, arg_rule, order, k, σs::𝑀)::𝑀
+    # @show :check_commutative
     σs == NO_MATCH && return out
     k > length(order) && return _append_unique!(out, σs)
 
