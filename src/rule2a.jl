@@ -201,6 +201,24 @@ function _tuple_without_indices(arg_data, ind, n)
     return tuple(vals...)
 end
 
+# Generate every k-tuple of nonnegative integers that sum to n (a
+# "composition" of n into k parts, stars-and-bars style), by direct
+# recursive construction. This visits exactly the C(n+k-1, k-1) valid
+# tuples, as opposed to generating the full (n+1)^k Cartesian product via
+# `Iterators.product(0:n, ..., 0:n)` and discarding every tuple whose
+# entries don't sum to n -- the latter wastes work that grows quickly
+# (exponentially in k) as the number of segment wildcards increases.
+function _compositions(n::Int, k::Int)
+    k == 1 && return Any[(n,)]
+    out = Any[]
+    for a ∈ 0:n
+        for rest ∈ _compositions(n - a, k - 1)
+            push!(out, (a, rest...))
+        end
+    end
+    return out
+end
+
 
 ## Expression related methods
 _is_operation(op) = ex -> iscall(ex) && operation(ex) ∈ (op, Symbol(op))
@@ -983,11 +1001,8 @@ function has_any_segment(𝑜𝑝ₛ, arg_data,
             k = length(arg_rule) - nsegs
             n = length(arg_data) - k
 
-            # non-performant partition iterator
             σ′′s =  MatchDict[]
-            ranges = ntuple(_ -> 0:n, nsegs)
-            for α ∈ Iterators.product(ranges...)
-                sum(α) == n || continue
+            for α ∈ _compositions(n, nsegs)
                 σ′s = σs
                 j = 1 # index in data_rule
                 l = 1 # index in itr,
