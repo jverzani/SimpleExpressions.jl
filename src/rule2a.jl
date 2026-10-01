@@ -961,25 +961,30 @@ function has_any_segment(𝑜𝑝ₛ, arg_data,
     elseif 0 < m ≤ n
         σ′′s = MatchDict[]
         if iscommutative(opᵣ)
+            # these only depend on opᵣ/notseg/seg, not on the subset `ind`
+            # chosen below, so compute them once rather than once per
+            # combination (there are C(n,m) combinations, which can be
+            # large)
+            pat′ = pterm(opᵣ, notseg) # can be an issue!
+            v = first(seg)
+            var = varname(v)
+            v_has_pred = has_predicate(v)
             for ind ∈ combinations(1:n, m)
                 # take m of the values and match
                 sub′ = sterm(𝑜𝑝ₛ, arg_data[ind])
-                pat′ = pterm(opᵣ, notseg) # can be an issue!
                 for σ ∈ σs
                     σ′s = check_expr_r(sub′, pat′, [σ])
                     if σ′s != NO_MATCH
                         # we found a match, assign the rest to first segment
                         for σ′ ∈ σ′s
-                            v = first(seg)
-                            var = varname(v)
                             val = length(ind) < n ?
                                 _tuple_without_indices(arg_data, ind, n) :
                                 ()
                             if haskey(σ′, var)
                                 val == σ′[var] && push!(σ′′s, σ)
                             else
-                                if !has_predicate(v) ||
-                                    (has_predicate(v) && _evalguard(get_predicate(v), val) )
+                                if !v_has_pred ||
+                                    (v_has_pred && _evalguard(get_predicate(v), val) )
                                     σ′ = match_dict(σ′, var=>val)
                                     push!(σ′′s, σ′)
                                 end
