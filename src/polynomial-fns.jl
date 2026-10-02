@@ -6,6 +6,48 @@
 # - avoids repeated tree scans and still minimizes allocations compared to
 #   the sparse-dict prototype
 
+# Exposed API.
+
+ispolynomial(x) = Base.Fix2(ispolynomial, x)
+ispolynomial(ex, x, n) = false # XXX----XXX degree
+function ispolynomial(ex, x)::Bool
+    !isvariable(x) && return false # need a symbol
+    !contains(ex,x) && return true
+    isequal(ex, x) && return true
+    iscall(ex) || return false
+    op = operation(ex)
+    if op ∈ (+, -, *)
+        return all(ispolynomial(x), arguments(ex))
+    elseif op ∈ (/,)
+        a, b = arguments(ex)
+        return ispolynomial(a, x) && !contains(b,x)
+    elseif op ∈ (^,)
+        a, b = arguments(ex)
+        return ispolynomial(a, x) && isnumeric(b) && unwrap_const(b) ≥ 0
+    else
+        return false # not constant, so must be nonliner
+    end
+    return false
+end
+
+function polynomial_degree(ex, x)
+    coeffs = _poly_coeffs(ex, x)
+    isnothing(coeffs) && return nothing
+    length(coeffs) - 1
+end
+
+
+function polynomial_coefficients(ex::AbstractSymbolic, x)
+    coeffs = _poly_coeffs(ex, x)
+    isnothing(coeffs) && return nothing
+    degree = length(coeffs) - 1
+    nms = Tuple(SimpleExpressions._aᵢ(i) for i in 0:degree)
+    NamedTuple{nms}(tuple(coeffs...))
+end
+
+polynomial_coefficients(ex::SymbolicEquation, x) = polynomial_coefficients(ex.lhs - ex.rhs, x)
+
+
 ## ---- helpers
 
 # Dense coefficient vector representation for polynomial in x:
@@ -15,7 +57,7 @@
 _polynomial_zero_T(::Type{T}) where {T} = zero(T)
 _polynomial_zero_T(::Any) = zero(typeof(0))
 
-poly_degree(ex::Real, x) = 0
+polynomial_degree(ex::Real, x) = 0
 
 function _poly_coeffs(ex, x)
     !isvariable(x) && return nothing
@@ -162,43 +204,6 @@ function _poly_pow(a, n::Int)
     out
 end
 
-# Exposed API.
-
-ispolynomial(x) = Base.Fix2(ispolynomial, x)
-ispolynomial(ex, x, n) = false # XXX----XXX degree
-function ispolynomial(ex, x)::Bool
-    !isvariable(x) && return false # need a symbol
-    !contains(ex,x) && return true
-    isequal(ex, x) && return true
-    iscall(ex) || return false
-    op = operation(ex)
-    if op ∈ (+, -, *)
-        return all(ispolynomial(x), arguments(ex))
-    elseif op ∈ (/,)
-        a, b = arguments(ex)
-        return ispolynomial(a, x) && !contains(b,x)
-    elseif op ∈ (^,)
-        a, b = arguments(ex)
-        return ispolynomial(a, x) && isnumeric(b) && unwrap_const(b) ≥ 0
-    else
-        return false # not constant, so must be nonliner
-    end
-    return false
-end
-#=
-function ispolynomial(ex, x)::Bool
-    !isvariable(x) && return false
-    !isnothing(_poly_coeffs(ex, x))
-end
-=#
-
-function poly_degree(ex, x)
-    coeffs = _poly_coeffs(ex, x)
-    isnothing(coeffs) && return nothing
-    length(coeffs) - 1
-end
-
-
 function _aᵢ(i)
     aᵢs = ("₀","₁","₂","₃","₄","₅","₆","₇","₈","₉")
     io = IOBuffer()
@@ -207,17 +212,4 @@ function _aᵢ(i)
         print(io, aᵢs[1 + j])
     end
     Symbol(take!(io))
-end
-
-
-function coefficients(ex, x)
-    coeffs = _poly_coeffs(ex, x)
-    isnothing(coeffs) && return nothing
-    degree = length(coeffs) - 1
-    nms = Tuple(SimpleExpressions._aᵢ(i) for i in 0:degree)
-    NamedTuple{nms}(tuple(coeffs...))
-end
-
-if isdefined(@__MODULE__, :SymbolicEquation)
-    coefficients(ex::SymbolicEquation, x) = coefficients(ex.lhs - ex.rhs, x)
 end

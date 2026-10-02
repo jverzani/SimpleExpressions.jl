@@ -1,50 +1,14 @@
-#=
-This ends up being more general than rule2.jl *but* is about 4 times slower
-
-For one test suite, we have these results:
-
-julia> @btime RR(ts′); <-- rule2.jl
-  26.541 μs (869 allocations: 32.77 KiB)
-
-julia> @btime R2a(ts′); <--- rule2a.jl
-  179.750 μs (2706 allocations: 106.19 KiB)
-
-julia> @btime ACm($ts′); <--- AssociativeCommutativePatternMatching._match
-872.417 μs (13155 allocations: 569.59 KiB)
-
-## After changes
-Rule2 (27/30) -- all failures okay
-julia> @btime R2a($ts′);
-  171.834 μs (2165 allocations: 82.77 KiB)
-
-# ---> after co-pilot changes 1 through 5
-julia> @btime R2a($ts′);
-165.083 μs (2109 allocations: 81.00 KiB)
-
-# --> after correctness fixes
-julia> @btime R2a($ts′);
-  184.250 μs (2217 allocations: 84.83 KiB)
-
-Rule1 (21/30)
-julia> @btime RR($ts′)
-  24.167 μs (870 allocations: 32.80 KiB) <--- half the allocations
-
-ACMP 28/30 -- one case is better (but okay)
-julia> @btime ACm($ts′);
-821.042 μs (13139 allocations: 569.09 KiB)
-
-
-=#
-
-#using SimpleExpressions
-#using SimpleExpressions: unwrap_const
 using TermInterface
 using Combinatorics
 
 ## ---- note -----
 #=
 
-Using Krebber, we have
+This code is derived from, rule2.jl at https://github.com/JuliaSymbolics/SymbolicIntegration.jl/blob/main/src/methods/rule_based/rule2.jl
+
+There are some modifications for commutivity following ideas from Krebber, which are also implemented in AssociativeCommutativePatternMatching.jl.
+
+Using Krebber's langauge we have
 
 * substitution (match) is σ a map between pattern terms and subject terms such that a substitution of the pattern terms returns the subject (σ(t) = s). This uses an ImmutableDict{Symbol, Any} to store a match or a partial match
 
@@ -61,6 +25,8 @@ A pattern to match against has wildcards. We have:
 * ~!x: match one argument, possibly through a default (a defslot)
 * ~~x: match 0, 1, or more arguments (returns a tuple); A segment or plus variable
 * ~~~x: match 1 or more arguments (returns a tuple); A star variable
+
+A pattern can only have one wildcard of a given name (no ~x + ~~x, say).
 
 # test cases -- AssociativeCommutativePatternMatching uses associativity in its considerations (2,4) and full enumeration when there are multiple segments (6, 7). The Rule1 (from SymbolicIntegration) doesn't do segments right (in my mind)
 
@@ -90,7 +56,8 @@ const PREDICATE_FN_CACHE = IdDict{Any, Any}()
 ##
 _unwrap_const(x) = unwrap_const(x)
 
-##
+
+## matches are ImmutableDicts
 match_dict() = MatchDict()
 
 function match_dict(kvs::Pair...)::M
@@ -155,30 +122,17 @@ end
 function _merge_single_expr(σs, k, v)
     σ = match_dict(k => v)
     _merge_single(σs, σ)
-    #=
-    σs == FAIL_DICT && return FAIL_DICT
-    merged = MatchDict[]
-    sizehint!(merged, length(σs))
-    for σ ∈ σs
-        if haskey(σ, k)
-            isequal(σ[k], v) && push!(merged, σ)
-        else
-            push!(merged, match_dict(σ, k => v))
-        end
-    end
-    return isempty(merged) ? FAIL_DICT : merged
-    =#
 end
-
 
 function union_merge(θ::𝑀, θ′::𝑀)::𝑀
     [merge_match(σ, σ′) for σ ∈ θ for σ′ ∈ θ′ if iscompatible(σ, σ′)]
 end
 
-## utils
+## more utils
 _isone(x) = isequal(x, 1)
 _groupby(pred, t) = (t = filter(pred,t), f=filter(!pred, t))
 
+## co-pilot utils
 function _split_segments(arg_rule)
     seg = Expr[]
     notseg = Any[]
@@ -285,8 +239,8 @@ _is_operation(op) = ex -> iscall(ex) && operation(ex) ∈ (op, Symbol(op))
 # trick -- SymEngine.Basic <: Number
 # compare Number, Expr, Irrational, Symbol
 
-eq_expr(a::Any, b::Any) = isequal(unwrap_const(a), unwrap_const(b))
-eq_expr(a::Expr, b::Expr) = !isnothing(syntactic_match(unwrap_const(a), unwrap_const(b)))
+eq_expr(a::Any, b::Any) = isequal(_unwrap_const(a), _unwrap_const(b))
+eq_expr(a::Expr, b::Expr) = !isnothing(syntactic_match(_unwrap_const(a), _unwrap_const(b)))
 
 ## to evaluate a guard. (Where is the question?)
 function _resolve_predicate(pred)
@@ -430,10 +384,10 @@ iscommutative(::typeof(*)) = true
 is_𝑋(x::Any) = false
 has_𝑋(x::Any) = false
 is_slot(x::Any) = false
-is_defslot(x::Any) = false
 is_segment(x::Any) = false
 is_plus(x::Any) = false
 is_op(x::Any) = false
+is_defslot(x::Any) = false
 
 # Expr
 is_𝑋(x::Expr) = (iscall(x) && operation(x) === :(~))  ||
@@ -493,8 +447,6 @@ function has_defslot(x::Expr)
         (is_operation(:^)(x) && is_defslot(last(arguments(x))))
 end
 
-is_slot_or_defslot(x) = is_slot(x) || is_defslot(x)
-
 
 ## ------
 const defslot_op_map = Dict(:+ => 0, :* => 1, :^ => 1, :/ => 1)
@@ -514,6 +466,7 @@ end
 # return true *if* either var has no predicate or
 # predicate(data) is true
 # use like pass_any_guard(var, data) || return ∅
+# XXX over complicated by co-pilot?
 function pass_any_guard(var, data)
     !has_predicate(var) && return true
 
@@ -644,10 +597,12 @@ function check_expr_r(data, rule::Expr, σs::𝑀)::𝑀
     # check opᵣ for special cases where
     # powers are represented differently
     opᵣ, 𝑜𝑝ₛ = operation(rule), Symbol(operation(data))
+
     if opᵣ ∈ (:^, :sqrt, :exp) ||
         (opᵣ, 𝑜𝑝ₛ) ∈ ((:/,:^),
                       (:/,:*),
                       )
+
         return different_powers(data, rule, σs)
     end
 
@@ -930,7 +885,6 @@ end
 
 function neim_rewrite(data, rule)
     neim_pass = false
-
     arg_rule, arg_data = arguments(rule), arguments(data)
     opᵣ, opₛ = operation(rule), Symbol(operation(data))
     if (opᵣ === :*) && opₛ === :/ && any(is_operation(:^), arg_rule)
@@ -1240,295 +1194,3 @@ function check_commutative(arg_data, arg_rule, σs::𝑀)::𝑀
     _check_commutative!(σ′′s, used, arg_data, arg_rule, order, 1, σs)
     return isempty(σ′′s) ? NO_MATCH : σ′′s
 end
-
-#=
-# with vendor
-julia> @time ACm()
-  0.001601 seconds (13.70 k allocations: 690.031 KiB)
-julia> @time R2();
-0.005675 seconds (13.61 k allocations: 585.531 KiB)
-
-# with main
-julia> @time ACm(); @time ACm();
-  4.766989 seconds (20.53 M allocations: 1.085 GiB, 2.54% gc time, 99.83% compilation time: <1% of which was recompilation)
-  0.000964 seconds (13.70 k allocations: 690.031 KiB)
-
-julia> @time R2(); @time R2();
-  2.073399 seconds (12.07 M allocations: 650.931 MiB, 2.99% gc time, 99.92% compilation time)
-  0.000170 seconds (1.29 k allocations: 48.156 KiB)
-
-Tuple{Int64, Bool}[(1, 1), (2, 1), (3, 1), (4, 1), (5, 0), (6, 1), (7, 1), (8, 0), (9, 0), (10, 1), (11, 1), (12, 0), (13, 0), (14, 0), (15, 1), (16, 0), (17, 1), (18, 1), (19, 1), (20, 1), (21, 1), (22, 1), (23, 1), (24, 1), (25, 1), (26, 0), (27, 1), (28, 0), (29, 1), (30, 1)]
-
-# with symbolic
-julia> @time R2a(); @time R2a();
-  1.765936 seconds (11.38 M allocations: 598.700 MiB, 3.66% gc time, 99.89% compilation time)
-0.000190 seconds (2.97 k allocations: 116.016 KiB)
-
-Tuple{Int64, Bool}[(1, 1), (2, 1), (3, 1), (4, 1), (5, 0), (6, 1), (7, 1), (8, 1), (9, 0), (10, 1), (11, 1), (12, 1), (13, 1), (14, 0), (15, 1), (16, 0), (17, 1), (18, 1), (19, 1), (20, 1), (21, 1), (22, 1), (23, 1), (24, 1), (25, 1), (26, 0), (27, 1), (28, 0), (29, 1), (30, 1)]
-julia>
-
-julia> @time R2a(); @time R2a();
-  1.395543 seconds (10.01 M allocations: 523.788 MiB, 3.90% gc time, 99.88% compilation time)
-  0.000196 seconds (2.97 k allocations: 115.969 KiB)
-
-
-## apply_rules
-ACMP
-julia> @time SimpleExpressions.__apply_rules(ex, trigsimp)
-  0.001960 seconds (9.68 k allocations: 384.828 KiB)
-rule2a
-
-julia> @time __apply_rules2(ex, trigsimp);
-  0.000263 seconds (636 allocations: 24.812 KiB)
-rule2
-
-julia> @time SimpleExpressions.__apply_rules(ex, trigsimp);
-  1.166126 seconds (7.17 M allocations: 385.129 MiB, 7.03% gc time, 99.95% compilation time)
-
-julia> @time SimpleExpressions.__apply_rules(ex, trigsimp)
-  0.000192 seconds (385 allocations: 14.703 KiB)
-
-using Revise
-using AssociativeCommutativePatternMatching
-using SimpleExpressions
-SimpleExpressions.@symbolic_variables a b c x y z
-
-function __apply_rules2(x, rs)
-    for r ∈ rs
-        pat, rhs = r
-        σs = (AssociativeCommutativePatternMatching.MatchDict(),)
-        σs′ = AssociativeCommutativePatternMatching.check_expr_r(x, pat, σs)
-        @show σs′, x, pat
-        #σ = match(pat, x)
-        if !isempty(σs′) #σ != FAIL_DICT
-            σ = first(σs′)
-            ex =  SimpleExpressions.rewrite(σ, rhs)
-            return ex
-        end
-    end
-    return x
-end
-
-
-ts = [
-# single variables
-(pat = :(~x),
- sub = :(a + b + c),
- len = 1),
-(pat = :(~!x),
- sub = :(a + b + c),
- len = 1),
-(pat = :(~~x),
- sub = :(a + b + c),
- len = 1),
-(pat = :(~~~x),
- sub = :(a + b + c),
- len = 1),
-
-# multiple variables
-(pat = :(~x + ~y),
- sub = :(a + b + c),
- len = 6),
-(pat = :(~x + ~!y),
- sub = :(a),
-         len = 1),
-        (pat = :(~x + ~!y),
-         sub = :(a + b + c),
-         len = 6),
-        (pat = :(~x + ~~y),
-         sub = :(a + b + c),
-         len = 7),
-        (pat = :(~x + ~~~y),
-         sub = :(a + b + c),
-         len = 6),
-        (pat = :(~!x + ~~y),
-         sub = :(a + b + c),
-         len = 7),
-        (pat = :(~!x + ~~~y),
-         sub = :(a + b + c),
-         len = 6),
-        (pat = :(~~x + ~~y),
-         sub = :(a + b + c),
-         len = 8),
-        (pat = :(~~x + ~~~y),
-         sub = :(a + b + c),
-         len = 7),
-        (pat = :(~~~x + ~~~y),
-         sub = :(a + b + c),
-         len = 6),
-
-        # def slot with ^
-        (pat = :((~x)^(~!y)),
-         sub = :(a),
-         len = 1),
-        (pat = :((~x)^(~y)),
-         sub = :(a),
-         len = 0),
-        (pat = :((~x)^(~!y)),
-         sub = :(a^2),
-         len = 1),
-         (pat = :(~x + (~y)^(~!z)),
-         sub = :(a + b),
-         len = 2),
-        (pat = :(~!x + (~y)^(~!z)),
-         sub = :(a + b),
-         len = 2),
-
-        # defslot combos
-        (pat = :((~!a)*(~x)),
-         sub = :(x),
-         len = 1),
-        (pat = :((~!a)*(~x) + (~!b)),
-         sub = :(x),
-         len = 1),
-
-
-        # wrapped in functions
-
-        (pat = :(log(~x) + log(~y)),
-         sub = :(log(a) + log(b)),
-         len = 2),
-        (pat = :(log(~x) + ~!y),
-         sub = :(log(a) + log(b)),
-         len = 2),
-        (pat = :(log(~x) + log(~y) + log(~z)),
-         sub = :(log(a) + log(b) + log(c)),
-         len = 6),
-
-
-
-        (pat = :(log(1 + ~x)),
-         sub = :(log(1 + x^2)),
-         len = 1),
-        (pat = :(log(1 + ~x)),
-         sub = :(log(1 + x) + log(1 + x^2)),
-         len = 0),
-        (pat = :(log(1 + ~x) + ~!y),
-         sub = :(log(1 + x) + log(1 + x^2)),
-         len = 2),
-
-
-        (pat = :(log(log(~~~x + ~~~y))),
-         sub = :(log(log(a + b + c))),
-         len = 6),
-        (pat = :(log(log(~~~x + ~!y))),
-         sub = :(log(log(a + b + c))),
-         len = 6),
-        (pat = :(~!x + log(log(~y))),
-         sub = :(log(log(a)) + log(log(b))),
-         len = 2),
-]
-
-ts′ = [(;pat, sub, len, sub′ = eval(sub)) for (pat, sub, len) ∈ ts]
-
-
-# check Ac
-function AC(ts)
-    Ac = Any[]
-    for (i, (pat, sub, len, sub′)) ∈ enumerate(ts)
-        σs = AssociativeCommutativePatternMatching._eachmatch(pat, sub′)
-        push!(Ac, (length(collect(σs)), len))
-    end
-    Ac
-end
-
-function ACm(ts′)
-    Ac = Any[]
-    for (i, (pat, sub, len, sub′)) ∈ enumerate(ts′)
-        σ = AssociativeCommutativePatternMatching._match(pat, sub′)
-        push!(Ac, (;i, success = !isnothing(σ)))
-    end
-    Ac
-end
-
-# check rule2
-function RR(ts′)
-    r2 = Any[]
-    for (i, (pat, sub, len, sub′)) ∈ enumerate(ts′)
-        σ = match(pat, sub′)
-        #push!(r2, (;succes = σ != nothing))#SimpleExpressions.FAIL_DICT))
-        push!(r2, (;succes = σ != SimpleExpressions.FAIL_DICT))
-    end
-    r2
-end
-
-function R2a(ts)
-    r2 = Any[]
-    for (i, (pat, sub, len, sub′)) ∈ enumerate(ts)
-        out = SimpleExpressions.check_expr_r(sub′, pat)
-        #@show out
-        #push!(r2, (;succes = σ != nothing))#SimpleExpressions.FAIL_DICT))
-        push!(r2, (;succes = !isempty(out)))
-    end
-    r2
-end
-
-
-## simplify tests
-@symbolic x y
-tests = [10*sin(x)^2 + 10 * cos(x)^2 + 10,
-         sin(x^2)/cos(x^2),
-         x - x,
-         x^0,
-         x^1,
-         sqrt(x),
-         cbrt(x),
-         x^2 * x^3,
-         (x^2)^3,
-         exp(x) * exp(2x),
-         exp(x)^2,
-         4log(x) + 4log(x + y),
-         3log(x),
-         ]
-
-function st()
-    [tests SimpleExpressions.simplify.(tests)]
-end
-
-
-full match
-julia> @time st(); @time st();
- 32.813199 seconds (130.58 M allocations: 6.836 GiB, 2.51% gc time, 99.83% compilation time: <1% of which was recompilation)
-0.014219 seconds (246.94 k allocations: 9.016 MiB)
-
-rule2a
- 20.495310 seconds (247.41 M allocations: 12.462 GiB, 6.16% gc time, 99.91% compilation time)
-  0.006428 seconds (101.24 k allocations: 3.620 MiB)
-
-current
-
-
-
-#
-current
-julia> @symbolic x; pat = :((~!a) * sin(~x)^2 + (~!a) * cos(~x)^2 + ~!b); ex = sin(2x)^2 + cos(2x)^2; @time match(pat, ex)
-0.000127 seconds (184 allocations: 6.922 KiB)
-
-AC
-julia> @symbolic x; pat = :((~!a) * sin(~x)^2 + (~!a) * cos(~x)^2 + ~!b); ex = sin(2x)^2 + cos(2x)^2; @time match(pat, ex)
-  3.428782 seconds (20.78 M allocations: 1.080 GiB, 3.66% gc time, 99.92% compilation time)
-Base.ImmutableDict{Symbol, Any} with 3 entries:
-  :x => 2 * x
-  :a => 1
-  :b => 0
-
-julia> @symbolic x; pat = :((~!a) * sin(~x)^2 + (~!a) * cos(~x)^2 + ~!b); ex = sin(2x)^2 + cos(2x)^2; @time match(pat, ex)
-  0.000982 seconds (2.31 k allocations: 128.781 KiB)
-Base.ImmutableDict{Symbol, Any} with 3 entries:
-  :x => 2 * x
-  :a => 1
-  :b => 0
-
-#rule2
-julia> @symbolic x; pat = :((~!a) * sin(~x)^2 + (~!a) * cos(~x)^2 + ~!b); ex = sin(2x)^2 + cos(2x)^2; @time AssociativeCommutativePatternMatching.check_expr_r(ex, pat, (AssociativeCommutativePatternMatching.MatchDict(),))
-  7.877769 seconds (131.67 M allocations: 6.585 GiB, 9.66% gc time, 99.99% compilation time)
-1-element Vector{Base.ImmutableDict{Symbol, Any}}:
- Base.ImmutableDict(:b => 0, :a => 1, :x => 2 * x)
-
-julia> @symbolic x; pat = :((~!a) * sin(~x)^2 + (~!a) * cos(~x)^2 + ~!b); ex = sin(2x)^2 + cos(2x)^2; @time AssociativeCommutativePatternMatching.check_expr_r(ex, pat, (AssociativeCommutativePatternMatching.MatchDict(),))
-  0.000437 seconds (376 allocations: 14.312 KiB)
-1-element Vector{Base.ImmutableDict{Symbol, Any}}:
- Base.ImmutableDict(:b => 0, :a => 1, :x => 2 * x)
-
-
-=#

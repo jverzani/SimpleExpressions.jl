@@ -4,16 +4,16 @@ expand(ex)   = __resolve(ex, expand_rules)
 
 ## ------- rules to apply
 canonicalize = [
-    :(*(~a, ~x) + *(~b, ~x) + (~!c)) => :(*(~a + ~b, ~x) + ~c),
+    :(*(~!a, ~~~x) + *(~!b, ~~~x) + (~~~c)) => :(*(~a + ~b, prod(~~~x)) + sum(~~~c)),
     :(~a + (~b + ~c))          => :(+(~a,~b,~c)),
     :(~a * (~b * ~c))          => :(*(~a,~b,~c)),
     :(~a - ~a)                 => :(zero(~a)),
     :((~x)^(~z::iszero))       => :(one(~x)),
     :((~x)^(~z::isone))        => :(~x),
-    :((~x::isone)^~z)          => :(one(~x)),
+    :((~x::isone)^(~z))          => :(one(~x)),
     :(sqrt(~x))                => :((~x)^(1//2)),
     :(cbrt(~x))                => :((~x)^(1//3)),
-    #        :(ℯ^(~z)) => :(exp(~x)),
+    :(ℯ^(~z)) => :(exp(~z)),
     :(exp(~z::iszero))         => 1,
     :(exp(~z::isone))          => ℯ,
 
@@ -66,7 +66,7 @@ logsimp = [
 expand_log = reverse.(logsimp)
 
 trigsimp = [
-    :((~!a) * sin(~x)^2 + (~!a) * cos(~x)^2 + ~!b) => :(~a + ~!b),
+    :((~!a) * sin(~x)^2 + (~!a) * cos(~x)^2 + ~~~b) => :(~a + sum(~~~b)),
     :((~!a) * sinh(~x)^2 + (~!a) * cosh(~x)^2) => :(~a*cosh(2*~x)),
 
 
@@ -113,7 +113,7 @@ function __apply_rules(x, rs)
     for r ∈ rs
         pat, rhs = r
         σ = match(pat, x)
-        if σ != FAIL_DICT
+        if σ != nothing
             ex =  rewrite(σ, rhs)
             return ex
         end

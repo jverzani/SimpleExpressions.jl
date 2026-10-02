@@ -79,7 +79,7 @@ end
 function _final_solve(l,r,x)
     # try some things
     ## polynomials?
-    cs = coefficients(l,x)
+    cs = polynomial_coefficients(l,x)
     if !isnothing(cs)
         if length(cs) == 1
             return l ~ r

@@ -1,6 +1,6 @@
 # basics
 import SimpleExpressions: arguments, sorted_arguments
-import SimpleExpressions: D, solve, ispolynomial, coefficients, poly_degree, combine
+import SimpleExpressions: D, solve, ispolynomial, polynomial_coefficients, polynomial_degree, combine
 import SimpleExpressions: map_matched
 import SimpleExpressions: is_number, isconstant, isvariable
 @testset "SimpleExpressions.jl" begin
@@ -248,11 +248,11 @@ end
 
     ex = sum(n + n*x + n^2*x^2 for n in 1:5)
     u = combine(ex)
-    @test coefficients(u, x) == (a₀ = 15, a₁ = 15, a₂ = 55)
+    @test polynomial_coefficients(u, x) == (a₀ = 15, a₁ = 15, a₂ = 55)
 
     ex = sum(n + n*x + (n*x)^2 for n in 1:5)
     u = combine(ex)
-    @test coefficients(u, x) == (a₀ = 15, a₁ = 15, a₂ = 55)
+    @test polynomial_coefficients(u, x) == (a₀ = 15, a₁ = 15, a₂ = 55)
 
 end
 
@@ -263,17 +263,17 @@ end
     @test ispolynomial(p*x + p^2 * x^2 + sin(p)*x^3, x)
     @test !ispolynomial(1/x + 1/x^2, x)
 
-    @test values(coefficients(x^5 - x - 1, x)) == (-1,-1,0,0,0,1)
+    @test values(polynomial_coefficients(x^5 - x - 1, x)) == (-1,-1,0,0,0,1)
 
-    a,b...,c = coefficients(x^20 - 1,x)
+    a,b...,c = polynomial_coefficients(x^20 - 1,x)
     @test isone(-a) && isone(c)
     @test all(iszero, b)
 
-    @test poly_degree(1 + x + x^5, x) == 5
-    @test poly_degree((1+x)^5, x) == 5
-    @test poly_degree((1+p*x)^5, x) == 5
-    @test poly_degree((1+sin(p)*x)^5, x) == 5
-    @test poly_degree((1+p*sin(x))^5, x) == nothing
+    @test polynomial_degree(1 + x + x^5, x) == 5
+    @test polynomial_degree((1+x)^5, x) == 5
+    @test polynomial_degree((1+p*x)^5, x) == 5
+    @test polynomial_degree((1+sin(p)*x)^5, x) == 5
+    @test polynomial_degree((1+p*sin(x))^5, x) == nothing
 
 end
 
@@ -435,13 +435,13 @@ end
 
 end
 
-@testset "coefficients" begin
+@testset "polynomial_coefficients" begin
     @symbolic x p
 
-    @test length(coefficients(x^2 - x ~ 1, x)) == 2 + 1
-    @test length(coefficients(x^2*(x+1)*(x+p) ~ 0, x)) == 4 + 1
-    @test isnothing(coefficients(x + 1/x ~ 1, x))
-    @test isnothing(coefficients(x + sin(x)*x^2 ~ 1, x))
+    @test length(polynomial_coefficients(x^2 - x ~ 1, x)) == 2 + 1
+    @test length(polynomial_coefficients(x^2*(x+1)*(x+p) ~ 0, x)) == 4 + 1
+    @test isnothing(polynomial_coefficients(x + 1/x ~ 1, x))
+    @test isnothing(polynomial_coefficients(x + sin(x)*x^2 ~ 1, x))
 end
 
 @testset "sympify" begin

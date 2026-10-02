@@ -90,6 +90,36 @@ end
 
 # like Symbolics
 unwrap_const(x::Any) = x
+function unwrap_const(x::Symbol)
+    if hasproperty(Base.MathConstants, x)
+        return getproperty(Base.MathConstants, x)
+    end
+    x == :twoπ && return 2π
+    x == :fourπ && return      4π
+    x == :halfπ && return      π / 2
+    x == :quartπ && return     π / 4
+    x == :invπ && return       1 / π
+    x == :twoinvπ && return    2 / π
+    x == :fourinvπ && return   4 / π
+    x == :inv2π && return      1 / (2π)
+    x == :inv4π && return      1 / (4π)
+    x == :sqrt2 && return      √2
+    x == :sqrt3 && return      √3
+    x == :sqrtπ && return      √π
+    x == :sqrt2π && return     √2π
+    x == :sqrt4π && return     √4π
+    x == :sqrthalfπ && return  √(π / 2)
+    x == :invsqrt2 && return   1 / √2
+    x == :invsqrtπ && return   1 / √π
+    x == :invsqrt2π && return  1 / √2π
+    x == :loghalf && return    log(1 / 2)
+    x == :logtwo && return     log(2)
+    x == :logten && return     log(10)
+    x == :logπ && return       log(π)
+    x == :log2π && return      log(2π)
+    x == :log4π       # log(4π)
+    return x
+end
 unwrap_const(x::SymbolicNumber) = x()
 function unwrap_const(x::SymbolicExpression)
     is_number(x) && return x()
@@ -100,8 +130,8 @@ end
 ## --- substitution ---
 ## Substitution leaves as a symbolic value
 ##
-## To substitute use one of nothing, missing or `:` in either the x or p
-## position
+## To substitute use one of nothing && return missing or `:` in either the x or p
+ position
 ## * `u(x, :)` substitute for `x, leaves expression with parameter
 ## * `u(:, p)` substitute for `p`, leaves expression with variable
 ## The result can be evaluated

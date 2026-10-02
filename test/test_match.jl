@@ -115,9 +115,23 @@ end
     σ = match(f(x__,y__), f(a,b,c))
     @test_broken f(x__, y__)(σ...) ∈ (f((a,b), (c,)), f((a,), (b,c))) # XXX this fails
 
-    # empty match returns FAIL_DICT, was `nothing`
+    # empty match returns `nothing`
     @test match(sin(⋯), sin(x)^2) == nothing
 
+    # default slots
+    pat = :((~!a) * sin(~x)^2 + (~!a) * cos(~x)^2 + ~!b)
+    ex = sin(2x)^2 + cos(2x)^2
+    σ = match(pat, ex)
+    @test σ[:a] == 1
+    @test σ[:b] == 0
+    @test σ[:x] == 2x
+
+    # guards
+    @test match(:(sin(~x::iseven)), sin(x(x=>2))) != nothing
+    @test match(:(sin(~x::iseven)), sin(x(x=>3))) == nothing
+
+    @test match(:(~x::ispolynomial(x)), x^5 - x - 1) != nothing
+    @test match(:(~x::ispolynomial(x)), sin(x)) == nothing
 end
 
 @testset "eachmatch" begin
@@ -151,6 +165,9 @@ end
     @test all(σ -> !isempty(σ[:y]), out)
 
     out = eachmatch(:(~~x + ~~y + ~~w), a + b + c + a^2)
+    @test all(all(haskey(σ, k) for k in (:w, :x, :y)) for σ in out)
+
+    out = eachmatch(:(~~~x + ~~~y + ~~~w), a + b + c + a^2)
     @test all(all(haskey(σ, k) for k in (:w, :x, :y)) for σ in out)
 
     out = eachmatch(:(~x + ~~y + ~~w), a + b + c + a^2)
