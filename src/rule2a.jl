@@ -17,6 +17,10 @@ Rule2 (27/30) -- all failures okay
 julia> @btime R2a($ts′);
   171.834 μs (2165 allocations: 82.77 KiB)
 
+# ---> after co-pilot changes 1 through 5
+julia> @btime R2a($ts′);
+  165.083 μs (2109 allocations: 81.00 KiB)
+
 Rule1 (21/30)
 julia> @btime RR($ts′)
   24.167 μs (870 allocations: 32.80 KiB) <--- half the allocations
@@ -586,9 +590,8 @@ function check_expr_r(data, rule::Expr, σs::𝑀)::𝑀
     # check opᵣ for special cases where
     # powers are represented differently
     opᵣ, 𝑜𝑝ₛ = operation(rule), Symbol(operation(data))
-    opₛ = Symbol(𝑜𝑝ₛ)
     if opᵣ ∈ (:^, :sqrt, :exp) ||
-        (opᵣ, opₛ) ∈ ((:/,:^),
+        (opᵣ, 𝑜𝑝ₛ) ∈ ((:/,:^),
                       (:/,:*),
                       )
         return different_powers(data, rule, σs)
@@ -600,7 +603,7 @@ function check_expr_r(data, rule::Expr, σs::𝑀)::𝑀
     # (the final solution would be remove divisions form rules)
     # * if the rule is a product, at least one of the factors is a power, and data is a division
     neim_pass, arg_data, arg_rule = neim_rewrite(data, rule)
-    opₛ != opᵣ && !neim_pass && return NO_MATCH
+    𝑜𝑝ₛ != opᵣ && !neim_pass && return NO_MATCH
 
     # segments variables means number of arguments might not match
     if (any(is_segment, arg_rule))
