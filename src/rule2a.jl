@@ -972,14 +972,17 @@ function has_any_segment(𝑜𝑝ₛ, arg_data,
             for ind ∈ combinations(1:n, m)
                 # take m of the values and match
                 sub′ = sterm(𝑜𝑝ₛ, arg_data[ind])
+                # `val` depends only on `ind`/`arg_data`/`n`, not on σ or σ′,
+                # so compute it once per combination rather than once per
+                # (σ, σ′) pair below
+                val = length(ind) < n ?
+                    _tuple_without_indices(arg_data, ind, n) :
+                    ()
                 for σ ∈ σs
                     σ′s = check_expr_r(sub′, pat′, [σ])
                     if σ′s != NO_MATCH
                         # we found a match, assign the rest to first segment
                         for σ′ ∈ σ′s
-                            val = length(ind) < n ?
-                                _tuple_without_indices(arg_data, ind, n) :
-                                ()
                             if haskey(σ′, var)
                                 val == σ′[var] && push!(σ′′s, σ)
                             else
