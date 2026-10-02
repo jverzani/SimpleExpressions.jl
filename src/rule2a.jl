@@ -19,7 +19,11 @@ julia> @btime R2a($ts′);
 
 # ---> after co-pilot changes 1 through 5
 julia> @btime R2a($ts′);
-  165.083 μs (2109 allocations: 81.00 KiB)
+165.083 μs (2109 allocations: 81.00 KiB)
+
+# --> after correctness fixes
+julia> @btime R2a($ts′);
+  184.250 μs (2217 allocations: 84.83 KiB)
 
 Rule1 (21/30)
 julia> @btime RR($ts′)
@@ -39,35 +43,36 @@ using Combinatorics
 
 ## ---- note -----
 #=
+
 Using Krebber, we have
+
 * substitution (match) is σ a map between pattern terms and subject terms such that a substitution of the pattern terms returns the subject (σ(t) = s). This uses an ImmutableDict{Symbol, Any} to store a match or a partial match
+
 * An empty substitution is partial match and a possible match, when there are not wild cards
+
 * A sentinel is used to indicate *no possible subsitution* and is here a FAIL_DICT
-* A set of matches (`θ` of `σs` allows for different matches due to commutivity/associativity. This set is empty if there are no matches. We use a vector to store this: MatchDict[MatchDict()] is an initial set with no initial match specified.
 
-We have:
-~x: match one argument
-~!x: match one argument, possibly through a default
-~~x: match 0, 1, or more arguments (returns a tuple)
-~~~x: match 1 or more arguments (returns a tuple)
+* A set of matches (`θ` or `σs`) allows for different matches due to commutivity/associativity. This set is empty if there are no matches. We use a vector to store this: MatchDict[MatchDict()] is an initial set with a initial partial match specified.
 
 
-# test cases                       # ACPM  | Rule2 | Rule1 (match only)
-eachmatch(:(~x), a + b + c)        # 1 | 1 | yes
-eachmatch(:(~x + ~y), a + b + c)   # 6 | 0 | no
-eachmatch(:(~x + ~!y), a + b + c)  # 6 | 1 | yes
-eachmatch(:(~x + ~~y), a+b+c)      # 7^ | 4 | no # ^~x accts like ~~~x
-eachmatch(:(~x + ~~~y), a+b+c)     # 6 | 3 | not
+A pattern to match against has wildcards. We have:
 
-# for rule2
-eachmatch(:(~x + ~~y), a+b+c) gives
- Base.ImmutableDict(:y => (b, c), :x => a)
- Base.ImmutableDict(:y => (a, c), :x => b)
- Base.ImmutableDict(:y => (a, b), :x => c)
- Base.ImmutableDict(:x => a + b + c, :y => ()) # is correct if ~x is just ~x
+* ~x: match one argument (a slot variable)
+* ~!x: match one argument, possibly through a default (a defslot)
+* ~~x: match 0, 1, or more arguments (returns a tuple); A segment or plus variable
+* ~~~x: match 1 or more arguments (returns a tuple); A star variable
 
-eachmatch(:(~x + ~~~y), a+b+c)     # 6 | 0 | no  # Rule2a is wrong here
-should give 3 matches, not 0      # <---- ERROR IS HERE
+# test cases -- AssociativeCommutativePatternMatching uses associativity in its considerations (2,4) and full enumeration when there are multiple segments (6, 7). The Rule1 (from SymbolicIntegration) doesn't do segments right (in my mind)
+
+                                      # ACPM  | Rule2 | Rule1 (match only)
+1. eachmatch(:(~x), a + b + c)        # 1 | 1 | yes
+2. eachmatch(:(~x + ~y), a + b + c)   # 6 | 0 | no (not associative matching!)
+3. eachmatch(:(~x + ~!y), a + b + c)  # 6 | 1 | yes
+4. eachmatch(:(~x + ~~y), a+b+c)      # 7⁺| 4 | no # ⁺ ~x accts like ~~~x
+5. eachmatch(:(~x + ~~~y), a+b+c)     # 6 | 3 | not
+6. eachmatch(:(~~x + ~~y), a+b+c)     # 8 | 1 | no
+7. eachmatch(:(~~~x + ~~~y), a+b+c)   # 6 | 1 | no
+
 =#
 
 ## ---- utils.jl -----
@@ -222,6 +227,55 @@ function _compositions(n::Int, k::Int)
     end
     return out
 end
+
+# Given a tuple/vector of leftover values and the precomputed `is_plus`
+# flags for a list of segment patterns (each either a "star" segment --
+# `~~x`, matches 0 or more -- or a "plus" segment -- `~~~x`, matches 1 or
+# more), find a single valid way to distribute the values among the
+# segments: give one value to each plus segment (to satisfy its "at least
+# one" requirement), then dump everything left over into the first
+# segment. Returns `nothing` if there are not enough values to give each
+# plus segment its required element.
+#
+# This is a cheap "first valid assignment" heuristic, not a full
+# enumeration of every possible split. When several segments appear
+# together there are in general many valid ways to distribute the values
+# (e.g. for `~~~x + ~~~y + ~~~w` against 3 values, any assignment of the
+# three values to the three variables, one each, is valid) but only one
+# such split is returned here.
+#
+# `is_plus_flags` is passed in (rather than recomputed from `segs` here)
+# since it is invariant across repeated calls in a hot loop (one call per
+# subset `ind` in `has_any_segment`'s commutative branch); the result is a
+# plain `Vector{Any}` of assigned values, positionally matching `segs`/
+# `is_plus_flags` (not `var => val` pairs), so the caller can reuse its
+# own precomputed segment varnames without recomputing them here.
+function _assign_segments_greedy(vals, is_plus_flags)
+    k = length(is_plus_flags)
+    n = length(vals)
+    p = 0
+    for f ∈ is_plus_flags
+        f && (p += 1)
+    end
+    p > n && return nothing
+
+    assigned = Vector{Any}(undef, k)
+    idx = 1
+    for i ∈ 1:k
+        if is_plus_flags[i]
+            assigned[i] = (vals[idx],)
+            idx += 1
+        else
+            assigned[i] = ()
+        end
+    end
+    if idx ≤ n
+        rest = vals[idx:end]
+        assigned[1] = (assigned[1]..., rest...)
+    end
+    return assigned
+end
+
 
 
 ## Expression related methods
@@ -572,9 +626,9 @@ function check_expr_r(data, rule::Expr, σs::𝑀)::𝑀
     # if there is a segment in the (only) argument
     if (iscall(rule) &&
         length(arguments(rule)) == 1 &&
-        is_segment(first(arguments(rule)))
-#        (is_segment(first(arguments(rule))) ||
-#         is_plus(first(arguments(rule))))
+#        is_segment(first(arguments(rule)))
+        (is_segment(first(arguments(rule))) ||
+         is_plus(first(arguments(rule))))
         )
         # @show :hi
         return only_argument_is_segment(data, rule, σs)
@@ -651,10 +705,10 @@ end
 
 # match a single variable
 function just_variable(data, rule, σs::𝑀)::𝑀
-    # @show :jv, data, rule
+    #@show :jv, data, rule
     @assert is_𝑋(rule)
     var = varname(rule)
-    val = is_segment(rule) ? (data,) : data
+    val = (is_segment(rule) || is_plus(rule)) ? (data,) : data
     isempty(σs) && return NO_MATCH
     ms = MatchDict[]
     for σ ∈ σs
@@ -942,23 +996,44 @@ function has_any_segment(𝑜𝑝ₛ, arg_data,
     if m > n
         return MatchDict[]
     elseif m == 0
-        # assign all to the first!
         σ′s = MatchDict[]
-
-        var′, vars... = seg
-        var = varname(var′)
-        val = tuple(arg_data...)
-        for σ ∈ σs
-            if haskey(σ, var)
-                σvar = σ[var]
-                val == σvar && push!(σ′s,σ)
-            else
-                σ′ = match_dict(σ, var => val)
-                for v ∈ vars
-                    σ′ = match_dict(σ′, varname(v) => ())
+        if length(seg) == 1
+            # fast path for the overwhelmingly common single-segment case:
+            # avoid the general (and slightly more allocating) machinery
+            # below when there is nothing to distribute among multiple
+            # segments
+            v = first(seg)
+            is_plus(v) && isempty(arg_data) && return MatchDict[]
+            var = varname(v)
+            val = tuple(arg_data...)
+            for σ ∈ σs
+                if haskey(σ, var)
+                    val == σ[var] && push!(σ′s, σ)
+                else
+                    push!(σ′s, match_dict(σ, var => val))
                 end
-                push!(σ′s,σ′)
             end
+            return σ′s
+        end
+        # distribute all of arg_data among the segment variables: each
+        # `~~~`-style (is_plus) segment needs at least one value, so we
+        # greedily give one value to each plus segment and dump the rest
+        # into the first segment (see `_assign_segments_greedy`)
+        seg_is_plus = is_plus.(seg)
+        assignment = _assign_segments_greedy(tuple(arg_data...), seg_is_plus)
+        isnothing(assignment) && return MatchDict[]
+        for σ ∈ σs
+            σ′ = σ
+            ok = true
+            for i ∈ eachindex(seg)
+                var, val = varname(seg[i]), assignment[i]
+                if haskey(σ′, var)
+                    val == σ′[var] || (ok = false; break)
+                else
+                    σ′ = match_dict(σ′, var => val)
+                end
+            end
+            ok && push!(σ′s, σ′)
         end# XXX?
         return σ′s
     elseif 0 < m ≤ n
@@ -969,9 +1044,16 @@ function has_any_segment(𝑜𝑝ₛ, arg_data,
             # combination (there are C(n,m) combinations, which can be
             # large)
             pat′ = pterm(opᵣ, notseg) # can be an issue!
-            v = first(seg)
-            var = varname(v)
-            v_has_pred = has_predicate(v)
+            seg_varnames = varname.(seg)
+            seg_is_plus = is_plus.(seg)
+            # when there is more than one segment pattern (e.g.
+            # `~x + ~~y + ~~w`), the "leftover" values (`val` below) must be
+            # distributed among *all* of the segments, not just dumped into
+            # the first one with the rest forced to `()` -- that forced
+            # `()` is invalid whenever a later segment is `~~~`-style
+            # (is_plus, "one or more"). `_assign_segments_greedy` picks one
+            # valid distribution (not a full enumeration of every possible
+            # split) honoring each plus segment's "at least one" minimum.
             for ind ∈ combinations(1:n, m)
                 # take m of the values and match
                 sub′ = sterm(𝑜𝑝ₛ, arg_data[ind])
@@ -981,20 +1063,30 @@ function has_any_segment(𝑜𝑝ₛ, arg_data,
                 val = length(ind) < n ?
                     _tuple_without_indices(arg_data, ind, n) :
                     ()
+                assignment = _assign_segments_greedy(val, seg_is_plus)
+                assignment === nothing && continue
                 for σ ∈ σs
                     σ′s = check_expr_r(sub′, pat′, [σ])
                     if σ′s != NO_MATCH
-                        # we found a match, assign the rest to first segment
+                        # we found a match, assign the rest across the segments
                         for σ′ ∈ σ′s
-                            if haskey(σ′, var)
-                                val == σ′[var] && push!(σ′′s, σ)
-                            else
-                                if !v_has_pred ||
-                                    (v_has_pred && _evalguard(get_predicate(v), val) )
-                                    σ′ = match_dict(σ′, var=>val)
-                                    push!(σ′′s, σ′)
+                            τ = σ′
+                            ok = true
+                            for i ∈ eachindex(seg)
+                                svar, sval = seg_varnames[i], assignment[i]
+                                if haskey(τ, svar)
+                                    sval == τ[svar] || (ok = false; break)
+                                else
+                                    svpat = seg[i]
+                                    if has_predicate(svpat) &&
+                                        !_evalguard(get_predicate(svpat), sval)
+                                        ok = false
+                                        break
+                                    end
+                                    τ = match_dict(τ, svar => sval)
                                 end
                             end
+                            ok && push!(σ′′s, τ)
                         end
                     end
                 end
@@ -1027,6 +1119,12 @@ function has_any_segment(𝑜𝑝ₛ, arg_data,
                     else
                         a = α[l]
                         l = l + 1
+                        # `~~~`-style (is_plus, "one or more") segments can
+                        # never be validly bound to an empty selection
+                        if a == 0 && is_plus(pat)
+                            nomatch = true
+                            continue
+                        end
                         var = varname(pat)
                         #value = view(arg_data,j:(j+a-1))
                         value = arg_data[j:(j+a-1)]

@@ -119,3 +119,43 @@ end
     @test match(sin(⋯), sin(x)^2) == nothing
 
 end
+
+@testset "eachmatch" begin
+    out = eachmatch(:(~x), a + b + c)
+    @test length(out) == 1
+
+    out = eachmatch(:(~x + ~y), a + b + c)
+    @test isempty(out)
+
+    out = eachmatch(:(~x + ~!y), a + b + c)
+    @test length(out) == 1
+    @test all(all(haskey(σ, k) for k in (:x, :y)) for σ in out)
+
+    out = eachmatch(:(~x + ~~y), a+b+c)
+    @test length(out) == 4
+    @test all(all(haskey(σ, k) for k in (:x, :y)) for σ in out)
+
+    out = eachmatch(:(~x + ~~~y), a+b+c)
+    @test length(out) == 3
+    @test all(all(haskey(σ, k) for k in (:x, :y)) for σ in out)
+    @test all(σ -> !isempty(σ[:y]), out)
+
+    out = eachmatch(:(~~x + ~~y), a+b+c)
+    @test length(out) == 1 # greedy, not exhaustive
+    @test all(all(haskey(σ, k) for k in (:x, :y)) for σ in out)
+
+    out = eachmatch(:(~~~x + ~~~y), a+b+c)
+    @test length(out) == 1 # greedy, not exhaustive
+    @test all(all(haskey(σ, k) for k in (:x, :y)) for σ in out)
+    @test all(σ -> !isempty(σ[:x]), out)
+    @test all(σ -> !isempty(σ[:y]), out)
+
+    out = eachmatch(:(~~x + ~~y + ~~w), a + b + c + a^2)
+    @test all(all(haskey(σ, k) for k in (:w, :x, :y)) for σ in out)
+
+    out = eachmatch(:(~x + ~~y + ~~w), a + b + c + a^2)
+    @test all(all(haskey(σ, k) for k in (:w, :x, :y)) for σ in out)
+
+
+
+end
