@@ -2,13 +2,14 @@
 simplify(ex) = __resolve(ex, simplify_rules)
 expand(ex)   = __resolve(ex, expand_rules)
 
+# useful
 Σ(x) = isempty(x) ? 0 : sum(x)
 Π(x) = isempty(x) ? 1 : prod(x)
 scalar_mult(c, x) = c .* x
+
 ## ------- rules to apply
 canonicalize = [
-    :(*(~!a, ~~~x) + *(~!b, ~~~x) + (~~~c)) => :(*(~a + ~b, prod(~~~x)) + Σ(~~~c)),
-    :(*(~!a, ~~~x) + *(~!b, ~~~x) + (~!c)) => :(*(~a + ~b, prod(~~~x)) + ~c),
+    :(*(~!a, ~~~x) + *(~!b, ~~~x) + (~~c)) => :(*(~a + ~b, prod(~~~x)) + Σ(~~c)),
     :(~a + (~b + ~c))          => :(+(~a,~b,~c)),
     :(~a * (~b * ~c))          => :(*(~a,~b,~c)),
     :(~a - ~a)                 => :(zero(~a)),
