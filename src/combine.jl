@@ -49,9 +49,9 @@ end
 combine(x::Number, _isnumber=isconstant; n=5) = x
 
 
-function expand(ex::AbstractSymbolic)
+function expand_terms(ex::AbstractSymbolic)
     !iscall(ex) && return ex
-    _expand(operation(ex), ex)
+    _expand_terms(operation(ex), ex)
 end
 
 
@@ -315,14 +315,14 @@ function MTERM(::typeof(+), x::SymbolicExpression, d; _isnumber=isconstant)
     MTerm(one(x), d)
 end
 
-## ------ expand top most operation over +
-function _expand(::typeof(*), ex)
-    as = ATERM.(expand.(arguments(ex)))
+## ------ expand_terms top most operation over +
+function _expand_terms(::typeof(*), ex)
+    as = ATERM.(expand_terms.(arguments(ex)))
     as′ = prod(as)
     sum(materialize(as′))
 end
 
-function _expand(::typeof(^), ex)
+function _expand_terms(::typeof(^), ex)
     a, b = arguments(ex)
     if isinteger(b)
         a′ = ATERM(a)
@@ -333,6 +333,6 @@ function _expand(::typeof(^), ex)
     end
 end
 
-function _expand(::Any, ex)
+function _expand_terms(::Any, ex)
     ex
 end

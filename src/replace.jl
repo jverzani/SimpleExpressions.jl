@@ -54,14 +54,14 @@ Base.ImmutableDict{Symbol, SimpleExpressions.AbstractSymbolic} with 2 entries:
 ```
 
 
-"""
+
 function Base.eachmatch(pattern::Expr, subject::AbstractSymbolic)
     σs = [MatchDict()]
     check_expr_r(subject, pattern, σs)
 end
 
 Base.eachmatch(pattern::AbstractSymbolic, subject::AbstractSymbolic) =
-    eachmatch(convert(Expr, pat), ex)
+    eachmatch(convert(Expr, pattern), subject)
 
 function Base.match(pattern::Expr, subject::AbstractSymbolic)
     σs = eachmatch(pattern, subject)

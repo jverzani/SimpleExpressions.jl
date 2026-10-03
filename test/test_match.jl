@@ -25,7 +25,12 @@ f ⨝ as = f(as...)
     @test replace(ex, log=>sin) == sin(1 + (x ^ 2)) + sin(1 + (x ^ 3))
 
     @symbolic_variables f() g()
-    @test_broken replace(f(a,a,b), f(x__) => g(x__)) ==  g((a,a,b)) # not g(a,a,b); XXX issue with this match
+    @test replace(f(a,a,b), f(x__) => g(x__)) ==  g((a,a,b))
+
+    # a lone segment binds to the tuple of arguments
+    @test Tuple(match(:(*(~~a)), (x + y) * z)[:a]) == (x + y, z)
+    @test Tuple(match(:(+(~~a)), a + b + c)[:a]) == (a, b, c)
+    @test Tuple(match(:(*(~~~a)), a * b * c)[:a]) == (a, b, c)
 end
 
 @testset "replace" begin

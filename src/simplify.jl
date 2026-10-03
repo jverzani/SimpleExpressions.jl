@@ -2,12 +2,17 @@
 simplify(ex) = __resolve(ex, simplify_rules)
 expand(ex)   = __resolve(ex, expand_rules)
 
+Σ(x) = isempty(x) ? 0 : sum(x)
+Π(x) = isempty(x) ? 1 : prod(x)
+scalar_mult(c, x) = c .* x
 ## ------- rules to apply
 canonicalize = [
-    :(*(~!a, ~~~x) + *(~!b, ~~~x) + (~~~c)) => :(*(~a + ~b, prod(~~~x)) + sum(~~~c)),
+    :(*(~!a, ~~~x) + *(~!b, ~~~x) + (~~~c)) => :(*(~a + ~b, prod(~~~x)) + Σ(~~~c)),
+    :(*(~!a, ~~~x) + *(~!b, ~~~x) + (~!c)) => :(*(~a + ~b, prod(~~~x)) + ~c),
     :(~a + (~b + ~c))          => :(+(~a,~b,~c)),
     :(~a * (~b * ~c))          => :(*(~a,~b,~c)),
     :(~a - ~a)                 => :(zero(~a)),
+    :(*(~~~a) + *(-1, ~~~a) + ~~b) => :(Σ(~~b)),
     :((~x)^(~z::iszero))       => :(one(~x)),
     :((~x)^(~z::isone))        => :(~x),
     :((~x::isone)^(~z))          => :(one(~x)),
@@ -24,7 +29,48 @@ canonicalize = [
 
 ]
 
-canonicalize_expand = [
+
+# https://docs.sympy.org/latest/tutorials/intro-tutorial/simplification.html
+powsimp = [
+    :((~x)^(~!m) * (~x)^(~n) * (~~a)) => :(Π(~~a) * (~x)^(~m + ~n)),
+    :((~x)^(~!m) * (~y)^(~m) * (~~a)) => :(Π(~~a) * (~x*~y)^(~m)), # needs x,y > 0
+    :(((~x)^(~m))^(~n))       => :((~x)^(~m*~n)),
+]
+
+expsimp = [
+    :((~~a) * exp(~x) * exp(~y)) => :(Π(~~a) * exp(~x + ~y)),
+    :(exp(~x)^(~y))      => :(exp(~x * ~y))
+]
+
+logsimp = [
+    :((~!a)*log(~x) + (~!a)*log(~y) + (~~b))    => :((~!a) * log(~x*~y) + Σ(~~b)),
+
+    :((~n)* log(~x))                    => :(log((~x)^(~n))),
+]
+
+
+trigsimp = [
+    :((~!a) * sin(~x)^2 + (~!a) * cos(~x)^2 + ~~b) => :(~a + Σ(~~b)),
+    :((~!a) * sinh(~x)^2 + (~!a) * cosh(~x)^2 + ~~b) => :(~a*cosh(2*~x) + Σ(~~b)),
+    :((~!a) * cos(~x)^2 + (-1) *  (~!a) * sin(~x)^2 + ~~b)   => :(~a * cos(2*~x) + Σ(~~b)),
+    :((~!a) * cosh(~x)^2 + (~!a) * sinh(~x)^2 + ~~b) => :(~a * cosh(2*~x) + Σ(~~b)),
+    :((~!a) * sin(~x)*cos(~y) + (~!a) * sin(~y)*cos(~x) + ~~b) => :((~!a) * sin(~x + ~y) + Σ(~~b)),
+    :((~!a) * sinh(~x)*cosh(~y) + (~!a) * sinh(~y)*cosh(~x) + ~~b) => :((~!a) * sinh(~x + ~y) + Σ(~~b)),
+
+    :((~!a) * cos(~x)*cos(~y) + (-1) * (~!a) * sin(~x)*sin(~y) + ~~b)     => :((~!a) * cos(~x + ~y) + Σ(~~b)),
+    :((~!a) * cosh(~x)*cosh(~y) + (~!a) * sinh(~y)*sinh(~x) + ~~b) => :((~!a) * cosh(~x + ~y) + Σ(~~b)),
+
+]
+
+
+trigsimpa = [
+    :((~!a) * (~m::iseven)*sin(~x)*cos(~x))   => :((~!a) * (~m/2) * sin(2*~x)),
+    :((~!a) * (~m::iseven)*sinh(~x)*cosh(~x)) => :((~!a) * (~m/2) * sinh(2*~x)),
+]
+
+## --- expand
+expand_canonicalize = [
+    :(-!a * +(~~~b))            => :(sum(scalar_mult(~!a, ~~~b))),
     :(*(~a + ~b,~x))           => :(*(~a, ~x) + *(~b, ~x)),
     :((~x)^(~z::iszero))       => :(one(~x)),
     :((~x)^(~z::isone))        => :(~x),
@@ -44,55 +90,38 @@ canonicalize_expand = [
 
 ]
 
-
-# https://docs.sympy.org/latest/tutorials/intro-tutorial/simplification.html
-powsimp = [
-    :((~x)^(~!m) * (~x)^(~n) * (~!a)) => :((~a) * (~x)^(~m + ~n)),
-    :((~x)^(~!m) * (~y)^(~m) * (~!a)) => :((~a) * (~x*~y)^(~m)), # needs x,y > 0
-    :(((~x)^(~m))^(~n))       => :((~x)^(~m*~n)),
+expand_pow = [
+    :((~x)^(~m + ~n)) => :((~x)^(~!m) * (~x)^(~n)),
+    :((~x*~y)^(~m)) => :((~x)^(~!m) * (~y)^(~m)),
+    :((~x)^(~m*~n)) =>  :(((~x)^(~m))^(~n))
 ]
-expand_pow = reverse.(powsimp)
 
-expsimp = [
-    :((~!a) * exp(~x) * exp(~y)) => :((~!a) * exp(~x + ~y)),
-    :(exp(~x)^(~y))      => :(exp(~x * ~y))
+expand_exp = [
+    :(exp(~x + ~y)) => :(exp(~x) * exp(~y)),
+    :(ℯ^(~x + ~y)) => :(exp(~x) * exp(~y)),
+    :(exp(~x * ~y)) => :(exp(~x)^(~y)),
+    :(ℯ^(~x * ~y)) => :(exp(~x)^(~y))
 ]
-expand_exp = reverse.(expsimp)
 
-logsimp = [
-    :((~!a)*log(~x) + (~!a)*log(~y) + (~!b))    => :((~!a) * log(~x*~y) + (~!b)),
-    :((~n)* log(~x))                    => :(log((~x)^(~n))),
+expand_log = [
+    :(log(~x * ~y)) => :(log(~x) + log(~y)),
+    :(log((~x) ^ ~n)) => :(~n * log(~x))
 ]
-expand_log = reverse.(logsimp)
 
-trigsimp = [
-    :((~!a) * sin(~x)^2 + (~!a) * cos(~x)^2 + ~~~b) => :(~a + sum(~~~b)),
-    :((~!a) * sinh(~x)^2 + (~!a) * cosh(~x)^2) => :(~a*cosh(2*~x)),
-
-
-    :((~!a) * cos(~x)^2 - (~!a) * sin(~x)^2)   => :(~a * cos(2*~x)),
-    :((~!a) * cosh(~x)^2 + (~!a) * sinh(~x)^2) => :(~a * cosh(2*~x)),
-
-
-    :((~!a) * sin(~x)*cos(~y) + (~!a) * sin(~y)*cos(~x))     => :((~!a) * sin(~x + ~y)),
-    :((~!a) * sinh(~x)*cosh(~y) + (~!a) * sinh(~y)*cosh(~x)) => :((~!a) * sinh(~x + ~y)),
-
-    :((~!a) * cos(~x)*cos(~y) - (~!a) * sin(~y)*sin(~x))     => :((~!a) * cos(~x + ~y)),
-    :((~!a) * cosh(~x)*cosh(~y) + (~!a) * sinh(~y)*sinh(~x)) => :((~!a) * cosh(~x + ~y)),
-]
-expand_trig = reverse.(trigsimp)
-
-trigsimpa = [
-    :((~!a) * (~m::iseven)*sin(~x)*cos(~x))   => :((~!a) * div(unwrap_const(~m),2)*sin(2*~x)),
-    :((~!a) * (~m::iseven)*sinh(~x)*cosh(~x)) => :((~!a) * div(unwrap_const(~m),2)*sinh(2*~x)),
-
-    :((~!a) * cos(~x)^2  + (~!a) * sin(~x)^2)   => :(~a),
-    :((~!a) * cosh(~x)^2 - (~!a) * sinh(~x)^2)  => :(~a),
+expand_trig = [
+    :(cosh(2 * ~x))  => :(sinh(~x) ^ 2 + cosh(~x) ^ 2),
+    :(cos(2 * ~x))   => :(cos(~x) ^ 2 - sin(~x) ^ 2),
+    :(cosh(2 * ~x))  => :(cosh(~x) ^ 2 + sinh(~x) ^ 2),
+    :(sin(~x + ~y))  => :(sin(~x) * cos(~y) + sin(~y) * cos(~x)),
+    :(sinh(~x + ~y)) => :(sinh(~x) * cosh(~y) + sinh(~y) * cosh(~x)),
+    :(cos(~x + ~y))  => :(cos(~x) * cos(~y) - sin(~x) * sin(~y)),
+    :(cosh(~x + ~y)) => :(cosh(~x) * cosh(~y) + sinh(~y) * sinh(~x))
 ]
 
 const simplify_rules = vcat(canonicalize, powsimp, expsimp, logsimp,
-                      trigsimp, trigsimpa)
-const expand_rules = vcat(canonicalize_expand, expand_pow, expand_exp, expand_trig)
+                            trigsimp, trigsimpa)
+const expand_rules = vcat(expand_canonicalize, expand_pow, expand_exp,
+                          expand_log, expand_trig)
 
 ## -----------------------------------------------------##
 function walk(ex, inner, outer)
@@ -114,54 +143,25 @@ function __apply_rules(x, rs)
         pat, rhs = r
         σ = match(pat, x)
         if σ != nothing
-            ex =  rewrite(σ, rhs)
-            return ex
+            ex = rewrite(σ, rhs)
+            ex != x && return ex
         end
     end
     return x
 end
 
-function __resolve(ex, rs)
-    n = 1
-    while n < 10
-        !iscall(ex) && break
+# Apply `rs` bottom-up repeatedly until the expression stops changing.
+# Rules can cycle (e.g. a rule and its reverse), so revisiting an earlier
+# expression also ends the iteration, as does the `maxiter` safeguard.
+function __resolve(ex, rs; maxiter=1000)
+    seen = Any[]
+    for _ in 1:maxiter
+        iscall(ex) || return ex
         ex′ = postwalk(x -> __apply_rules(x, rs), ex)
-        isnothing(ex′) && return ex
-        isequal(ex′, ex) && return ex
+        (isnothing(ex′) || isequal(ex′, ex)) && return ex
+        any(y -> isequal(y, ex′), seen) && return ex′
+        push!(seen, ex)
         ex = ex′
-        n += 1
     end
     return ex
 end
-
-
-#=
-
-## ----- Interface
-"""
-    simplify(ex)
-
-Simplify expression using `Metatheory.jl` and rules on loan from `SymbolicUtils.jl`.
-"""
-function simplify()
-end
-
-"""
-    expand(ex)
-
-Expand terms in an expression using `Metatheory.jl`
-"""
-function expand()
-end
-
-# some default definitions
-# we extend to SymbolicExpression in the Metatheroy extension
-for fn ∈ (:simplify, :expand,
-          :canonicalize, :powsimp, :trigsimp, :logcombine,
-          :expand_trig, :expand_power_exp, :expand_log)
-    @eval begin
-        $fn(ex::AbstractSymbolic) = ex
-        $fn(eq::SymbolicEquation) = SymbolicEquation($fn.(eq)...)
-    end
-end
-=#

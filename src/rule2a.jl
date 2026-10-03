@@ -132,7 +132,7 @@ end
 _isone(x) = isequal(x, 1)
 _groupby(pred, t) = (t = filter(pred,t), f=filter(!pred, t))
 
-## co-pilot utils
+## co-pilot written utils
 function _split_segments(arg_rule)
     seg = Expr[]
     notseg = Any[]
@@ -717,9 +717,12 @@ function only_argument_is_segment(data, rule, σs, op=nothing)
     opₛ, opᵣ = Symbol(operation(data)), operation(rule)
     opₛ == opᵣ || return MatchDict[]
 
-    # return the whole data (not only vector of arguments as in rule1)
-    var = varname(only(arguments(rule)))
-    _merge_single_expr(σs, var, data)
+    # a segment binds to the tuple of arguments, as in has_any_segment
+    seg = only(arguments(rule))
+    var = varname(seg)
+    args = tuple(arguments(data)...)
+    is_plus(seg) && isempty(args) && return MatchDict[]
+    _merge_single_expr(σs, var, args)
 end
 
 function has_rational(data, rule, σs)
