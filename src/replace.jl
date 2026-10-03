@@ -2,45 +2,13 @@
 
 const ExpressionType = SymbolicExpression
 
-#=
-_is_𝐿(x::AbstractSymbolic) = isa(x, 𝐿)
-_is_𝐹₀(x::AbstractSymbolic) = all(isempty(u) for u in free_symbols(x))
-
-
-function _is_Wild(x::𝑉) # 1
-    𝑥 = string(Symbol(x))
-    endswith(𝑥, "__") && return false
-    endswith(𝑥, "_")
-end
-
-function _is_Plus(x::𝑉) # 1 or more
-    𝑥 = string(Symbol(x))
-    endswith(𝑥, "___") && return false
-    endswith(𝑥, "__")
-end
-
-function _is_Star(x::SymbolicVariable) # 0, 1, or more
-    𝑥 = string(Symbol(x))
-    endswith(𝑥, "___")
-end
-
-function _is_𝑋(x::SymbolicVariable)
-    𝑥 = string(Symbol(x))
-    endswith(𝑥, "_")
-end
-
-# keep ⋯ as match so as not breaking
-_is_Wild(x::SymbolicVariable{:⋯}) = true
-_is_𝑋(x::SymbolicVariable{:⋯}) = true
-=#
-
 ## ---- match, replace
 """
-    match(pattern::Expr, subject::AbstractSymbolic)::MatchDict
+    match(pattern::Expr, subject::AbstractSymbolic)::Union{MatchDict, Nothing}
 
-For a pattern specified through an expression, return a dictionary of matches or a dictionary signaling failure
+Match `subject` against a `pattern` given as a Julia expression containing wildcards.
 
-Uses vendored `rule2.jl` from `SymbolicIntegration` as this is more performant than `AssociativeCommutativePatternMatching`.
+Return a dictionary mapping wildcard names (as symbols) to the matched values for the first match found, or `nothing` if there is none. Use `eachmatch` to get all identified matches.
 
 ## Examples
 ```julia
@@ -53,16 +21,88 @@ Base.ImmutableDict{Symbol, SimpleExpressions.AbstractSymbolic} with 2 entries:
   :x => p
 ```
 
+# Extended help
 
+## The algorithm
 
-function Base.eachmatch(pattern::Expr, subject::AbstractSymbolic)
-    σs = [MatchDict()]
-    check_expr_r(subject, pattern, σs)
-end
+The basic algorithm comes from that of `rule2.jl` from `SymbolicIntegration` and `[Krebber](https://arxiv.org/pdf/1705.00907)`.
 
-Base.eachmatch(pattern::AbstractSymbolic, subject::AbstractSymbolic) =
-    eachmatch(convert(Expr, pattern), subject)
+The pattern and the subject are walked together, top down.
 
+* A literal in the pattern (a number, a symbol, a constant such as `ℯ`) matches only an equal value in the subject.
+
+* A wildcard is bound to the part of the subject it is compared with. A wildcard that appears more than once must be bound to equal values each time, so `:(~a + ~a)` matches `x + x` but not `x + y`.
+
+* A call in the pattern, such as `cos(~y)`, matches a call in the subject with the same operation, whose arguments are then matched in turn. The pattern's operation can itself be a wildcard, see `(~f)(~x)` below.
+
+* For a `+` or `*` pattern (which are commutative) the arguments of the subject may be matched in any order, so `:(~x + 2)` matches `2 + y`. Different assignments can give different matches, which is why there can be more than one; `match` returns the first and `eachmatch` returns them all.
+
+* Powers are matched up to their representation: for example `sqrt(x)` and `x^(1//2)` can match each other, and a pattern `~a / ~b` matches `x * (1 / y)`.
+
+* Matching proceeds through a list of candidate bindings. A binding that conflicts with one already made, or that fails a predicate, is discarded; if no candidates remain the match fails.
+
+## Wildcards
+
+A wildcard is written with a leading `~`. A bare variable in the pattern is *not* a wildcard: it must match literally.
+
+| Pattern            | Name                | Matches                                                      |
+|:-------------------|:--------------------|:-------------------------------------------------------------|
+| `~x`               | slot                | exactly one subexpression, bound to `x`                      |
+| `~x::pred`         | slot with predicate | one subexpression for which `pred(value)` is `true`          |
+| `~!x`              | default slot        | one subexpression, or a default value when absent|
+| `~~x`              | segment/plus        | zero or more arguments of a call |
+| `~~~x`             | star                | one or more arguments of a call |
+| `(~f)(~x)`         | operation wildcard  | any call; `f` is bound to the operation                      |
+
+### Slots and predicates
+
+`~x` matches one subexpression. A predicate restricts the match; it is any function (or expression naming one) that returns a `Bool`, called on the value to be bound:
+
+```julia
+julia> match(:(~a::iseven * ~b), 2x)    # :a => 2, :b => x
+julia> match(:(~a::iseven * ~b), 3x)    # nothing
+```
+
+An error thrown by a predicate counts as `false`.
+
+### Default slots
+
+`~!x` is a slot that may be absent. In a sum its default is `0`, in a product, a
+power, or a division it is `1`. Thus `:(~!a * ~b)` matches `x` with `a => 1` and `b => x`, and `:((~b)^(~!n))` matches `x` with `n => 1`. If the term is present it is bound as usual. When the same default slot appears several times in a pattern, all occurrences must agree. Within a replacement, a default slot is written `~a` once bound.
+
+### Segments
+
+`~~x` and `~~~x` stand for several arguments of a call, and are bound to a *tuple*
+of those arguments. `~~x` allows none, `~~~x` requires at least one:
+
+```julia
+julia> match(:(~x + ~~~y), x + y + z)   # :x => x, :y => (y, z)
+julia> match(:(~x + ~~~y), x)           # nothing
+```
+
+If a segment is the only argument of the call, it is bound to all the arguments,
+so `:(*(~~a))` matches `(x + y) * z` with `a => (x + y, z)`. When there are several segments in one call the remaining arguments are divided among them, each `~~~` segment receiving at least one; several divisions may be possible, but not all are enumerated.
+
+### Operation wildcards
+
+`(~f)(~x)` matches any call with one argument, binding `f` to the operation and `x`
+to the argument:
+
+```julia
+julia> match(:((~f)(~x)), sin(y))       # :f => sin, x => y
+```
+
+## Caveats
+
+* Matching is syntactic up to commutativity and the power equivalences above. It does not use other algebraic identities, so `:(~x * ~x)` does not match `x^2`.
+
+* Matching does not consider associativity. For example, `:(~x + ~y)` does not match `a + b + c`, even though it could be argued to match `(a+b) + c` or `a + (b + c)`. That matching is to expensive. The `AssociativeCommutativePatternMatching` implements an algorithm that does this matching.
+
+* Pattern constants are compared by value after unwrapping, so `2` matches the symbolic number `2` (and `2.0`).
+
+!!! note
+    Extended help initially drafted by co-pilot
+"""
 function Base.match(pattern::Expr, subject::AbstractSymbolic)
     σs = eachmatch(pattern, subject)
     isempty(σs) && return nothing
@@ -72,6 +112,14 @@ end
 function Base.match(pat::AbstractSymbolic, ex::AbstractSymbolic)
     return match(convert(Expr, pat), ex)
 end
+function Base.eachmatch(pattern::Expr, subject::AbstractSymbolic)
+    σs = [MatchDict()]
+    check_expr_r(subject, pattern, σs)
+end
+
+Base.eachmatch(pattern::AbstractSymbolic, subject::AbstractSymbolic) =
+    eachmatch(convert(Expr, pattern), subject)
+
 
 
 """
