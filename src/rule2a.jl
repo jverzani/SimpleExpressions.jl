@@ -8,13 +8,13 @@ This code is derived from, rule2.jl at https://github.com/JuliaSymbolics/Symboli
 
 There are some modifications for commutivity following ideas from Krebber, which are also implemented in AssociativeCommutativePatternMatching.jl.
 
-Using Krebber's langauge we have
+Using Krebber's language we have
 
 * substitution (match) is σ a map between pattern terms and subject terms such that a substitution of the pattern terms returns the subject (σ(t) = s). This uses an ImmutableDict{Symbol, Any} to store a match or a partial match
 
 * An empty substitution is partial match and a possible match, when there are not wild cards
 
-* A sentinel is used to indicate *no possible subsitution* and is here a FAIL_DICT
+* A sentinel is used to indicate *no possible substitution* and is here a FAIL_DICT
 
 * A set of matches (`θ` or `σs`) allows for different matches due to commutivity/associativity. This set is empty if there are no matches. We use a vector to store this: MatchDict[MatchDict()] is an initial set with a initial partial match specified.
 
