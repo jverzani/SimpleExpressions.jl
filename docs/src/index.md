@@ -21,7 +21,7 @@ other compelling features of a CAS). The symbolic expressions subtype
 
 To keep things as simple as possible, there are only a few types of
 symbolic values: symbolic numbers, symbolic variables, symbolic
-parameters, symbolic expressions, and symbolic equations.
+parameters, symbolic expressions, symbolic terms, and symbolic equations.
 
 Symbolic variables and parameters are created with the `@symbolic`
 macro. For the `@symbolic` macro, the first argument names the
@@ -33,7 +33,7 @@ Symbolic equations are specified with the infix `~` operator with the left- and 
 
 Symbolic numbers can be produced from substitution.
 
-The symbolic expressions are just "thunks" or delayed expressions (akin to [Thunks.jl](https://github.com/tbenst/Thunks.jl)) but implemented in a more performant manner in `CallableExpressions`, where the operation and its arguments are kept in a structure and the expression is evaluated when called as a function.
+For the most part symbolic expressions are just "thunks" or delayed expressions (akin to [Thunks.jl](https://github.com/tbenst/Thunks.jl)) but implemented in a more performant manner in `CallableExpressions`, where the operation and its arguments are kept in a structure and the expression is evaluated when called as a function. There is a term like structure used for storing sums and products which allows light simplification during construction.
 
 
 ## Usage
@@ -184,7 +184,7 @@ This example shows "inverse" functions are applied (without concern for domain/r
 
 For plotting a symbolic equation, `eq`, the values `eq.lhs` and `eq.rhs` may be used separately to produce a pair of traces. With `Plots`, where a vector of functions may be plotted, `plot([eq...], a, b)` will plot each side with separate trace. Though with `Plots` there is a recipe to plot a symbolic equation as two separate functions.
 
-### Derivatives
+## Derivatives
 
 Symbolic expressions can be easily differentiated. A method for `diff` is used, as that name is established in some other languages. A variable to differentiate by should be specified. The operator differentiates with respect to the variable assuming it represents a scalar quantity:
 
@@ -212,7 +212,7 @@ Here the application of the product rule can be seen:
 u = diff(exp(x) * (sin(3x) + sin(101x)), x)
 ```
 
-### `replace`
+## `replace`
 
 To work with multiple symbolic parameters or variables, `replace` can be used to substitute in values for a specific variable.
 
@@ -234,7 +234,7 @@ u(1)    # always 0
 u(1, 2) # not 1^2 - 2^2, the second argument is ignored here
 ```
 
-As indicated, this is a deliberate design limitation to simplify usage. It can be worked around via `replace`:
+As indicated, this is a deliberate design limitation to simplified usage. It can be worked around via `replace`:
 
 ```@example expressions
 v = u(x=>1, y=>2)          # the symbolic value ((1^2)-(2^2)), also replace(u, x=>1, y=>2)
@@ -288,23 +288,12 @@ This is the final step in the last `replace` call above.
 SimpleExpressions.rewrite(σ, log1p(x_))
 ```
 
+The matching algorithm uses `Julia` expressions containing wildcards to describe a matching pattern. Details are in the docstring for [`match`](@ref).
 
-### Simplification
 
-No simplification is done by default so the expressions can quickly become unwieldy. The unexported `combine` functions does light simplification by combining like terms for addition and multiplication.
+## Simplification
 
-```@example expressions
-ex = 1 + x + 2x + 3x + 4
-```
-
-```@example expressions
-using SimpleExpressions: combine
-combine(ex)
-```
-
-Unlike most computer algebra systems---where the basic representation includes specialized storage for additive and multiplicative terms---this package does not. The `combine` function represents terms in this other manner, combines like terms, and then creates a expression again. This is a bit excessive to make a default, as the point here is reasonably fast callable functions.
-
-There is also an unexported `simplify` and `expand` command that uses pattern matching to perform basic simplification and expansion:
+Basic simplification of like terms is done whene expressions are constructed. For more simplification, there are unexported `simplify` and `expand` commands that uses pattern matching to perform basic simplification and expansion:
 
 
 ```@example expressions
@@ -315,9 +304,7 @@ simplify(ex)
 
 
 ```@example expressions
-@symbolic a b
-out = expand((a+b)^3)
-[out, simplify(out), combine(simplify(out))]
+SimpleExpressions.@symbolic_variables a b c d
+out = expand((a + b) * (c + d))
+[out, simplify(out)]
 ```
-
-Due to the manner symbolic terms are stored, these operations prove to be much slower than would be expected.

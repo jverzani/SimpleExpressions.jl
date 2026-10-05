@@ -27,7 +27,7 @@ function Base.convert(::Type{Expr}, p::SymbolicParameter)
 end
 
 Base.convert(::Type{Expr}, x::SymbolicNumber) = x()
-function Base.convert(::Type{Expr}, x::SymbolicExpression)
+function Base.convert(::Type{Expr}, x::SymbolicCall)
     op, args = operation(x), arguments(x)
     Expr(:call,  Symbol(op), convert.(Expr, assymbolic.(args))...)
 end
@@ -75,7 +75,7 @@ end
 free_symbols(::SymbolicNumber)     = (x=(),   p=())
 free_symbols(p::SymbolicParameter) = (x=(),   p=(p,))
 free_symbols(x::SymbolicVariable)  = (x=(x,), p=())
-function free_symbols(ex::SymbolicExpression)
+function free_symbols(ex::SymbolicCall)
     x,p = (), ()
     for c ∈ arguments(ex)
         𝑥, 𝑝 = free_symbols(c)
@@ -98,7 +98,7 @@ end
 Base.contains(f::AbstractSymbolic, x) = false
 Base.contains(f::𝑉, x::𝑋) where 𝑋 = (f == x)
 
-function Base.contains(f::SymbolicExpression, x::𝑋) where 𝑋
+function Base.contains(f::SymbolicCall, x::𝑋) where 𝑋
     f == x && return true
     for c ∈ arguments(f)
         (x == c || Base.contains(c, x)) && return true
@@ -138,7 +138,7 @@ is_number(x::AbstractSymbolic) = false
 is_number(x::SymbolicNumber) = true
 is_number(x::SymbolicParameter) = false
 is_number(x::SymbolicVariable) = false
-function is_number(x::SymbolicExpression)
+function is_number(x::SymbolicCall)
     return CallableExpressions.expression_is_constant(↓(x))
 end
 
@@ -184,4 +184,4 @@ isnegative(expr) = false
 isnegative(x::𝑉) = false
 isnegative(x::SymbolicNumber) = x() < 0
 isnegative(x::Number) = x < 0
-isnegative(x::SymbolicExpression) = isnumeric(x) && x() < 0
+isnegative(x::SymbolicCall) = isnumeric(x) && x() < 0

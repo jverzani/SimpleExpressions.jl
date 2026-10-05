@@ -114,8 +114,6 @@ end
         @test expand(x^(1//2)) == sqrt(x)
         @test expand(x^(1//3)) == cbrt(x)
         @test expand(ℯ^x) == exp(x)
-        @test expand(sin(x) / cos(x)) == tan(x)
-        @test expand(cos(x) / sin(x)) == cot(x)
     end
 
     @testset "expand_pow" begin

@@ -8,14 +8,14 @@ TermInterface.iscall(::Symbol) = false
 
 ## AbstractSymbolic
 TermInterface.operation(x::AbstractSymbolic) = nothing
-TermInterface.operation(x::SymbolicExpression) = (↓(x)).operation
+TermInterface.operation(x::SymbolicCall) = (↓(x)).operation
 
 TermInterface.arguments(x::AbstractSymbolic) = nothing
 function TermInterface.arguments(x::SymbolicExpression)
     children = (↓(x)).children
     assymbolic.(children)
 end
-TermInterface.sorted_arguments(x::SymbolicExpression) = TupleTools.sort(arguments(x))
+TermInterface.sorted_arguments(x::SymbolicCall) = TupleTools.sort(arguments(x))
 
 
 

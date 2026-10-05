@@ -31,11 +31,11 @@
 (𝑐::SymbolicNumber)(args...; kwargs...) = CallableExpressions.constant_value(↓(𝑐))
 
 
-function (ex::SymbolicExpression)(x)
+function (ex::SymbolicCall)(x)
     _call(ex, operation(ex), x)
 end
 
-function (ex::SymbolicExpression)(x,p)
+function (ex::SymbolicCall)(x,p)
     _call(ex, operation(ex), x, p)
 end
 
@@ -86,7 +86,7 @@ end
 (𝑝::SymbolicParameter)(;kwargs...) = (↓(𝑝))(NamedTuple(kwargs))
 ## This also handles case of symbolic expressions which are numeric
 ## have value given by ex()
-(ex::SymbolicExpression)(;kwargs...) = (↓(ex))(NamedTuple(kwargs))
+(ex::SymbolicCall)(;kwargs...) = (↓(ex))(NamedTuple(kwargs))
 
 # like Symbolics
 unwrap_const(x::Any) = x
@@ -121,7 +121,7 @@ function unwrap_const(x::Symbol)
     return x
 end
 unwrap_const(x::SymbolicNumber) = x()
-function unwrap_const(x::SymbolicExpression)
+function unwrap_const(x::SymbolicCall)
     is_number(x) && return x()
     return x
 end
@@ -147,18 +147,18 @@ const MISSING = Union{Nothing, Missing, typeof(:)}
 (𝑝::SymbolicParameter)(x,::MISSING) = 𝑝
 (𝑝::SymbolicParameter)(::MISSING,::MISSING) = 𝑝
 
-function (ex::SymbolicExpression)(::MISSING, p)
+function (ex::SymbolicCall)(::MISSING, p)
     u = ↓(ex)
     u₁ = _substitutep(u, p)
     SymbolicExpression(u₁)
 end
-function (ex::SymbolicExpression)(x,::MISSING)
+function (ex::SymbolicCall)(x,::MISSING)
     u = ↓(ex)
     u₁ = _substitutex(u, x)
     SymbolicExpression(u₁)
 end
 
-(ex::SymbolicExpression)(::MISSING, ::MISSING) = ex
+(ex::SymbolicCall)(::MISSING, ::MISSING) = ex
 
 (X::SymbolicEquation)(::MISSING,p) = tilde(X.lhs(:, p),  X.rhs(:, p))
 (X::SymbolicEquation)(x,::MISSING) = tilde(X.lhs(x, :),  X.rhs(x, :))

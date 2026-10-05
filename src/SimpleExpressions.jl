@@ -16,12 +16,12 @@ using Combinatorics
 export @symbolic
 
 include("types.jl")
+include("terms.jl")
 include("constructors.jl")
 include("decl.jl")
 include("equations.jl")
 include("terminterface.jl")
 include("ops.jl")
-include("combine.jl")
 include("show.jl")
 include("introspection.jl")
 include("call.jl")

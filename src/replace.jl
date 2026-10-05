@@ -298,11 +298,11 @@ function Base.replace(ex::AbstractSymbolic, args::Pair...)
 end
 (𝑥::SymbolicVariable)(args::Pair...) = replace(𝑥, args...)
 (𝑝::SymbolicParameter)(args::Pair...) = replace(𝑝, args...)
-(ex::SymbolicExpression)(args::Pair...) = replace(ex, args...)
+(ex::SymbolicCall)(args::Pair...) = replace(ex, args...)
 
 (𝑥::SymbolicVariable)(eq::SymbolicEquation) = replace(𝑥, eq.lhs => eq.rhs)
 (𝑝::SymbolicParameter)(eq::SymbolicEquation) = replace(𝑝, eq.lhs => eq.rhs)
-(ex::SymbolicExpression)(eq::SymbolicEquation) = replace(ex, eq.lhs => eq.rhs)
+(ex::SymbolicCall)(eq::SymbolicEquation) = replace(ex, eq.lhs => eq.rhs)
 
 # For the pattern/replacement pair match expression against pattern. If a match, rewrite replacement using match dictionary.
 function Base.replace(ex::AbstractSymbolic, pat_rhs::Pair{S,T}) where {
@@ -329,7 +329,7 @@ end
 
 ## u::SymbolicVariable **including** a wild card
 
-function _replace(ex::SymbolicExpression, u::SymbolicVariable,  v)
+function _replace(ex::SymbolicCall, u::SymbolicVariable,  v)
     ## intercept wildcards!!!
     ex′, u′, v′ = map(↓, (ex, u, v))
     pred = ==(u′)
@@ -338,7 +338,7 @@ function _replace(ex::SymbolicExpression, u::SymbolicVariable,  v)
 end
 
 ## u::SymbolicParameter
-function _replace(ex::SymbolicExpression, u::SymbolicParameter,  v)
+function _replace(ex::SymbolicCall, u::SymbolicParameter,  v)
     ex′, u′, v′ = map(↓, (ex, u, v))
     pred = ==(u′)
     mapping = _ -> v′
@@ -361,7 +361,7 @@ end
 
 #
 # u is symbolic expression possibly wild card
-_replace(ex::AbstractSymbolic, u::SymbolicExpression, v) =
+_replace(ex::AbstractSymbolic, u::SymbolicCall, v) =
     _replace_arguments(ex, u, v)
 
 
@@ -476,7 +476,7 @@ function rewrite(σ::Base.ImmutableDict, rhs::Expr)
     # otherwise call recursively on arguments and then reconstruct expression
     op, args... = rhs.args
     args′ = [rewrite(σ, a) for a in rhs.args[2:end]]
-@show op
+
     if isa(op, Symbol)
         op′ = if isdefined(@__MODULE__, op)
             getproperty(@__MODULE__, op)

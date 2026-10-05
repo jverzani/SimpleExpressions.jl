@@ -17,9 +17,9 @@ When using positional arguments in a  call, as above, all symbolic variables are
 
 There are also methods for `replace` that allow more complicated substitutions. For `replace`, symbolic objects are returned. For `replace`, variables are distinct and identified by their symbol. Pairs may be specified to the call notation as a convenience for `replace`.
 
-There are no performance claims, this package is all about convenience.  Similar convenience is available in some form with `SymPy`, `SymEngine`, `Symbolics`, etc. As well, placeholder syntax is available in `Underscores.jl`, `Chain.jl`, `DataPipes.jl` etc., This package only has value in that it is very lightweight and, hopefully, intuitively simple.
+There are no performance claims, this package is all about convenience.  Similar convenience is available in some form with `SymPy`, `Giac`, `SymEngine`, `Symbolics`, etc. As well, placeholder syntax is available in `Underscores.jl`, `Chain.jl`, `DataPipes.jl` etc., This package only has value in that it is very lightweight and, hopefully, intuitively simple.
 
-Performance is good though, as `CallableExpressions` is performant. A benchmark case of finding a zero of a function runs without allocations in `1.099 μs` with `0` allocations, with a symbolic expression in  `1.231 μs` with `0` allocations, `SymEngine` is two orders of magnitude slower (`302.329 μs` with `1731` allocations), and SymPy is about four orders slower (and with `80k` allocations).
+Performance is good though, as `CallableExpressions` is performant. A benchmark case of finding a zero of a function runs without allocations in `931 ns` with `0` allocations, with a symbolic expression in  `4.65 μs` with `286` allocations, `SymEngine` is two orders of magnitude slower (`76.329 μs` with `18911` allocations), and SymPy much slower (`32.318 ms` with `79796`) allocations.
 
 Extensions are provided for `SpecialFunctions`, `AbstractTrees`, `Latexify`, and `RecipesBase`.
 

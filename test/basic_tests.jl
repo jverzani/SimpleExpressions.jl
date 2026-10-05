@@ -1,6 +1,6 @@
 # basics
 import SimpleExpressions: arguments, sorted_arguments
-import SimpleExpressions: D, solve, ispolynomial, polynomial_coefficients, polynomial_degree, combine
+import SimpleExpressions: D, solve, ispolynomial, polynomial_coefficients, polynomial_degree
 import SimpleExpressions: map_matched
 import SimpleExpressions: is_number, isconstant, isvariable
 @testset "SimpleExpressions.jl" begin
@@ -37,11 +37,11 @@ import SimpleExpressions: is_number, isconstant, isvariable
     end
 
     # +,* nary
-    @test length(arguments(x + 2x + 6sin(x))) == 3
-    @test length(arguments(x * 2x * 6sin(x))) == 5
+    @test length(arguments(x + 2x + 6sin(x))) == 2
+    @test length(arguments(x * 2x * 6sin(x))) == 3
 
     # sort
-    @test sorted_arguments(6*sin(x)*x*p*2) == (2,6,p,x,sin(x))
+    @test sorted_arguments(6*sin(x)*x*p*2) == (12,p,x,sin(x))
 
     # isless + isequal: exactly one of those three yields true.
     xs = (2, 3, x, 2x, p, 2p, x^2,sin(x),x+x^2+x^3)
@@ -191,12 +191,12 @@ end
     @symbolic x p
 
     @test repr(2x) == "2 * x"
-    @test_broken repr(x*2) == "2 * x" # sort?
+    @test repr(x*2) == "2 * x"
 
     @test repr(x / 2) == "x / 2"
-    @test_broken repr((x+2) / 2) == "(2 + x) / 2"
-    @test repr(x / (x+2)) == "x / (x + 2)"
-    @test_broken repr(x .- sum(x)/length(x)) == "x .- (sum(x) / length(x))" # parens around expressions, like `sum(x)`.
+    @test repr((x+2) / 2) == "1 + (x / 2)"
+    @test repr(x / (x+2)) == "x / (2 + x)"
+    @test repr(x .- sum(x)/length(x)) == "x .- (sum(identity, x) / length(x))"
 
     @test repr((1+x)^2) == "(1 + x) ^ 2"
 
@@ -204,7 +204,9 @@ end
 
 @testset "combine" begin
     # simplish simplification
-    # might relax tests from == to evaluating at a few points
+    # uses term by default, so these are noops now and test use
+    # of add and mul terms
+    combine = identity
     @symbolic x p
 
     ex = 2x + x

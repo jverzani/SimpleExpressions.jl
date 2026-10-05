@@ -8,7 +8,7 @@ _show(io::IO, u::DynamicVariable) = print(io, u.sym)
 _show(io::IO, u::StaticVariable{S}) where {S} = print(io, S)
 _show(io::IO, u::DynamicConstant) = print(io, u.value)
 
-function Base.show(io::IO, x::SymbolicExpression)
+function Base.show(io::IO, x::SymbolicCall)
     broadcast = ""
     op, args = operation(x), arguments(x)
     if op == Base.broadcasted

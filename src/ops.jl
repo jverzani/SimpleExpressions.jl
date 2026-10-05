@@ -23,10 +23,7 @@ fourthroot(x^2 + 2)
 ## use combine to combine over + and *
 # ADD
 function Base.:+(x::AbstractSymbolic, y::AbstractSymbolic)
-    iszero(x) && return y
-    iszero(y) && return x
-    as = TupleTools.vcat(_arguments(+,x), _arguments(+,y))
-    SymbolicExpression(StaticExpression(as, +))
+    _add(x, y)
 end
 
 ## SUB
@@ -35,26 +32,20 @@ Base.:-(x::AbstractSymbolic, y::AbstractSymbolic) = x + (-1)*y
 
 # MUL
 function Base.:*(x::AbstractSymbolic, y::AbstractSymbolic)
-    isone(x) && return y
-    isone(y) && return x
-    iszero(x) && return zero(x)
-    iszero(y) && return zero(y)
-    as = TupleTools.vcat(_arguments(*,x), _arguments(*,y))
-    SymbolicExpression(StaticExpression(as, *))
+    _mul(x, y)
 end
 
 # DIV
+# x / y is stored as x * y^-1, so that `2x * (3x)^-1` combines
 function Base.:/(x::AbstractSymbolic, y::AbstractSymbolic)
-    x == y && return one(x)
+    if iszero(y)
+        cs = (↓(x), ↓(y))
+        return SymbolicExpression(StaticExpression(cs, /))
+    end
     isone(y) && return x
     iszero(x) && return zero(x)
     !isinf(x) && isinf(y) && return zero(x)
-    if is_operation(/)(y)
-        a,b = arguments(y)
-        return (x*b)/a
-    end
-    cs = (↓(x), ↓(y))
-    SymbolicExpression(StaticExpression(cs, /))
+    _mul(x, _pownum(y, -1))
 end
 
 ## POW
@@ -63,9 +54,11 @@ function Base.:^(x::AbstractSymbolic, y::AbstractSymbolic)
     iszero(x) && return zero(y)
     isone(x)  && return x
 
-    cs = (↓(x), ↓(y))
-    SymbolicExpression(StaticExpression(cs, ^))
+    n = _num(y)
+    n === nothing || return _pownum(x, n)
+    _powtree(x, y)
 end
+_powtree(x, y) = SymbolicExpression(StaticExpression((↓(x), ↓(y)), ^))
 
 for op ∈ (://,)#  :≈)
     @eval begin
@@ -251,7 +244,7 @@ for op in (:isinteger, :ispow2,
         import Base: $op
         Base.$op(::AbstractSymbolic) = false
         Base.$op(c::SymbolicNumber) = $op(c())
-        function Base.$op(c::SymbolicExpression)
+        function Base.$op(c::SymbolicCall)
             x,p = free_symbols(c)
             (!isempty(x) || !isempty(p)) && return false
             return $op(c())
@@ -297,33 +290,20 @@ function Base.broadcasted(::typeof(log), a, b::AbstractSymbolic)
 end
 
 ## ---- powers
-Base.inv(a::AbstractSymbolic) = SymbolicExpression(inv, (a,))
-Base.inv(a::SymbolicExpression) = _inv(operation(a), a)
-_inv(::typeof(inv), a) = only(arguments(a))
-function _inv(::typeof(^), a)
-    u, v = arguments(a)
-    isa(v, SymbolicNumber) && return u^(-v())
-    u^(-v)
+Base.inv(a::AbstractSymbolic) = _pownum(a, -1)
+function Base.inv(a::SymbolicExpression)
+    if operation(a) === (^)
+        u, v = arguments(a)
+        _num(v) === nothing && return u^(-v)
+    end
+    _pownum(a, -1)
 end
-function _inv(::typeof(/), a)
-    u, v = arguments(a)
-    v/u
-end
-_inv(::Any, a) = SymbolicExpression(inv, (a,))
 
 ## ---- literal_pow
 ## handle integer powers
 Base.literal_pow(::typeof(^), x::AbstractSymbolic, ::Val{0}) = one(x)
 Base.literal_pow(::typeof(^), x::AbstractSymbolic, ::Val{1}) = x
-Base.literal_pow(::typeof(^), x::AbstractSymbolic, ::Val{2}) = SymbolicExpression(^,(x,SymbolicNumber(2)))
-Base.literal_pow(::typeof(^), x::AbstractSymbolic, ::Val{3}) = SymbolicExpression(^,(x,SymbolicNumber(3)))
-Base.literal_pow(::typeof(^), x::AbstractSymbolic, ::Val{-1}) = 1/x
-Base.literal_pow(::typeof(^), x::AbstractSymbolic, ::Val{-2}) = 1/x^2
-function Base.literal_pow(::typeof(^), x::AbstractSymbolic, ::Val{p}) where {p}
-    p′ = SymbolicNumber(abs(p))
-    u = SymbolicExpression(^, (x, p′))
-    p < 0 ? 1 / u : u
-end
+Base.literal_pow(::typeof(^), x::AbstractSymbolic, ::Val{p}) where {p} = _pownum(x, p)
 
 function Base.broadcasted(::typeof(Base.literal_pow), u, a::AbstractSymbolic,
                           p::Val{N}) where {N}
