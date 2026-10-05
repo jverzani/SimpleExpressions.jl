@@ -79,7 +79,7 @@ end
 function _final_solve(l,r,x)
     # try some things
     ## polynomials?
-    cs = coefficients(l,x)
+    cs = polynomial_coefficients(l,x)
     if !isnothing(cs)
         if length(cs) == 1
             return l ~ r
@@ -191,8 +191,8 @@ function isolate_x(::Val{:←}, l, r::𝑉, x)
     l, r
 end
 
-isolate_x(v::Val{:→}, l::SymbolicExpression, r, x) = isolate_x(v, operation(l), l, r, x)
-isolate_x(v::Val{:←}, l, r::SymbolicExpression, x) = isolate_x(v, operation(r), l, r, x)
+isolate_x(v::Val{:→}, l::SymbolicCall, r, x) = isolate_x(v, operation(l), l, r, x)
+isolate_x(v::Val{:←}, l, r::SymbolicCall, x) = isolate_x(v, operation(r), l, r, x)
 
 ## ---- /
 

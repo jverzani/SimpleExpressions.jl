@@ -1,9 +1,9 @@
-using Documenter
+using Documenter, MaterialDocs
 using SimpleExpressions
 
 makedocs(
     sitename = "SimpleExpressions",
-    format = Documenter.HTML(),
+    format   = Material3(theme = :ocean_depth, dark_mode = :toggle), #format = Documenter.HTML(),
     modules = [SimpleExpressions],
     pages=[
         "Home" => "index.md",

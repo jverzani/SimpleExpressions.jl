@@ -25,7 +25,12 @@ f ⨝ as = f(as...)
     @test replace(ex, log=>sin) == sin(1 + (x ^ 2)) + sin(1 + (x ^ 3))
 
     @symbolic_variables f() g()
-    @test_broken replace(f(a,a,b), f(x__) => g(x__)) ==  g((a,a,b)) # not g(a,a,b); XXX issue with this match
+    @test replace(f(a,a,b), f(x__) => g(x__)) ==  g((a,a,b))
+
+    # a lone segment binds to the tuple of arguments
+    @test Tuple(match(:(*(~~a)), (x + y) * z)[:a]) == (x + y, z)
+    @test Tuple(match(:(+(~~a)), a + b + c)[:a]) == (a, b, c)
+    @test Tuple(match(:(*(~~~a)), a * b * c)[:a]) == (a, b, c)
 end
 
 @testset "replace" begin
@@ -36,7 +41,7 @@ end
 
     # replace parts
     ex = log(1 + x^2) + log(1 + x^3)
-    @test replace(ex, log(1+x__) => log1p(x__)) == log1p(x ^ 2) + log1p(x ^ 3)
+    @test replace(ex, log(1+x__) => log1p(sum(x__))) == log1p(x ^ 2) + log1p(x ^ 3)
 
     ex = log(sin(x)) + tan(sin(x^2))
     @test replace(ex, sin => cos) == log(cos(x)) + tan(cos(x^2))
@@ -115,7 +120,64 @@ end
     σ = match(f(x__,y__), f(a,b,c))
     @test_broken f(x__, y__)(σ...) ∈ (f((a,b), (c,)), f((a,), (b,c))) # XXX this fails
 
-    # empty match returns FAIL_DICT, was `nothing`
-    @test match(sin(⋯), sin(x)^2) == SimpleExpressions.FAIL_DICT
+    # empty match returns `nothing`
+    @test match(sin(⋯), sin(x)^2) == nothing
+
+    # default slots
+    pat = :((~!a) * sin(~x)^2 + (~!a) * cos(~x)^2 + ~!b)
+    ex = sin(2x)^2 + cos(2x)^2
+    σ = match(pat, ex)
+    @test σ[:a] == 1
+    @test σ[:b] == 0
+    @test σ[:x] == 2x
+
+    # guards
+    @test match(:(sin(~x::iseven)), sin(x(x=>2))) != nothing
+    @test match(:(sin(~x::iseven)), sin(x(x=>3))) == nothing
+
+    @test match(:(~x::ispolynomial(x)), x^5 - x - 1) != nothing
+    @test match(:(~x::ispolynomial(x)), sin(x)) == nothing
+end
+
+@testset "eachmatch" begin
+    out = eachmatch(:(~x), a + b + c)
+    @test length(out) == 1
+
+    out = eachmatch(:(~x + ~y), a + b + c)
+    @test isempty(out)
+
+    out = eachmatch(:(~x + ~!y), a + b + c)
+    @test length(out) == 1
+    @test all(all(haskey(σ, k) for k in (:x, :y)) for σ in out)
+
+    out = eachmatch(:(~x + ~~y), a+b+c)
+    @test length(out) == 4
+    @test all(all(haskey(σ, k) for k in (:x, :y)) for σ in out)
+
+    out = eachmatch(:(~x + ~~~y), a+b+c)
+    @test length(out) == 3
+    @test all(all(haskey(σ, k) for k in (:x, :y)) for σ in out)
+    @test all(σ -> !isempty(σ[:y]), out)
+
+    out = eachmatch(:(~~x + ~~y), a+b+c)
+    @test length(out) == 1 # greedy, not exhaustive
+    @test all(all(haskey(σ, k) for k in (:x, :y)) for σ in out)
+
+    out = eachmatch(:(~~~x + ~~~y), a+b+c)
+    @test length(out) == 1 # greedy, not exhaustive
+    @test all(all(haskey(σ, k) for k in (:x, :y)) for σ in out)
+    @test all(σ -> !isempty(σ[:x]), out)
+    @test all(σ -> !isempty(σ[:y]), out)
+
+    out = eachmatch(:(~~x + ~~y + ~~w), a + b + c + a^2)
+    @test all(all(haskey(σ, k) for k in (:w, :x, :y)) for σ in out)
+
+    out = eachmatch(:(~~~x + ~~~y + ~~~w), a + b + c + a^2)
+    @test all(all(haskey(σ, k) for k in (:w, :x, :y)) for σ in out)
+
+    out = eachmatch(:(~x + ~~y + ~~w), a + b + c + a^2)
+    @test all(all(haskey(σ, k) for k in (:w, :x, :y)) for σ in out)
+
+
 
 end

@@ -69,6 +69,11 @@ function GuardedSymbolicVariable(u; kwargs...)
     𝑢
 end
 
+abstract type SymbolicTerms <: AbstractSymbolic end
+
+# methods written for `SymbolicExpression` that only use `operation`, `arguments`, `↓`
+const SymbolicCall = Union{SymbolicExpression, SymbolicTerms}
+
 
 ## ----------
 
