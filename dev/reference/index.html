@@ -1,22 +1,292 @@
-<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Reference/API · SimpleExpressions</title><meta name="title" content="Reference/API · SimpleExpressions"/><meta property="og:title" content="Reference/API · SimpleExpressions"/><meta property="twitter:title" content="Reference/API · SimpleExpressions"/><meta name="description" content="Documentation for SimpleExpressions."/><meta property="og:description" content="Documentation for SimpleExpressions."/><meta property="twitter:description" content="Documentation for SimpleExpressions."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.63.2/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">SimpleExpressions</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li class="is-active"><a class="tocitem" href>Reference/API</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Reference/API</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Reference/API</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/jverzani/SimpleExpressions.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/jverzani/SimpleExpressions.jl/blob/main/docs/src/reference.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="SimpleExpressions.jl"><a class="docs-heading-anchor" href="#SimpleExpressions.jl">SimpleExpressions.jl</a><a id="SimpleExpressions.jl-1"></a><a class="docs-heading-anchor-permalink" href="#SimpleExpressions.jl" title="Permalink"></a></h1><article><details class="docstring" open="true"><summary id="SimpleExpressions.SimpleExpressions"><a class="docstring-binding" href="#SimpleExpressions.SimpleExpressions"><code>SimpleExpressions.SimpleExpressions</code></a> — <span class="docstring-category">Module</span></summary><section><div><pre><code class="language-julia hljs">SimpleExpressions</code></pre><p>A <em>very</em> lightweight means to create callable functions using expressions. This uses  <a href="https://juliahub.com/ui/Packages/General/SimpleExpressions">CallableExpressions</a> as a backend. See also  <a href="https://juliahub.com/ui/Packages/General/DynamicExpressions">DynamicExpressions</a> for a performant package with similar abilities.</p><p>The <a href="#SimpleExpressions.@symbolic-Tuple"><code>@symbolic</code></a> macro, the lone export, can create a symbolic variable and optional symbolic parameter. When expressions are created with these variables, evaluation is deferred until the expression is called like a function. The expressions subtype <code>Function</code> so are intended to be useful with <code>Julia</code>&#39;s higher-order functions.</p><p>The expressions can be evaluated as a univariate function, <code>u(x)</code>, a univariate function with parameter, <code>u(x, p)</code>, or as a bivariate function, <code>u(x,y)</code> (with <code>y</code> being a parameter). These are all typical calling patterns when a function is passed to a numeric routine.  For expressions without a symbolic value (as can happen through substitution) <code>u()</code> will evaluate the value.</p><p>To substitute in for either the variable or the parameter, leaving a symbolic expression, we have the calling patterns <code>u(:,p)</code>, <code>u(x,:)</code> to substitute in for the parameter and variable respectively. The colon can also be <code>nothing</code> or <code>missing</code>.</p><p>When using positional arguments in a  call, as above, all symbolic variables are treated identically, as are all symbolic parameters.</p><p>There are also methods for <code>replace</code> that allow more complicated substitutions. For <code>replace</code>, symbolic objects are returned. For <code>replace</code>, variables are distinct and identified by their symbol. Pairs may be specified to the call notation as a convenience for <code>replace</code>.</p><p>There are no performance claims, this package is all about convenience.  Similar convenience is available in some form with <code>SymPy</code>, <code>SymEngine</code>, <code>Symbolics</code>, etc. As well, placeholder syntax is available in <code>Underscores.jl</code>, <code>Chain.jl</code>, <code>DataPipes.jl</code> etc., This package only has value in that it is very lightweight and, hopefully, intuitively simple.</p><p>Performance is good though, as <code>CallableExpressions</code> is performant. A benchmark case of finding a zero of a function runs without allocations in <code>1.099 μs</code> with <code>0</code> allocations, with a symbolic expression in  <code>1.231 μs</code> with <code>0</code> allocations, <code>SymEngine</code> is two orders of magnitude slower (<code>302.329 μs</code> with <code>1731</code> allocations), and SymPy is about four orders slower (and with <code>80k</code> allocations).</p><p>Extensions are provided for <code>SpecialFunctions</code>, <code>AbstractTrees</code>, <code>Latexify</code>, and <code>RecipesBase</code>.</p><p><strong>Example</strong></p><pre><code class="language-julia hljs">using SimpleExpressions
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SimpleExpressions.jl — SimpleExpressions</title>
+  <link rel="stylesheet" href="../assets/materialdocs.css?v=d088db4b">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;600;700&family=Source+Sans+3:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap">
+  <meta name="title" content="SimpleExpressions.jl — SimpleExpressions">
+  <meta property="og:title" content="SimpleExpressions.jl — SimpleExpressions">
+  <meta property="twitter:title" content="SimpleExpressions.jl — SimpleExpressions">
+  <meta name="description" content="Documentation for SimpleExpressions.">
+  <meta property="og:description" content="Documentation for SimpleExpressions.">
+  <meta property="twitter:description" content="Documentation for SimpleExpressions.">
+  <script>
+    (function(){
+      document.documentElement.classList.add('no-transition');
+      var t=localStorage.getItem('md-theme');if(t)document.documentElement.setAttribute('data-theme',t);
+      window.addEventListener('load',function(){setTimeout(function(){document.documentElement.classList.remove('no-transition');},50);});
+    })()
+  </script>
+</head>
+<body data-warn-outdated>
+  <header class="md-navbar">
+    <button id="md-hamburger" class="md-icon-btn md-hamburger" aria-label="Toggle navigation" aria-expanded="false"><svg class="md-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg></button>
+    <span class="md-navbar-title">SimpleExpressions</span>
+    <span class="md-navbar-spacer"></span>
+    <button id="md-search-btn" class="md-search-bar" aria-label="Search documentation" aria-expanded="false">
+      <svg class="md-icon md-search-bar-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+      <span class="md-search-bar-label">Search docs</span>
+      <kbd class="md-search-bar-kbd">Ctrl K</kbd>
+    </button>
+    <div id="md-version" class="md-version" hidden>
+      <button id="md-version-btn" class="md-version-btn" aria-haspopup="listbox" aria-expanded="false" aria-label="Select documentation version">
+        <span id="md-version-current" class="md-version-current"></span>
+        <svg class="md-icon md-version-caret" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M7 10l5 5 5-5z"/></svg>
+      </button>
+      <ul id="md-version-menu" class="md-version-menu" role="listbox" hidden></ul>
+    </div>
+    <a class="md-icon-btn md-repo-link" href="https://github.com/jverzani/SimpleExpressions.jl" title="View the repository on GitHub" aria-label="View the repository on GitHub" rel="noopener" target="_blank"><svg class="md-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 .3a12 12 0 00-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.2.5-2.3 1.3-3.1-.2-.4-.6-1.6.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 016 0c2.3-1.5 3.3-1.2 3.3-1.2.7 1.6.2 2.8.1 3.2.8.8 1.3 1.9 1.3 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1.1.9 2.2v3.3c0 .3.1.7.8.6A12 12 0 0012 .3z"/></svg><span class="md-repo-label">GitHub</span></a>
+    <button id="md-theme-toggle" class="md-icon-btn" title="Toggle dark mode" aria-label="Toggle dark mode"><svg class="md-icon md-icon-light" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58a.996.996 0 00-1.41 0 .996.996 0 000 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37a.996.996 0 00-1.41 0 .996.996 0 000 1.41l1.06 1.06c.39.39 1.03.39 1.41 0a.996.996 0 000-1.41l-1.06-1.06zm1.06-10.96a.996.996 0 000-1.41.996.996 0 00-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36a.996.996 0 000-1.41.996.996 0 00-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/></svg><svg class="md-icon md-icon-dark" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg></button>
+  </header>
+  <div class="md-layout">
+    <nav class="md-sidebar">
+      <a href="../">Home</a>
+      <a href="../reference/" class="md-nav-active">Reference/API</a>
+    </nav>
+    <main class="md-content">
+      <article class="md-article">
+      <div class="md-article-actions"><a class="md-icon-btn md-edit-link" href="https://github.com/jverzani/SimpleExpressions.jl/blob/main/docs/src/reference.md" title="Edit source on GitHub" aria-label="Edit source on GitHub"><svg class="md-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 000-1.41l-2.34-2.34a.996.996 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></a></div>
+<h1 id="SimpleExpressions.jl" class="md-heading">SimpleExpressions.jl<a href="#SimpleExpressions.jl" class="md-heading-anchor" aria-label="Link to this section">#</a></h1>
+<div class="md-docstring" id="SimpleExpressions.SimpleExpressions">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>SimpleExpressions.SimpleExpressions</code></h4>
+<a class="md-docstring-source" href="https://github.com/jverzani/SimpleExpressions.jl/blob/1b18bd5bac9aba47fa9f1ff76abac1e2e645bba4/src/SimpleExpressions.jl#L1-L6" title="View source">source</a>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">SimpleExpressions</code></pre>
+</div>
+<p>A <em>very</em> lightweight means to create callable functions using expressions. This uses  <a href="https://juliahub.com/ui/Packages/General/SimpleExpressions">CallableExpressions</a> as a backend. See also  <a href="https://juliahub.com/ui/Packages/General/DynamicExpressions">DynamicExpressions</a> for a performant package with similar abilities.</p>
+<p>The <a href="../reference/#SimpleExpressions.@symbolic-Tuple"><code class="md-code-inline">@symbolic</code></a> macro, the lone export, can create a symbolic variable and optional symbolic parameter. When expressions are created with these variables, evaluation is deferred until the expression is called like a function. The expressions subtype <code class="md-code-inline">Function</code> so are intended to be useful with <code class="md-code-inline">Julia</code>&#39;s higher-order functions.</p>
+<p>The expressions can be evaluated as a univariate function, <code class="md-code-inline">u(x)</code>, a univariate function with parameter, <code class="md-code-inline">u(x, p)</code>, or as a bivariate function, <code class="md-code-inline">u(x,y)</code> (with <code class="md-code-inline">y</code> being a parameter). These are all typical calling patterns when a function is passed to a numeric routine.  For expressions without a symbolic value (as can happen through substitution) <code class="md-code-inline">u()</code> will evaluate the value.</p>
+<p>To substitute in for either the variable or the parameter, leaving a symbolic expression, we have the calling patterns <code class="md-code-inline">u(:,p)</code>, <code class="md-code-inline">u(x,:)</code> to substitute in for the parameter and variable respectively. The colon can also be <code class="md-code-inline">nothing</code> or <code class="md-code-inline">missing</code>.</p>
+<p>When using positional arguments in a  call, as above, all symbolic variables are treated identically, as are all symbolic parameters.</p>
+<p>There are also methods for <code class="md-code-inline">replace</code> that allow more complicated substitutions. For <code class="md-code-inline">replace</code>, symbolic objects are returned. For <code class="md-code-inline">replace</code>, variables are distinct and identified by their symbol. Pairs may be specified to the call notation as a convenience for <code class="md-code-inline">replace</code>.</p>
+<p>There are no performance claims, this package is all about convenience.  Similar convenience is available in some form with <code class="md-code-inline">SymPy</code>, <code class="md-code-inline">Giac</code>, <code class="md-code-inline">SymEngine</code>, <code class="md-code-inline">Symbolics</code>, etc. As well, placeholder syntax is available in <code class="md-code-inline">Underscores.jl</code>, <code class="md-code-inline">Chain.jl</code>, <code class="md-code-inline">DataPipes.jl</code> etc., This package only has value in that it is very lightweight and, hopefully, intuitively simple.</p>
+<p>Performance is good though, as <code class="md-code-inline">CallableExpressions</code> is performant. A benchmark case of finding a zero of a function runs without allocations in <code class="md-code-inline">931 ns</code> with <code class="md-code-inline">0</code> allocations, with a symbolic expression in  <code class="md-code-inline">4.65 μs</code> with <code class="md-code-inline">286</code> allocations, <code class="md-code-inline">SymEngine</code> is two orders of magnitude slower (<code class="md-code-inline">76.329 μs</code> with <code class="md-code-inline">18911</code> allocations), and SymPy much slower (<code class="md-code-inline">32.318 ms</code> with <code class="md-code-inline">79796</code>) allocations.</p>
+<p>Extensions are provided for <code class="md-code-inline">SpecialFunctions</code>, <code class="md-code-inline">AbstractTrees</code>, <code class="md-code-inline">Latexify</code>, and <code class="md-code-inline">RecipesBase</code>.</p>
+<p><strong>Example</strong></p>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">using SimpleExpressions
 @symbolic x       # (x,)
 u = sin(x) - (x - x^3/6)
 u(0.5)  # 0.000258...
 u = u - x^5/120
-u(0.5) # -1.544...e-6</code></pre><pre><code class="language-julia hljs">map(x^2, (1, 2))  # (1, 4)</code></pre><pre><code class="language-julia hljs">using Plots
+u(0.5) # -1.544...e-6</code></pre>
+</div>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">map(x^2, (1, 2))  # (1, 4)</code></pre>
+</div>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">using Plots
 @symbolic x p     # (x, p)
 u = x^5 - x - p   # (x ^ 5) + (-1 * x) + (-1 * p)
 plot(u(:, 1), 0, 1.5)
 plot!(u(:, 2))    # or plot(u.(:, 1:2), 0, 1.5)
 eq = cos(x) ~ 2x
-plot(eq, 0, pi/2) # like plot([eq...], 0, pi/2)</code></pre></div><a class="docs-sourcelink" target="_blank" href="https://github.com/jverzani/SimpleExpressions.jl/blob/5ede1fb315630f9e0b0df44a9d44e64dc0221be6/src/SimpleExpressions.jl#L6-L11">source</a></section></details></article><article><details class="docstring" open="true"><summary id="SimpleExpressions.SymbolicEquation"><a class="docstring-binding" href="#SimpleExpressions.SymbolicEquation"><code>SimpleExpressions.SymbolicEquation</code></a> — <span class="docstring-category">Type</span></summary><section><div><p>a ~ b</p><p>Create a SymbolicEquation.</p><p>The equation has a left and right-hand side, which can be found by tuple destructing; calling <code>first</code> and <code>last</code>; by index; or field access using <code>.lhs</code> and <code>.rhs</code>.</p><p>Symbolic equations can be evaluated, in which case the value of <code>a-b</code> is returned.</p><p>When a symbolic equation is passed as an argument to a symbolic expression, the pair <code>a =&gt; b</code> is passed to <code>replace</code>.</p><p>The <code>diff</code> function differentiates both sides.</p><p>The <code>solve</code> function tries to move <code>x</code> terms to the left-hand side; and non-<code>x</code> terms to the right-hand side.</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/jverzani/SimpleExpressions.jl/blob/5ede1fb315630f9e0b0df44a9d44e64dc0221be6/src/equations.jl#L3-L17">source</a></section></details></article><article><details class="docstring" open="true"><summary id="Base.Unicode.isnumeric-Tuple{SimpleExpressions.AbstractSymbolic}"><a class="docstring-binding" href="#Base.Unicode.isnumeric-Tuple{SimpleExpressions.AbstractSymbolic}"><code>Base.Unicode.isnumeric</code></a> — <span class="docstring-category">Method</span></summary><section><div><p>isnumeric(x::AbstractSymbolic)</p><p>Check if symbolic value contains a variable or a parameter. Puns on <code>isnumeric(::Char)</code>. Use</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/jverzani/SimpleExpressions.jl/blob/5ede1fb315630f9e0b0df44a9d44e64dc0221be6/src/introspection.jl#L145-L149">source</a></section></details></article><article><details class="docstring" open="true"><summary id="Base.match-Tuple{Expr, SimpleExpressions.AbstractSymbolic}"><a class="docstring-binding" href="#Base.match-Tuple{Expr, SimpleExpressions.AbstractSymbolic}"><code>Base.match</code></a> — <span class="docstring-category">Method</span></summary><section><div><pre><code class="language-julia hljs">match(pattern::Expr, subject::AbstractSymbolic)::MatchDict</code></pre><p>For a pattern specified through an expression, return a dictionary of matches or a dictionary signaling failure</p><p>Uses vendored <code>rule2.jl</code> from <code>SymbolicIntegration</code> as this is more performant than <code>AssociativeCommutativePatternMatching</code>.</p><p><strong>Examples</strong></p><pre><code class="language-julia hljs">julia&gt; @symbolic x p
+plot(eq, 0, pi/2) # like plot([eq...], 0, pi/2)</code></pre>
+</div>
+</div>
+</div>
+<div class="md-docstring" id="SimpleExpressions.SymbolicEquation">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>SimpleExpressions.SymbolicEquation</code></h4>
+<a class="md-docstring-source" href="https://github.com/jverzani/SimpleExpressions.jl/blob/1b18bd5bac9aba47fa9f1ff76abac1e2e645bba4/src/equations.jl#L3-L17" title="View source">source</a>
+</div>
+<div class="md-docstring-content">
+<p>a ~ b</p>
+<p>Create a SymbolicEquation.</p>
+<p>The equation has a left and right-hand side, which can be found by tuple destructing; calling <code class="md-code-inline">first</code> and <code class="md-code-inline">last</code>; by index; or field access using <code class="md-code-inline">.lhs</code> and <code class="md-code-inline">.rhs</code>.</p>
+<p>Symbolic equations can be evaluated, in which case the value of <code class="md-code-inline">a-b</code> is returned.</p>
+<p>When a symbolic equation is passed as an argument to a symbolic expression, the pair <code class="md-code-inline">a =&gt; b</code> is passed to <code class="md-code-inline">replace</code>.</p>
+<p>The <code class="md-code-inline">diff</code> function differentiates both sides.</p>
+<p>The <code class="md-code-inline">solve</code> function tries to move <code class="md-code-inline">x</code> terms to the left-hand side; and non-<code class="md-code-inline">x</code> terms to the right-hand side.</p>
+</div>
+</div>
+<div class="md-docstring" id="Base.Unicode.isnumeric-Tuple{SimpleExpressions.AbstractSymbolic}">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Base.Unicode.isnumeric</code> — <span class="md-docstring-sig">Tuple{SimpleExpressions.AbstractSymbolic}</span></h4>
+<a class="md-docstring-source" href="https://github.com/jverzani/SimpleExpressions.jl/blob/1b18bd5bac9aba47fa9f1ff76abac1e2e645bba4/src/introspection.jl#L145-L149" title="View source">source</a>
+</div>
+<div class="md-docstring-content">
+<p>isnumeric(x::AbstractSymbolic)</p>
+<p>Check if symbolic value contains a variable or a parameter. Puns on <code class="md-code-inline">isnumeric(::Char)</code>. Use</p>
+</div>
+</div>
+<div class="md-docstring" id="Base.match-Tuple{Expr, SimpleExpressions.AbstractSymbolic}">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Base.match</code> — <span class="md-docstring-sig">Tuple{Expr, SimpleExpressions.AbstractSymbolic}</span></h4>
+<a class="md-docstring-source" href="https://github.com/jverzani/SimpleExpressions.jl/blob/1b18bd5bac9aba47fa9f1ff76abac1e2e645bba4/src/replace.jl#L35-L136" title="View source">source</a>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">match(pattern::Expr, subject::AbstractSymbolic)::Union{MatchDict, Nothing}</code></pre>
+</div>
+<p>Match <code class="md-code-inline">subject</code> against a <code class="md-code-inline">pattern</code> given as a Julia expression containing wildcards.</p>
+<p>Return a dictionary mapping wildcard names (as symbols) to the matched values for the first match found, or <code class="md-code-inline">nothing</code> if there is none. Use <code class="md-code-inline">eachmatch</code> to get all identified matches.</p>
+<p><strong>Examples</strong></p>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">julia&gt; @symbolic x p
 (x, p)
 
 julia&gt; match(:(~x * cos(~y)), p*cos(x))
 Base.ImmutableDict{Symbol, SimpleExpressions.AbstractSymbolic} with 2 entries:
   :y =&gt; x
-  :x =&gt; p</code></pre></div><a class="docs-sourcelink" target="_blank" href="https://github.com/jverzani/SimpleExpressions.jl/blob/5ede1fb315630f9e0b0df44a9d44e64dc0221be6/src/replace.jl#L38-L57">source</a></section></details></article><article><details class="docstring" open="true"><summary id="Base.replace-Tuple{SimpleExpressions.AbstractSymbolic, Vararg{Pair}}"><a class="docstring-binding" href="#Base.replace-Tuple{SimpleExpressions.AbstractSymbolic, Vararg{Pair}}"><code>Base.replace</code></a> — <span class="docstring-category">Method</span></summary><section><div><pre><code class="language-julia hljs">replace(ex::SymbolicExpression, args::Pair...)</code></pre><p>Replace parts of the expression with something else.</p><p>Returns a symbolic object.</p><p>The pattern/replacement is specified using <code>variable =&gt; value</code>; these are processed left to right.</p><p>There are different methods depending on the type of key in the the <code>key =&gt; value</code> pairs specified:</p><ul><li>A symbolic variable is replaced by the right-hand side, like <code>ex(val,:)</code>, though the latter is more performant</li><li>A symbolic parameter is replaced by the right-hand side, like <code>ex(:,val)</code></li><li>A function is replaced by the corresponding specified function, as the head of the sub-expression</li><li>A sub-expression is replaced by the new expression.</li><li>sub-expression containing a wildcard is replaced by the new expression. The specification of the replacements can use the wildcards. Wildcards expressions may be specified within <code>SimpleExpressions</code> or as <code>Expr</code> objects.</li></ul><p><strong>Extended help</strong></p><p>The first two styles are straightforward.</p><pre><code class="language- hljs">julia&gt; using SimpleExpressions
+  :x =&gt; p</code></pre>
+</div>
+<p><strong>Extended help</strong></p>
+<p><strong>The algorithm</strong></p>
+<p>The basic algorithm comes from that of <code class="md-code-inline">rule2.jl</code> from <code class="md-code-inline">SymbolicIntegration</code> and <code class="md-code-inline">[Krebber](https://arxiv.org/pdf/1705.00907)</code>.</p>
+<p>The pattern and the subject are walked together, top down.</p>
+<ul>
+<li><p>A literal in the pattern (a number, a symbol, a constant such as <code class="md-code-inline">ℯ</code>) matches only an equal value in the subject.</p>
+</li>
+<li><p>A wildcard is bound to the part of the subject it is compared with. A wildcard that appears more than once must be bound to equal values each time, so <code class="md-code-inline">:(~a + ~a)</code> matches <code class="md-code-inline">x + x</code> but not <code class="md-code-inline">x + y</code>.</p>
+</li>
+<li><p>A call in the pattern, such as <code class="md-code-inline">cos(~y)</code>, matches a call in the subject with the same operation, whose arguments are then matched in turn. The pattern&#39;s operation can itself be a wildcard, see <code class="md-code-inline">(~f)(~x)</code> below.</p>
+</li>
+<li><p>For a <code class="md-code-inline">+</code> or <code class="md-code-inline">*</code> pattern (which are commutative) the arguments of the subject may be matched in any order, so <code class="md-code-inline">:(~x + 2)</code> matches <code class="md-code-inline">2 + y</code>. Different assignments can give different matches, which is why there can be more than one; <code class="md-code-inline">match</code> returns the first and <code class="md-code-inline">eachmatch</code> returns them all.</p>
+</li>
+<li><p>Powers are matched up to their representation: for example <code class="md-code-inline">sqrt(x)</code> and <code class="md-code-inline">x^(1//2)</code> can match each other, and a pattern <code class="md-code-inline">~a / ~b</code> matches <code class="md-code-inline">x * (1 / y)</code>.</p>
+</li>
+<li><p>Matching proceeds through a list of candidate bindings. A binding that conflicts with one already made, or that fails a predicate, is discarded; if no candidates remain the match fails.</p>
+</li>
+</ul>
+<p><strong>Wildcards</strong></p>
+<p>A wildcard is written with a leading <code class="md-code-inline">~</code>. A bare variable in the pattern is <em>not</em> a wildcard: it must match literally.</p>
+<div class="md-table-wrap">
+<table class="md-table">
+<thead>
+<tr>
+<th style="text-align:left">Pattern</th>
+<th style="text-align:left">Name</th>
+<th style="text-align:left">Matches</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left"><code class="md-code-inline">~x</code></td>
+<td style="text-align:left">slot</td>
+<td style="text-align:left">exactly one subexpression, bound to <code class="md-code-inline">x</code></td>
+</tr>
+<tr>
+<td style="text-align:left"><code class="md-code-inline">~x::pred</code></td>
+<td style="text-align:left">slot with predicate</td>
+<td style="text-align:left">one subexpression for which <code class="md-code-inline">pred(value)</code> is <code class="md-code-inline">true</code></td>
+</tr>
+<tr>
+<td style="text-align:left"><code class="md-code-inline">~!x</code></td>
+<td style="text-align:left">default slot</td>
+<td style="text-align:left">one subexpression, or a default value when absent</td>
+</tr>
+<tr>
+<td style="text-align:left"><code class="md-code-inline">~~x</code></td>
+<td style="text-align:left">segment/plus</td>
+<td style="text-align:left">zero or more arguments of a call</td>
+</tr>
+<tr>
+<td style="text-align:left">`~~::predx</td>
+<td style="text-align:left">segment/plus</td>
+<td style="text-align:left">same as plus with predicate</td>
+</tr>
+<tr>
+<td style="text-align:left"><code class="md-code-inline">~~~x</code></td>
+<td style="text-align:left">star</td>
+<td style="text-align:left">one or more arguments of a call</td>
+</tr>
+<tr>
+<td style="text-align:left"><code class="md-code-inline">~~~x::pred</code></td>
+<td style="text-align:left">star</td>
+<td style="text-align:left">same as star with predicate</td>
+</tr>
+<tr>
+<td style="text-align:left"><code class="md-code-inline">(~f)(~x)</code></td>
+<td style="text-align:left">operation wildcard</td>
+<td style="text-align:left">any call; <code class="md-code-inline">f</code> is bound to the operation</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Slots and predicates</strong></p>
+<p><code class="md-code-inline">~x</code> matches one subexpression. A predicate restricts the match; it is any function (or expression naming one) that returns a <code class="md-code-inline">Bool</code>, called on the value to be bound:</p>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">julia&gt; match(:(~a::iseven * ~b), 2x)    # :a =&gt; 2, :b =&gt; x
+julia&gt; match(:(~a::iseven * ~b), 3x)    # nothing</code></pre>
+</div>
+<p>An error thrown by a predicate counts as <code class="md-code-inline">false</code>.</p>
+<p><strong>Default slots</strong></p>
+<p><code class="md-code-inline">~!x</code> is a slot that may be absent. In a sum its default is <code class="md-code-inline">0</code>, in a product, a power, or a division it is <code class="md-code-inline">1</code>. Thus <code class="md-code-inline">:(~!a * ~b)</code> matches <code class="md-code-inline">x</code> with <code class="md-code-inline">a =&gt; 1</code> and <code class="md-code-inline">b =&gt; x</code>, and <code class="md-code-inline">:((~b)^(~!n))</code> matches <code class="md-code-inline">x</code> with <code class="md-code-inline">n =&gt; 1</code>. If the term is present it is bound as usual. When the same default slot appears several times in a pattern, all occurrences must agree. Within a replacement, a default slot is written <code class="md-code-inline">~a</code> once bound.</p>
+<p><strong>Segments</strong></p>
+<p><code class="md-code-inline">~~x</code> and <code class="md-code-inline">~~~x</code> stand for several arguments of a call, and are bound to a <em>tuple</em> of those arguments. <code class="md-code-inline">~~x</code> allows none, <code class="md-code-inline">~~~x</code> requires at least one:</p>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">julia&gt; match(:(~x + ~~~y), x + y + z)   # :x =&gt; x, :y =&gt; (y, z)
+julia&gt; match(:(~x + ~~~y), x)           # nothing</code></pre>
+</div>
+<p>If a segment is the only argument of the call, it is bound to all the arguments, so <code class="md-code-inline">:(*(~~a))</code> matches <code class="md-code-inline">(x + y) * z</code> with <code class="md-code-inline">a =&gt; (x + y, z)</code>. When there are several segments in one call the remaining arguments are divided among them, each <code class="md-code-inline">~~~</code> segment receiving at least one; several divisions may be possible, but not all are enumerated.</p>
+<p><strong>Operation wildcards</strong></p>
+<p><code class="md-code-inline">(~f)(~x)</code> matches any call with one argument, binding <code class="md-code-inline">f</code> to the operation and <code class="md-code-inline">x</code> to the argument:</p>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">julia&gt; match(:((~f)(~x)), sin(y))       # :f =&gt; sin, x =&gt; y</code></pre>
+</div>
+<p><strong>Caveats</strong></p>
+<ul>
+<li><p>Matching is syntactic up to commutativity and the power equivalences above. It does not use other algebraic identities, so <code class="md-code-inline">:(~x * ~x)</code> does not match <code class="md-code-inline">x^2</code>.</p>
+</li>
+<li><p>Matching does not consider associativity. For example, <code class="md-code-inline">:(~x + ~y)</code> does not match <code class="md-code-inline">a + b + c</code>, even though it could be argued to match <code class="md-code-inline">(a+b) + c</code> or <code class="md-code-inline">a + (b + c)</code>. That matching is to expensive. The <code class="md-code-inline">AssociativeCommutativePatternMatching</code> implements an algorithm that does this matching.</p>
+</li>
+<li><p>Pattern constants are compared by value after unwrapping, so <code class="md-code-inline">2</code> matches the symbolic number <code class="md-code-inline">2</code> (and <code class="md-code-inline">2.0</code>).</p>
+</li>
+</ul>
+<div class="md-admonition md-admonition-note">
+<p class="md-admonition-title">Note</p>
+<div class="md-admonition-body">
+<p>Extended help initially drafted by co-pilot</p>
+</div>
+</div>
+</div>
+</div>
+<div class="md-docstring" id="Base.replace-Tuple{SimpleExpressions.AbstractSymbolic, Vararg{Pair}}">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Base.replace</code> — <span class="md-docstring-sig">Tuple{SimpleExpressions.AbstractSymbolic, Vararg{Pair}}</span></h4>
+<a class="md-docstring-source" href="https://github.com/jverzani/SimpleExpressions.jl/blob/1b18bd5bac9aba47fa9f1ff76abac1e2e645bba4/src/replace.jl#L156-L320" title="View source">source</a>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">replace(ex::SymbolicExpression, args::Pair...)</code></pre>
+</div>
+<p>Replace parts of the expression with something else.</p>
+<p>Returns a symbolic object.</p>
+<p>The pattern/replacement is specified using <code class="md-code-inline">variable =&gt; value</code>; these are processed left to right.</p>
+<p>There are different methods depending on the type of key in the the <code class="md-code-inline">key =&gt; value</code> pairs specified:</p>
+<ul class="md-list-tight">
+<li><p>A symbolic variable is replaced by the right-hand side, like <code class="md-code-inline">ex(val,:)</code>, though the latter is more performant</p>
+</li>
+<li><p>A symbolic parameter is replaced by the right-hand side, like <code class="md-code-inline">ex(:,val)</code></p>
+</li>
+<li><p>A function is replaced by the corresponding specified function, as the head of the sub-expression</p>
+</li>
+<li><p>A sub-expression is replaced by the new expression.</p>
+</li>
+<li><p>sub-expression containing a wildcard is replaced by the new expression. The specification of the replacements can use the wildcards. Wildcards expressions may be specified within <code class="md-code-inline">SimpleExpressions</code> or as <code class="md-code-inline">Expr</code> objects.</p>
+</li>
+</ul>
+<p><strong>Extended help</strong></p>
+<p>The first two styles are straightforward.</p>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-@repl">julia&gt; using SimpleExpressions
 
 julia&gt; @symbolic x p
 (x, p)
@@ -28,24 +298,60 @@ julia&gt; replace(ex, x =&gt; 2) == ex(2, :)
 true
 
 julia&gt; replace(ex, p =&gt; 2) == ex(:, 2)
-true</code></pre><p>The third, is illustrated by:</p><pre><code class="language- hljs">julia&gt; replace(sin(x + sin(x + sin(x))), sin =&gt; cos)
-cos(x + cos(x + cos(x)))</code></pre><p>The fourth is similar to the third, only an entire expression (not just its head) is replaced</p><pre><code class="language- hljs">julia&gt; ex = cos(x)^2 + cos(x) + 1
+true</code></pre>
+</div>
+<p>The third, is illustrated by:</p>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-@repl">julia&gt; replace(sin(x + sin(x + sin(x))), sin =&gt; cos)
+cos(x + cos(x + cos(x)))</code></pre>
+</div>
+<p>The fourth is similar to the third, only an entire expression (not just its head) is replaced</p>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-@repl">julia&gt; ex = cos(x)^2 + cos(x) + 1
 (cos(x) ^ 2) + cos(x) + 1
 
 julia&gt; @symbolic u
 (u,)
 
 julia&gt; replace(ex, cos(x) =&gt; u)
-(u ^ 2) + u + 1</code></pre><p>Replacements occur only if an entire node in the expression tree is matched:</p><pre><code class="language- hljs">julia&gt; u = 1 + x
+(u ^ 2) + u + 1</code></pre>
+</div>
+<p>Replacements occur only if an entire node in the expression tree is matched:</p>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-@repl">julia&gt; u = 1 + x
 1 + x
 
 julia&gt; replace(u + exp(-u), u =&gt; x^2)
-1 + x + exp(-1 * (x ^ 2))</code></pre><p>(As this addition has three terms, <code>1+x</code> is not a subtree in the expression tree.)</p><p>The fifth needs more explanation, as there can be wildcards in the expression. Wildcards can be specified as <code>SimpleExpression</code> expressions or as <code>Expr</code> objects.</p><p>First, we describe the use of symbolic wildcards.</p><p>Wildcards have a naming convention using trailing underscores. One matches a single subexpression or term; two matches one or more subexpressions. In addition, the <strong>special</strong> symbol <code>⋯</code> (entered with <code>\cdots[tab]</code> is wild.</p><pre><code class="language- hljs">julia&gt; @symbolic x p; @symbolic x_
+1 + x + exp(-1 * (x ^ 2))</code></pre>
+</div>
+<p>(As this addition has three terms, <code class="md-code-inline">1+x</code> is not a subtree in the expression tree.)</p>
+<p>The fifth needs more explanation, as there can be wildcards in the expression. Wildcards can be specified as <code class="md-code-inline">SimpleExpression</code> expressions or as <code class="md-code-inline">Expr</code> objects.</p>
+<p>First, we describe the use of symbolic wildcards.</p>
+<p>Wildcards have a naming convention using trailing underscores:</p>
+<ul class="md-list-tight">
+<li><p>one matches a single subexpression or term;</p>
+</li>
+<li><p>two matches zero, one, or more subexpressions.</p>
+</li>
+<li><p>three matches  one or more subexpressions.</p>
+</li>
+</ul>
+<p>In addition, the <strong>special</strong> symbol <code class="md-code-inline">⋯</code> (entered with <code class="md-code-inline">\cdots[tab]</code> is wild.</p>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-@repl">julia&gt; @symbolic x p; @symbolic x_
 (x_,)
 
 julia&gt; replace(cos(pi + x^2), cos(pi + x_) =&gt; -cos(x_))
 -1 * cos(x ^ 2)
-</code></pre><pre><code class="language- hljs">julia&gt; ex = log(sin(x)) + tan(sin(x^2))
+</code></pre>
+</div>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-@repl">julia&gt; ex = log(sin(x)) + tan(sin(x^2))
 log(sin(x)) + tan(sin(x ^ 2))
 
 julia&gt; replace(ex, sin(x_) =&gt; tan((x_) / 2))
@@ -55,14 +361,26 @@ julia&gt; replace(ex, sin(x_) =&gt; x_)
 log(x) + tan(x ^ 2)
 
 julia&gt; replace(x*p, (x_) * x =&gt; x_)
-p</code></pre><p>Pattern and replacements can also be specified with Julia expressions. The basic wildcard is prefaced with <code>~</code>, a segment is specified with two <code>~</code>.</p><pre><code class="language- hljs">julia&gt; ex = log(sin(x)) + tan(sin(x^2))
+p</code></pre>
+</div>
+<p>Pattern and replacements can also be specified with Julia expressions. The details are in the docstring for <a href="../reference/#Base.match-Tuple{Expr, SimpleExpressions.AbstractSymbolic}"><code class="md-code-inline">match</code></a>. This method is more expressive as patterns can use <em>default slots</em> and slots can use <em>guards</em>.</p>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-@repl">julia&gt; ex = log(sin(x)) + tan(sin(x^2))
 log(sin(x)) + tan(sin(x ^ 2))
 
 julia&gt; replace(ex, :(sin(~x)) =&gt; :(tan(~x/2)))
 log(tan(x / 2)) + tan(tan((x ^ 2) / 2))
 
 julia&gt; replace(ex, :(sin((~x)^2)) =&gt; :(tan(~x)))
-log(sin(x)) + tan(tan(x))</code></pre><p>Unlike symbolic wildcards, <code>Expr</code> objects can have <em>default slot</em> (specified as <code>~!x</code>) and predicates (specified after <code>::</code> to test.</p><pre><code class="language- hljs">julia&gt; pat, replacement = :(~!a * (~x)^(~n::(!=(-1)))), :(~a * (~x)^(~n+1)/(~n + 1))
+log(sin(x)) + tan(tan(x))
+
+julia&gt; replace(ex, :(sin((~x)^(~n::iseven))) =&gt; :(tan(~x)))</code></pre>
+</div>
+<p>Unlike symbolic wildcards, <code class="md-code-inline">Expr</code> objects can have <em>default slot</em> (specified as <code class="md-code-inline">~!x</code>) and predicates (specified after <code class="md-code-inline">::</code> to test.</p>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-@repl">julia&gt; pat, replacement = :(~!a * (~x)^(~n::(!=(-1)))), :(~a * (~x)^(~n+1)/(~n + 1))
 (:(~(!a) * (~x) ^ ~(n::(!=)(-1))), :((~a * (~x) ^ (~n + 1)) / (~n + 1)))
 
 julia&gt; replace(x^2, pat =&gt; replacement)
@@ -70,7 +388,13 @@ julia&gt; replace(x^2, pat =&gt; replacement)
 
 julia&gt; replace(x^(-1), pat =&gt; replacement)
 1 / x
-</code></pre><p><strong>Picture</strong></p><p>The <code>AbstractTrees</code> package can print this tree-representation of the expression <code>ex = sin(x + x*log(x) + cos(x + p + x^2))</code>:</p><pre><code class="language-julia hljs">julia&gt; print_tree(ex;maxdepth=10)
+</code></pre>
+</div>
+<p><strong>Picture</strong></p>
+<p>The <code class="md-code-inline">AbstractTrees</code> package can print this tree-representation of the expression <code class="md-code-inline">ex = sin(x + x*log(x) + cos(x + p + x^2))</code>:</p>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">julia&gt; print_tree(ex;maxdepth=10)
 sin
 └─ +
    ├─ x
@@ -84,33 +408,110 @@ sin
          ├─ p          ...
          └─ ^          ...
             ├─ x       ...
-            └─ 2       ...</code></pre><p>The command wildcard expression <code>cos(x + ...)</code> looks at the part of the tree that has <code>cos</code> as a node, and the lone child is an expression with node <code>+</code> and child <code>x</code>. The <code>⋯</code> then matches <code>p + x^2</code>.</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/jverzani/SimpleExpressions.jl/blob/5ede1fb315630f9e0b0df44a9d44e64dc0221be6/src/replace.jl#L68-L222">source</a></section></details></article><article><details class="docstring" open="true"><summary id="CommonSolve.solve-Tuple{SimpleExpressions.SymbolicEquation, Union{SimpleExpressions.SymbolicParameter, SimpleExpressions.SymbolicVariable}}"><a class="docstring-binding" href="#CommonSolve.solve-Tuple{SimpleExpressions.SymbolicEquation, Union{SimpleExpressions.SymbolicParameter, SimpleExpressions.SymbolicVariable}}"><code>CommonSolve.solve</code></a> — <span class="docstring-category">Method</span></summary><section><div><pre><code class="language-julia hljs">solve(eq::SymboliclEquation, x)</code></pre><p>Very <em>simple</em> symbolic equations can be solved with the unexported <code>solve</code> method. This example shows a usage.</p><pre><code class="language- hljs">@symbolic w p; @symbolic h  # two variables, one parameter
+            └─ 2       ...</code></pre>
+</div>
+<p>The command wildcard expression <code class="md-code-inline">cos(x + ...)</code> looks at the part of the tree that has <code class="md-code-inline">cos</code> as a node, and the lone child is an expression with node <code class="md-code-inline">+</code> and child <code class="md-code-inline">x</code>. The <code class="md-code-inline">⋯</code> then matches <code class="md-code-inline">p + x^2</code>.</p>
+</div>
+</div>
+<div class="md-docstring" id="CommonSolve.solve-Tuple{SimpleExpressions.SymbolicEquation, Union{SimpleExpressions.SymbolicParameter, SimpleExpressions.SymbolicVariable}}">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>CommonSolve.solve</code> — <span class="md-docstring-sig">Tuple{SimpleExpressions.SymbolicEquation, Union{SimpleExpressions.SymbolicParameter, SimpleExpressions.SymbolicVariable}}</span></h4>
+<a class="md-docstring-source" href="https://github.com/jverzani/SimpleExpressions.jl/blob/1b18bd5bac9aba47fa9f1ff76abac1e2e645bba4/src/solve.jl#L31-L46" title="View source">source</a>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">solve(eq::SymboliclEquation, x)</code></pre>
+</div>
+<p>Very <em>simple</em> symbolic equations can be solved with the unexported <code class="md-code-inline">solve</code> method. This example shows a usage.</p>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-{julia}">@symbolic w p; @symbolic h  # two variables, one parameter
 import SimpleExpressions: solve, D
 constraint = p ~ 2w + 2h
 A = w * h
 
 u = solve(constraint, h)
 A = A(u) # use equation in replacement
-v = solve(D(A, w) ~ 0, w)</code></pre></div><a class="docs-sourcelink" target="_blank" href="https://github.com/jverzani/SimpleExpressions.jl/blob/5ede1fb315630f9e0b0df44a9d44e64dc0221be6/src/solve.jl#L31-L46">source</a></section></details></article><article><details class="docstring" open="true"><summary id="SimpleExpressions.combine"><a class="docstring-binding" href="#SimpleExpressions.combine"><code>SimpleExpressions.combine</code></a> — <span class="docstring-category">Function</span></summary><section><div><pre><code class="language-julia hljs">combine(ex, isconstant)</code></pre><p>Lightly simplify symbolic expressions.</p><p><strong>Example</strong></p><pre><code class="language- hljs">julia&gt; using SimpleExpressions: @symbolic, combine
-
-julia&gt; @symbolic x p
-(x,)
-
-julia&gt; ex = 1 + x + 2x + 3x
-1 + x + (2 * x) + (3 * x)
-
-julia&gt; combine(ex)
-1 + (6 * x)
-
-julia&gt; ex = 1 + x^2 + 2x^2 + 3x*x + x^4/x
-1 + (x ^ 2) + (2 * (x ^ 2)) + (3 * x * x) + ((x ^ 4) / x)
-
-julia&gt; combine(ex)
-1 + (x ^ 3) + (6 * (x ^ 2))
-
-julia&gt; combine(x + p*x)
-(1 + p) * x
-</code></pre><p>Not exported. This will cancel terms such as <code>x/x</code>.</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/jverzani/SimpleExpressions.jl/blob/5ede1fb315630f9e0b0df44a9d44e64dc0221be6/src/combine.jl#L6-L39">source</a></section></details></article><article><details class="docstring" open="true"><summary id="SimpleExpressions.isconstant-Tuple{Number}"><a class="docstring-binding" href="#SimpleExpressions.isconstant-Tuple{Number}"><code>SimpleExpressions.isconstant</code></a> — <span class="docstring-category">Method</span></summary><section><div><pre><code class="language-julia hljs">isconstant(x)::Bool</code></pre><p>Check if x has a symbolic variable. (Symbolic parameters are treated as constant for this method.)</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/jverzani/SimpleExpressions.jl/blob/5ede1fb315630f9e0b0df44a9d44e64dc0221be6/src/introspection.jl#L155-L159">source</a></section></details></article><article><details class="docstring" open="true"><summary id="SimpleExpressions.isvariable-Tuple{Any}"><a class="docstring-binding" href="#SimpleExpressions.isvariable-Tuple{Any}"><code>SimpleExpressions.isvariable</code></a> — <span class="docstring-category">Method</span></summary><section><div><pre><code class="language-julia hljs">isvariable(x)::Bool</code></pre><p>Check if <code>x</code> is a symbolic variable or parameter</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/jverzani/SimpleExpressions.jl/blob/5ede1fb315630f9e0b0df44a9d44e64dc0221be6/src/introspection.jl#L173-L177">source</a></section></details></article><article><details class="docstring" open="true"><summary id="SimpleExpressions.map_matched-Tuple{Any, Any, Any}"><a class="docstring-binding" href="#SimpleExpressions.map_matched-Tuple{Any, Any, Any}"><code>SimpleExpressions.map_matched</code></a> — <span class="docstring-category">Method</span></summary><section><div><pre><code class="language-julia hljs">map_matched(ex, is_match, f)</code></pre><p>Traverse expression. If <code>is_match</code> is true, apply <code>f</code> to that part of expression tree and reassemble.</p><p>Basically <code>CallableExpressions.expression_map_matched</code>.</p><p>Not exported.</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/jverzani/SimpleExpressions.jl/blob/5ede1fb315630f9e0b0df44a9d44e64dc0221be6/src/replace.jl#L317-L325">source</a></section></details></article><article><details class="docstring" open="true"><summary id="SimpleExpressions.sympify-Tuple{String}"><a class="docstring-binding" href="#SimpleExpressions.sympify-Tuple{String}"><code>SimpleExpressions.sympify</code></a> — <span class="docstring-category">Method</span></summary><section><div><pre><code class="language-julia hljs">sympify(ex::String)</code></pre><p>Turn a string into an expression, converting symbols to symbolic variables.</p><p>Name comes from SymPy.</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/jverzani/SimpleExpressions.jl/blob/5ede1fb315630f9e0b0df44a9d44e64dc0221be6/src/terminterface.jl#L61-L67">source</a></section></details></article><article><details class="docstring" open="true"><summary id="SimpleExpressions.@symbolic-Tuple"><a class="docstring-binding" href="#SimpleExpressions.@symbolic-Tuple"><code>SimpleExpressions.@symbolic</code></a> — <span class="docstring-category">Macro</span></summary><section><div><pre><code class="language-julia hljs">@symbolic x [p]</code></pre><p>Create a symbolic variable and optional symbolic parameter.</p><p>Expressions created using these variables subclass <code>Function</code> so may be used where functions are expected.</p><p>The  <code>~</code> infix operator can be used to create equations, which, by default, are treated as <code>lhs - rhs</code> when called as functions.</p><p><strong>Extended help</strong></p><p><strong>Calling or substituting into expressions</strong></p><p>To call a symbolic expression regular call notation with positional arguments are used. The first argument maps to <em>any</em> symbolic variable; the second – when given – to any symbolic parameter. It is an error to call an expression with a parameter using just a single argument; for that substitution is needed.</p><p><strong>Example</strong></p><pre><code class="language- hljs">using SimpleExpressions
+v = solve(D(A, w) ~ 0, w)</code></pre>
+</div>
+</div>
+</div>
+<div class="md-docstring" id="SimpleExpressions.isconstant-Tuple{Number}">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>SimpleExpressions.isconstant</code> — <span class="md-docstring-sig">Tuple{Number}</span></h4>
+<a class="md-docstring-source" href="https://github.com/jverzani/SimpleExpressions.jl/blob/1b18bd5bac9aba47fa9f1ff76abac1e2e645bba4/src/introspection.jl#L155-L159" title="View source">source</a>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">isconstant(x)::Bool</code></pre>
+</div>
+<p>Check if x has a symbolic variable. (Symbolic parameters are treated as constant for this method.)</p>
+</div>
+</div>
+<div class="md-docstring" id="SimpleExpressions.isvariable-Tuple{Any}">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>SimpleExpressions.isvariable</code> — <span class="md-docstring-sig">Tuple{Any}</span></h4>
+<a class="md-docstring-source" href="https://github.com/jverzani/SimpleExpressions.jl/blob/1b18bd5bac9aba47fa9f1ff76abac1e2e645bba4/src/introspection.jl#L173-L177" title="View source">source</a>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">isvariable(x)::Bool</code></pre>
+</div>
+<p>Check if <code class="md-code-inline">x</code> is a symbolic variable or parameter</p>
+</div>
+</div>
+<div class="md-docstring" id="SimpleExpressions.map_matched-Tuple{Any, Any, Any}">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>SimpleExpressions.map_matched</code> — <span class="md-docstring-sig">Tuple{Any, Any, Any}</span></h4>
+<a class="md-docstring-source" href="https://github.com/jverzani/SimpleExpressions.jl/blob/1b18bd5bac9aba47fa9f1ff76abac1e2e645bba4/src/replace.jl#L5-L13" title="View source">source</a>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">map_matched(ex, is_match, f)</code></pre>
+</div>
+<p>Traverse expression. If <code class="md-code-inline">is_match</code> is true, apply <code class="md-code-inline">f</code> to that part of expression tree and reassemble.</p>
+<p>Basically <code class="md-code-inline">CallableExpressions.expression_map_matched</code>.</p>
+<p>Not exported.</p>
+</div>
+</div>
+<div class="md-docstring" id="SimpleExpressions.sympify-Tuple{String}">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>SimpleExpressions.sympify</code> — <span class="md-docstring-sig">Tuple{String}</span></h4>
+<a class="md-docstring-source" href="https://github.com/jverzani/SimpleExpressions.jl/blob/1b18bd5bac9aba47fa9f1ff76abac1e2e645bba4/src/terminterface.jl#L61-L67" title="View source">source</a>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">sympify(ex::String)</code></pre>
+</div>
+<p>Turn a string into an expression, converting symbols to symbolic variables.</p>
+<p>Name comes from SymPy.</p>
+</div>
+</div>
+<div class="md-docstring" id="SimpleExpressions.@symbolic-Tuple">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>SimpleExpressions.@symbolic</code> — <span class="md-docstring-sig">Tuple</span></h4>
+<a class="md-docstring-source" href="https://github.com/jverzani/SimpleExpressions.jl/blob/1b18bd5bac9aba47fa9f1ff76abac1e2e645bba4/src/constructors.jl#L2-L184" title="View source">source</a>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">@symbolic x [p]</code></pre>
+</div>
+<p>Create a symbolic variable and optional symbolic parameter.</p>
+<p>Expressions created using these variables subclass <code class="md-code-inline">Function</code> so may be used where functions are expected.</p>
+<p>The  <code class="md-code-inline">~</code> infix operator can be used to create equations, which, by default, are treated as <code class="md-code-inline">lhs - rhs</code> when called as functions.</p>
+<p><strong>Extended help</strong></p>
+<p><strong>Calling or substituting into expressions</strong></p>
+<p>To call a symbolic expression regular call notation with positional arguments are used. The first argument maps to <em>any</em> symbolic variable; the second – when given – to any symbolic parameter. It is an error to call an expression with a parameter using just a single argument; for that substitution is needed.</p>
+<p><strong>Example</strong></p>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-@example">using SimpleExpressions
 @symbolic x p
 u = x^5 - x - 1
 u(2) # 29 call is u(x)
@@ -122,14 +523,37 @@ u(1)    # errors!
 u(1, 2) # 2(1)+2 or 4
 
 u = sum(x .* p)
-u(2, [1,2]) # 6  call is u(x, p)</code></pre><p>Calling with <code>nothing</code>, <code>missing</code>, or <code>:</code> in a slot <em>substitutes</em> in the specified value leaving a symbolic expression, possibly with no variable or parameter.</p><pre><code class="language- hljs">@symbolic x p
+u(2, [1,2]) # 6  call is u(x, p)</code></pre>
+</div>
+<p>Calling with <code class="md-code-inline">nothing</code>, <code class="md-code-inline">missing</code>, or <code class="md-code-inline">:</code> in a slot <em>substitutes</em> in the specified value leaving a symbolic expression, possibly with no variable or parameter.</p>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-@example">@symbolic x p
 u = cos(x) - p*x
 u(nothing, 2)  # cos(x) - 2 * x
 u(:, 2)        #  cos(x) - 2 * x, alternate calling form
 u(pi, nothing) # -1.0 - p * π
-v = u(1,:)(:,2)    # (cos(1)-(2*1)),</code></pre><p>The latter can be evaluated using a zero-argument call, e.g. <code>v()</code>.</p><p>With substitution in this manner, any symbolic variable and any symbolic parameters will receive the same substituted value.</p><p>The <a href="#Base.replace-Tuple{SimpleExpressions.AbstractSymbolic, Vararg{Pair}}"><code>replace</code></a> generic for symbolic objects takes pairs of values and replaces the left one with the right one working from left to right, leaving a symbolic expression. The <code>replace</code> method treats symbolic variables and symbolic parameters with different symbols as unique.</p><p>A symbolic equation, defined through <code>~</code>, may also be used to specify a left- and right-hand value.</p><p>The main use is as an easier-to-type replacement for anonymous functions, though with differences:</p><pre><code class="language- hljs">1 |&gt; sin(x) |&gt; x^2  # 0.708… from sin(1)^2
+v = u(1,:)(:,2)    # (cos(1)-(2*1)),</code></pre>
+</div>
+<p>The latter can be evaluated using a zero-argument call, e.g. <code class="md-code-inline">v()</code>.</p>
+<p>With substitution in this manner, any symbolic variable and any symbolic parameters will receive the same substituted value.</p>
+<p>The <a href="../reference/#Base.replace-Tuple{SimpleExpressions.AbstractSymbolic, Vararg{Pair}}"><code class="md-code-inline">replace</code></a> generic for symbolic objects takes pairs of values and replaces the left one with the right one working from left to right, leaving a symbolic expression. The <code class="md-code-inline">replace</code> method treats symbolic variables and symbolic parameters with different symbols as unique.</p>
+<p>A symbolic equation, defined through <code class="md-code-inline">~</code>, may also be used to specify a left- and right-hand value.</p>
+<p>The main use is as an easier-to-type replacement for anonymous functions, though with differences:</p>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-@example">1 |&gt; sin(x) |&gt; x^2  # 0.708… from sin(1)^2
 u = cos(x) - p*x
-2 |&gt; u(:, 3) # -6.4161…, a alternative to u(2,3)</code></pre><pre><code class="language- hljs">map(x^2, (1, 2)) # (1,4)</code></pre><p>Symbolic expressions an be used with other packages, to simplify some function calls at the expense of being non-idiomatic:</p><pre><code class="language-julia hljs">using Roots
+2 |&gt; u(:, 3) # -6.4161…, a alternative to u(2,3)</code></pre>
+</div>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-@example">map(x^2, (1, 2)) # (1,4)</code></pre>
+</div>
+<p>Symbolic expressions an be used with other packages, to simplify some function calls at the expense of being non-idiomatic:</p>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">using Roots
 @symbolic x p
 find_zero(x^5 - x - 1, 1)       # 1.167…
 find_zero(x^5 - x ~ p, 1; p=4)  # 1.401…
@@ -137,15 +561,38 @@ find_zero(x^5 - x ~ p, 1; p=4)  # 1.401…
 using ForwardDiff
 Base.adjoint(𝑓::Function) = x -&gt; ForwardDiff.derivative(𝑓, x)
 u = x^5 - x - 1
-find_zero((u,u&#39;), 1, Roots.Newton()) # 1.167…</code></pre><p>Or</p><pre><code class="language-julia hljs">using Plots
-plot(x^5 - x - 1, 0, 1.5)</code></pre><p>Or using both positions, so that we call as a bivariate function:</p><pre><code class="language-julia hljs">@symbolic x y
+find_zero((u,u&#39;), 1, Roots.Newton()) # 1.167…</code></pre>
+</div>
+<p>Or</p>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">using Plots
+plot(x^5 - x - 1, 0, 1.5)</code></pre>
+</div>
+<p>Or using both positions, so that we call as a bivariate function:</p>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">@symbolic x y
 xs = ys = range(-5, 5, length=100)
-contour(xs, ys, x^2 - y^2 + 2x*y)</code></pre><p>Symbolic derivatives can be taken with respect to the symbolic value, symbolic parameters are treated as constant. We use <code>diff</code> as an interface</p><pre><code class="language-julia hljs">@symbolic x p
+contour(xs, ys, x^2 - y^2 + 2x*y)</code></pre>
+</div>
+<p>Symbolic derivatives can be taken with respect to the symbolic value, symbolic parameters are treated as constant. We use <code class="md-code-inline">diff</code> as an interface</p>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">@symbolic x p
 u = x^5 - p*x - 1
 diff(u, x)           # (5 * (x ^ 4)) - p
 u = u(:, 1)    # set parameter
 a, b = 1, 2
-find_zeros(diff(u,x) ~ (u(b)-u(a)) / (b-a), (a,b)) # [1.577…]</code></pre><p><strong>Idiosyncrasies</strong></p><p>Using this is a convenience for <em>simple</em> cases. It is easy to run into idiosyncrasies.</p><p><strong>Expressions are not functions in terms of scope</strong></p><p>Unlike functions, expressions are defined with variables at the time of definition, not when called. For example, with a clean environment:</p><pre><code class="language- hljs">@symbolic x
+find_zeros(diff(u,x) ~ (u(b)-u(a)) / (b-a), (a,b)) # [1.577…]</code></pre>
+</div>
+<p><strong>Idiosyncrasies</strong></p>
+<p>Using this is a convenience for <em>simple</em> cases. It is easy to run into idiosyncrasies.</p>
+<p><strong>Expressions are not functions in terms of scope</strong></p>
+<p>Unlike functions, expressions are defined with variables at the time of definition, not when called. For example, with a clean environment:</p>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-@example">@symbolic x
 u = m*x + b    # errors, `m` not defined
 f(x) = m*x + b # ok
 m, b = 1, 2
@@ -154,17 +601,69 @@ u(3)           # 1 * 3 + 2
 f(3)           # 1 * 3 + 2 values of `m` and `b` when called
 m, b = 3, 4
 u(3)           # still computing 1 * 3 + 2
-f(3)           # computing 3 * 3 + 4, using values of `m` and `b` when called</code></pre><p><strong>Symbolic values are really singletons when calling by position</strong></p><p>Though one can make different symbolic variables, the basic call notation by position treats them as the same:</p><pre><code class="language- hljs">@symbolic x
+f(3)           # computing 3 * 3 + 4, using values of `m` and `b` when called</code></pre>
+</div>
+<p><strong>Symbolic values are really singletons when calling by position</strong></p>
+<p>Though one can make different symbolic variables, the basic call notation by position treats them as the same:</p>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-@example">@symbolic x
 @symbolic y    # both x, y are `SymbolicVariable` type
 u = x + 2y
-u(3)           # 9 coming from 3 + 2*(3)</code></pre><p>However, this is only to simplify the call interface. Using <em>keyword</em> arguments allows evaluation with different values:</p><pre><code class="language- hljs">u(;x=3, y=2)   # 7</code></pre><p>Using <code>replace</code>, we have:</p><pre><code class="language- hljs">u(x=&gt;3, y=&gt;2)  # 3 + (2 * 2); evaluate with u(x=&gt;3, y=&gt;2)()</code></pre><p>The underlying <code>CallableExpressions</code> object is directly called in the above manner; that package does not have the narrowed design of this package.</p><p><strong>Containers</strong></p><p>The variables may be used as placeholders for containers, e.g.</p><pre><code class="language- hljs">u = sum(xi*pi for (xi, pi) in zip(x,p))
-u((1,2),(3,4))  # 11</code></pre><p><strong>Broadcasting as a function</strong></p><p>Broadcasting a function call works as expected</p><pre><code class="language- hljs">@symbolic x
+u(3)           # 9 coming from 3 + 2*(3)</code></pre>
+</div>
+<p>However, this is only to simplify the call interface. Using <em>keyword</em> arguments allows evaluation with different values:</p>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-@example">u(;x=3, y=2)   # 7</code></pre>
+</div>
+<p>Using <code class="md-code-inline">replace</code>, we have:</p>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-@example">u(x=&gt;3, y=&gt;2)  # 3 + (2 * 2); evaluate with u(x=&gt;3, y=&gt;2)()</code></pre>
+</div>
+<p>The underlying <code class="md-code-inline">CallableExpressions</code> object is directly called in the above manner; that package does not have the narrowed design of this package.</p>
+<p><strong>Containers</strong></p>
+<p>The variables may be used as placeholders for containers, e.g.</p>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-@example">u = sum(xi*pi for (xi, pi) in zip(x,p))
+u((1,2),(3,4))  # 11</code></pre>
+</div>
+<p><strong>Broadcasting as a function</strong></p>
+<p>Broadcasting a function call works as expected</p>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-@example">@symbolic x
 u = x^2
-u.((1,2)) # (1, 4)</code></pre><p>Symbolic expressions can also be constructed that will broadcast the call</p><pre><code class="language- hljs">u = x.^2 .+ sin.(p)
+u.((1,2)) # (1, 4)</code></pre>
+</div>
+<p>Symbolic expressions can also be constructed that will broadcast the call</p>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-@example">u = x.^2 .+ sin.(p)
 u((1,2),3)
 
 u = @. x^2 + sin(p)
-u((1,2),(3,4))</code></pre></div><a class="docs-sourcelink" target="_blank" href="https://github.com/jverzani/SimpleExpressions.jl/blob/5ede1fb315630f9e0b0df44a9d44e64dc0221be6/src/constructors.jl#L2-L184">source</a></section></details></article><article><details class="docstring" open="true"><summary id="SimpleExpressions.@symbolic_variables-Tuple"><a class="docstring-binding" href="#SimpleExpressions.@symbolic_variables-Tuple"><code>SimpleExpressions.@symbolic_variables</code></a> — <span class="docstring-category">Macro</span></summary><section><div><pre><code class="language-julia hljs">@symbolic_variables w x[1:3] y() z=&gt;&quot;𝑧&quot; Ω::isinteger</code></pre><p>Define multiple symbolic variables or symbolic functions. Guards are currently ignored.</p><p>Not exported.</p><pre><code class="language- hljs">julia&gt; using SimpleExpressions: @symbolic_variables
+u((1,2),(3,4))</code></pre>
+</div>
+</div>
+</div>
+<div class="md-docstring" id="SimpleExpressions.@symbolic_variables-Tuple">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>SimpleExpressions.@symbolic_variables</code> — <span class="md-docstring-sig">Tuple</span></h4>
+<a class="md-docstring-source" href="https://github.com/jverzani/SimpleExpressions.jl/blob/1b18bd5bac9aba47fa9f1ff76abac1e2e645bba4/src/decl.jl#L4-L24" title="View source">source</a>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">@symbolic_variables w x[1:3] y() z=&gt;&quot;𝑧&quot; Ω::isinteger</code></pre>
+</div>
+<p>Define multiple symbolic variables or symbolic functions. Guards are currently ignored.</p>
+<p>Not exported.</p>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-@repl">julia&gt; using SimpleExpressions: @symbolic_variables
 
 julia&gt; @symbolic_variables  w x[1:3] y() z=&gt;&quot;𝑧&quot; Ω::isinteger
 (w, SimpleExpressions.SymbolicVariable[x₁, x₂, x₃], y, 𝑧, Ω)
@@ -173,4 +672,27 @@ julia&gt; x
 3-element Vector{SimpleExpressions.SymbolicVariable}:
  x₁
  x₂
- x₃</code></pre></div><a class="docs-sourcelink" target="_blank" href="https://github.com/jverzani/SimpleExpressions.jl/blob/5ede1fb315630f9e0b0df44a9d44e64dc0221be6/src/decl.jl#L4-L24">source</a></section></details></article></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Home</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Wednesday 16 September 2026 19:14">Wednesday 16 September 2026</span>. Using Julia version 1.13.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+ x₃</code></pre>
+</div>
+</div>
+</div>
+      </article>
+      <footer class="md-footer">
+<p>Built with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and <a href="https://github.com/mthelm85/MaterialDocs.jl">MaterialDocs.jl</a>.</p>
+      </footer>
+    </main>
+    <aside class="md-toc">
+      <div class="md-toc-inner">
+        <p class="md-toc-title">On this page</p>
+      </div>
+    </aside>
+  </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/julia.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/julia-repl.min.js"></script>
+  <script>hljs.highlightAll();</script>
+  <script src="../siteinfo.js"></script>
+  <script src="../../versions.js"></script>
+  <script src="../assets/materialdocs.js?v=d088db4b"></script>
+</body>
+</html>
