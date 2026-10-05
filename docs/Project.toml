@@ -1,4 +1,5 @@
 [deps]
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+MaterialDocs = "10bdffc8-969c-4dd4-83f3-742518eccd6b"
 Roots = "f2b01f46-fcfa-551c-844a-d8ac1e96c665"
 TermInterface = "8ea1fca8-c5ef-4a55-8b96-4e9afe9c9a3c"

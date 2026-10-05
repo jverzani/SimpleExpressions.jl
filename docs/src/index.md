@@ -304,11 +304,20 @@ combine(ex)
 
 Unlike most computer algebra systems---where the basic representation includes specialized storage for additive and multiplicative terms---this package does not. The `combine` function represents terms in this other manner, combines like terms, and then creates a expression again. This is a bit excessive to make a default, as the point here is reasonably fast callable functions.
 
-There is also an unexported `simplify` command that uses pattern matching to perform basic simplification.
+There is also an unexported `simplify` and `expand` command that uses pattern matching to perform basic simplification and expansion:
 
 
 ```@example expressions
-using SimpleExpressions: simplify
+using SimpleExpressions: simplify, expand
 ex = 10 * sin(2x)^2 + 10 * cos(2x)^2 - 5
 simplify(ex)
 ```
+
+
+```@example expressions
+@symbolic a b
+out = expand((a+b)^3)
+[out, simplify(out), combine(simplify(out))]
+```
+
+Due to the manner symbolic terms are stored, these operations prove to be much slower than would be expected.

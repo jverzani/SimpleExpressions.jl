@@ -51,7 +51,9 @@ A wildcard is written with a leading `~`. A bare variable in the pattern is *not
 | `~x::pred`         | slot with predicate | one subexpression for which `pred(value)` is `true`          |
 | `~!x`              | default slot        | one subexpression, or a default value when absent|
 | `~~x`              | segment/plus        | zero or more arguments of a call |
+| `~~::predx         | segment/plus        | same as plus with predicate |
 | `~~~x`             | star                | one or more arguments of a call |
+| `~~~x::pred`       | star                | same as star with predicate|
 | `(~f)(~x)`         | operation wildcard  | any call; `f` is bound to the operation                      |
 
 ### Slots and predicates
@@ -197,7 +199,15 @@ The fifth needs more explanation, as there can be wildcards in the expression. W
 
 First, we describe the use of symbolic wildcards.
 
-Wildcards have a naming convention using trailing underscores. One matches a single subexpression or term; two matches one or more subexpressions. In addition, the **special** symbol `⋯` (entered with `\\cdots[tab]` is wild.
+
+Wildcards have a naming convention using trailing underscores:
+
+* one matches a single subexpression or term;
+* two matches zero, one, or more subexpressions.
+* three matches  one or more subexpressions.
+
+In addition, the **special** symbol `⋯` (entered with `\\cdots[tab]` is wild.
+
 
 ```@repl replace
 julia> @symbolic x p; @symbolic x_
@@ -222,7 +232,7 @@ julia> replace(x*p, (x_) * x => x_)
 p
 ```
 
-Pattern and replacements can also be specified with Julia expressions. The basic wildcard is prefaced with `~`, a segment is specified with two `~`.
+Pattern and replacements can also be specified with Julia expressions. The details are in the docstring for [`match`](@ref). This method is more expressive as patterns can use *default slots* and slots can use *guards*.
 
 ```@repl replace
 julia> ex = log(sin(x)) + tan(sin(x^2))
@@ -233,6 +243,8 @@ log(tan(x / 2)) + tan(tan((x ^ 2) / 2))
 
 julia> replace(ex, :(sin((~x)^2)) => :(tan(~x)))
 log(sin(x)) + tan(tan(x))
+
+julia> replace(ex, :(sin((~x)^(~n::iseven))) => :(tan(~x)))
 ```
 
 Unlike symbolic wildcards, `Expr` objects can have *default slot* (specified as `~!x`) and predicates (specified after `::` to test.
@@ -464,14 +476,21 @@ function rewrite(σ::Base.ImmutableDict, rhs::Expr)
     # otherwise call recursively on arguments and then reconstruct expression
     op, args... = rhs.args
     args′ = [rewrite(σ, a) for a in rhs.args[2:end]]
-    op′ = if isdefined(@__MODULE__, op)
-        getproperty(@__MODULE__, op)
-    elseif isdefined(Main, op)
-        getproperty(Main, op)
+@show op
+    if isa(op, Symbol)
+        op′ = if isdefined(@__MODULE__, op)
+            getproperty(@__MODULE__, op)
+        elseif isdefined(Main, op)
+            getproperty(Main, op)
+        else
+            getproperty(Base, op)
+        end
+        return maketerm(AbstractSymbolic, op′, args′, nothing)
+    elseif isa(op, Expr)
+        getproperty(Main, :eval)(op)
     else
-        getproperty(Base, op)
+        error("What to do with $op?")
     end
-    return maketerm(AbstractSymbolic, op′, args′, nothing)
 end
 
 rewrite(σ::Base.ImmutableDict, rhs::AbstractSymbolic) = rewrite(σ, convert(Expr, rhs))

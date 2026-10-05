@@ -3,7 +3,7 @@ using Test
 
 import SimpleExpressions: simplify, expand, @symbolic_variables
 import SimpleExpressions: canonicalize,
-    powsimp, expsimp, logsimp, trigsimp, trigsimpa,
+    powsimp, expsimp, logsimp, trigsimp,
     expand_canonicalize,
     expand_pow, expand_exp, expand_log, expand_trig
 
@@ -95,9 +95,6 @@ apply(ex, rules) = SimpleExpressions.__resolve(ex, rules)
         @test simplify(sinh(x) * cosh(y) + sinh(y) * cosh(x)) == sinh(x + y)
         @test simplify(cos(x) * cos(y) - sin(x) * sin(y)) == cos(x + y)
         @test simplify(cosh(x) * cosh(y) + sinh(x) * sinh(y)) ∈ (cosh(y + x), cosh(x + y))
-    end
-
-    @testset "trigsimpa" begin
         @test simplify(2 * sin(x) * cos(x)) == sin(2x)
         @test simplify(2 * sinh(x) * cosh(x)) == sinh(2x)
     end
