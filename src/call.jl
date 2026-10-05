@@ -130,8 +130,8 @@ end
 ## --- substitution ---
 ## Substitution leaves as a symbolic value
 ##
-## To substitute use one of nothing && return missing or `:` in either the x or p
- position
+## To substitute use one of nothing && return missing or `:` in
+## either the x or p position
 ## * `u(x, :)` substitute for `x, leaves expression with parameter
 ## * `u(:, p)` substitute for `p`, leaves expression with variable
 ## The result can be evaluated

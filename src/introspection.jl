@@ -120,13 +120,13 @@ contains_operation(op) = Base.Fix2(contains_operation, op)
 
 
 # we have some means to query expressions
-# is_number  -- contains no SymbolicVariable or SymbolicParameter.
+# isnumeric  -- contains no SymbolicVariable or SymbolicParameter.
 # isconstant -- contains no SymbolicVariable (possibly SymbolicParameter)
 # isvariable -- is a SymbolicVariable or SymbolicConstant
 #
 #
 #              Number Parameter Variable
-# is_number     true   false     false
+# isnumeric     true   false     false
 # isconstant    true   true      false
 # isvariable    false  true      true
 

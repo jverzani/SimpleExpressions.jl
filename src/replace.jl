@@ -1,5 +1,34 @@
 # implementation specific definitions needed for matching in matchpy
 
+## -----
+
+"""
+    map_matched(ex, is_match, f)
+
+Traverse expression. If `is_match` is true, apply `f` to that part of expression tree and reassemble.
+
+Basically `CallableExpressions.expression_map_matched`.
+
+Not exported.
+"""
+map_matched(ex, is_match, f) = map_matched(Val(iscall(ex)), ex, is_match, f)
+map_matched(::Val{false}, x, is_match, f)  = is_match(x) ? f(x) : x
+function map_matched(::Val{true}, x, is_match, f)
+    # copy of  CallableExpressions.expression_map_matched(pred, mapping, u)
+    # but in SimpleExpressions domain
+    is_match(x) && return f(x)
+    #iscall(x) || return x
+    children = map_matched.(arguments(x), is_match, f)
+    maketerm(ExpressionType, operation(x), children, metadata(x))
+end
+
+function _ismatch(ex, pred)
+    pred(ex) && return true
+    iscall(ex) && return any(Base.Fix2(_ismatch, pred), arguments(ex))
+    return false
+end
+
+## -----
 const ExpressionType = SymbolicExpression
 
 ## ---- match, replace
@@ -313,7 +342,7 @@ function Base.replace(ex::AbstractSymbolic, pat_rhs::Pair{S,T}) where {
 
     ## need to walk the walk
     σ = match(pat, ex)
-    if σ == nothing #FAIL_DICT
+    if σ == nothing
         iscall(ex) || return ex
         args′ = replace.(arguments(ex), pat_rhs)
         return maketerm(AbstractSymbolic, operation(ex), args′, nothing)
@@ -369,7 +398,7 @@ function _replace(ex::AbstractSymbolic, u::Union{Symbol, Expr}, v)
     iscall(ex) || return (ex == u ? v : ex)
 
     σ = match(u, ex) # sigma is nothing, (), or a substitution
-    if σ != FAIL_DICT
+    if σ != nothing
         isempty(σ) && return v # no substitution
         return v(σ...) # XXX <---
     end
@@ -382,33 +411,6 @@ function _replace(ex::AbstractSymbolic, u::Union{Symbol, Expr}, v)
 end
 
 
-## -----
-
-"""
-    map_matched(ex, is_match, f)
-
-Traverse expression. If `is_match` is true, apply `f` to that part of expression tree and reassemble.
-
-Basically `CallableExpressions.expression_map_matched`.
-
-Not exported.
-"""
-map_matched(ex, is_match, f) = map_matched(Val(iscall(ex)), ex, is_match, f)
-map_matched(::Val{false}, x, is_match, f)  = is_match(x) ? f(x) : x
-function map_matched(::Val{true}, x, is_match, f)
-    # copy of  CallableExpressions.expression_map_matched(pred, mapping, u)
-    # but in SimpleExpressions domain
-    is_match(x) && return f(x)
-    #iscall(x) || return x
-    children = map_matched.(arguments(x), is_match, f)
-    maketerm(ExpressionType, operation(x), children, metadata(x))
-end
-
-function _ismatch(ex, pred)
-    pred(ex) && return true
-    iscall(ex) && return any(Base.Fix2(_ismatch, pred), arguments(ex))
-    return false
-end
 
 
 ## ----- Replace -----

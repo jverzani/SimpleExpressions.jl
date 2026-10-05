@@ -13,8 +13,9 @@
 ## expression's shape is paid only for expressions that are used that way.
 
 ## This was written using co-pilot
-## the simplifications from this storage come at some expense:
+
 #=
+## The simplifications from this storage come at some expense:
 
 > Compile time is about 3.7× lower with the hybrid and equality is
   much faster, but building expressions with +/ is slower than the old
@@ -44,7 +45,6 @@
 
 =#
 
-abstract type SymbolicTerms <: AbstractSymbolic end
 
 struct SymbolicSum <: SymbolicTerms
     c::Number
@@ -59,9 +59,6 @@ struct SymbolicProd <: SymbolicTerms
     coefs::Vector{Number}
     cache::Base.RefValue{Any}
 end
-
-# methods written for `SymbolicExpression` that only use `operation`, `arguments`, `↓`
-const SymbolicCall = Union{SymbolicExpression, SymbolicTerms}
 
 ## ---- numbers
 # Only fold "plain" numbers; π, ℯ, ... stay symbolic as before

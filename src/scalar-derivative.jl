@@ -39,7 +39,7 @@ function Base.diff(ex::AbstractSymbolic, x::𝑉, xs...)
     for xᵢ ∈ xs
         ex = D(ex, xᵢ)
     end
-    ex #combine(ex)
+    ex
 end
 
 function Base.diff(ex::AbstractSymbolic, x::𝑉, n::Int)
@@ -47,7 +47,7 @@ function Base.diff(ex::AbstractSymbolic, x::𝑉, n::Int)
     for _ in 1:n
         ex = D(ex, x)
     end
-    ex #combine(ex)
+    ex
 end
 
 function Base.diff(ex::AbstractSymbolic, x::𝑉, n::Int, xs...)
@@ -62,9 +62,6 @@ D(𝑥::SymbolicNumber, x) = 0
 D(𝑥::SymbolicVariable, x) = 𝑥 == x ? 1 : 0
 D(𝑥::SymbolicParameter, x) = 𝑥 == x ? 1 : 0
 D(ex::SymbolicEquation, x) = D(ex.lhs, x) ~ D(ex.rhs, x)
-
-# combine slows this down
-#D(ex::SymbolicExpression, x) = combine(D(operation(ex), arguments(ex), x))
 D(ex::SymbolicCall, x) = D(operation(ex), arguments(ex), x)
 
 
