@@ -22,7 +22,11 @@ function expression_evaluated(e::Expression, variable_values)
     children = expression_children(e)
     operation = expression_operation(e)
     args = map(f, children)
-    operation(args...)
+    _apply(operation, args...) # XXX modification
 end
+
+_apply(op, args...) = op(args...)
+# `2^-4` throws for integers; `1/x` is stored as `x^-1`
+_apply(::typeof(^), a::Integer, b::Integer) = b < 0 ? float(a)^b : a^b
 
 end

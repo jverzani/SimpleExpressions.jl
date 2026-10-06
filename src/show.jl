@@ -8,13 +8,24 @@ _show(io::IO, u::DynamicVariable) = print(io, u.sym)
 _show(io::IO, u::StaticVariable{S}) where {S} = print(io, S)
 _show(io::IO, u::DynamicConstant) = print(io, u.value)
 
-function Base.show(io::IO, x::SymbolicCall)
+Base.show(io::IO, x::SymbolicCall) = _showcall(io, x)
+
+function _showcall(io::IO, x)
     broadcast = ""
     op, args = operation(x), arguments(x)
     if op == Base.broadcasted
         broadcast= "."
         op′, args... = args
         op = ↓(op′).value
+    end
+
+    if x isa SymbolicProd && op === (^) && x.coefs[1] < 0
+        d = _display_division((SymbolicNumber(1), materialize(x)))
+        d === nothing || return _showcall(io, d)
+    end
+    if op === (*) && length(args) > 1
+        d = _display_division(args)
+        d === nothing || return _showcall(io, d)
     end
 
     infix_ops = (+, - , *, /, //, ^, >=, >, ==, !=, <, <=) # infix
