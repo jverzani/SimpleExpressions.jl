@@ -34,5 +34,5 @@ include("rule2a.jl")
 include("simplify.jl")
 include("polynomial-fns.jl")
 include("solve.jl")
-
+include("gruntz_limit.jl")
 end
