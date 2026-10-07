@@ -5,7 +5,7 @@ Find limit of expression `ex` as `x` goes to `c`.
 
 The direction can be `:both` (the default)  or the right side (specified with `:+`, `+`, `"+"`) or the left side (specified with (`:-`, `-`, or `"-"`).
 
-Uses Claude Code port of the [Gruntz algorithm](On Computing Limits in a Symbolic Manipulation System}),
+Uses Claude Code port of the Gruntz algorithm described in the thesis *On Computing Limits in a Symbolic Manipulation System*.
 
 ## Examples
 ```julia
