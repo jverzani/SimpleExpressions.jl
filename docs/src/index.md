@@ -212,6 +212,24 @@ Here the application of the product rule can be seen:
 u = diff(exp(x) * (sin(3x) + sin(101x)), x)
 ```
 
+## Limits
+
+With the aid of Claude AI implemnting an algorithm due to Gruntz, a `limit` function can be used to compute symbolic limits. The usage follows this pattern:
+
+```@example expressions
+@symbolic x a
+using SimpleExpressions: limit
+limit(sin(a*x)/x, x=>0)
+```
+
+Limits are two sided by default (`dir=:both`). For a left or right limit, the direction is specified to the keyword argument `dir`. For example:
+
+```@example expressions
+limit(x/abs(x), x=>0; dir=-), limit(x/abs(x), x=>0; dir="+")
+```
+
+The direction can be done with a function, a symbol, or a string (e.g. `+`, `:+`, or `"+"`.).
+
 ## `replace`
 
 To work with multiple symbolic parameters or variables, `replace` can be used to substitute in values for a specific variable.
