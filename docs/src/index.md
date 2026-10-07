@@ -214,7 +214,7 @@ u = diff(exp(x) * (sin(3x) + sin(101x)), x)
 
 ## Limits
 
-With the aid of Claude AI implemnting an algorithm due to Gruntz, a `limit` function can be used to compute symbolic limits. The usage follows this pattern:
+With the aid of Claude AI implementing an algorithm due to Gruntz, a `limit` function can be used to compute symbolic limits. The usage follows this pattern:
 
 ```@example expressions
 @symbolic x a
