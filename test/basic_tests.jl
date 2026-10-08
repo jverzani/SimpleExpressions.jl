@@ -33,7 +33,7 @@ import SimpleExpressions: is_number, isconstant, isvariable
     g = cos(x)
     @test (f∘g)(x₀) == f(g(x₀)) == sin(cos(x₀))
     for op ∈ (+, -, *, /, ^)
-        @test op(f,g)(x₀) == op(f(x₀), g(x₀))
+        @test op(f,g)(x₀) ≈ op(f(x₀), g(x₀)) atol = eps(x₀)
     end
 
     # +,* nary

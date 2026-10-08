@@ -195,7 +195,6 @@ function _mkprod(c::Number, keys, coefs)
     end
     if length(keys) == 1 && isone(c)
         isone(coefs[1]) && return keys[1]
-        coefs[1] > 0 && return _powexpr(keys[1], coefs[1])
     end
     # a number times a sum distributes over the sum
     if length(keys) == 1 && isone(coefs[1]) && keys[1] isa SymbolicSum
@@ -375,30 +374,37 @@ function _factors(c, ks, es)
     end
     cs
 end
-_factortree(cs) = isempty(cs) ? DynamicConstant(1) :
-                  length(cs) == 1 ? only(cs) : StaticExpression(Tuple(cs), *)
 
-# negative powers and rational coefficients form the denominator
-function _split(x::SymbolicProd)
-    pos = findall(>(0), x.coefs)
-    neg = findall(<(0), x.coefs)
-    c = x.c
-    num, den = c isa Rational ? (numerator(c), denominator(c)) : (c, 1)
-    (num, x.keys[pos], x.coefs[pos]), (den, x.keys[neg], -x.coefs[neg])
-end
-_hasden(x::SymbolicProd) = any(<(0), x.coefs) || (x.c isa Rational && !isone(denominator(x.c)))
+_children(x::SymbolicProd) = _ispower(x) ?
+    Any[↓(x.keys[1]), DynamicConstant(x.coefs[1])] : _factors(x.c, x.keys, x.coefs)
 
-function _children(x::SymbolicProd)
-    _hasden(x) || return _factors(x.c, x.keys, x.coefs)
-    n, d = _split(x)
-    Any[_factortree(_factors(n...)), _factortree(_factors(d...))]
+## ---- display only: show negative exponents and rational coefficients of a product as a division
+function _display_division(args)
+    num, den = Any[], Any[]
+    for a in args
+        v = _num(a)
+        if v isa Rational && !isone(denominator(v))
+            isone(numerator(v)) || push!(num, SymbolicNumber(numerator(v)))
+            push!(den, SymbolicNumber(denominator(v)))
+        elseif a isa SymbolicExpression && operation(a) === (^) && (e = _num(arguments(a)[2])) !== nothing && e < 0
+            push!(den, e == -1 ? arguments(a)[1] : _powexpr(arguments(a)[1], -e))
+        else
+            push!(num, a)
+        end
+    end
+    isempty(den) && return nothing
+    _prodtree(cs) = isempty(cs) ? SymbolicNumber(1) :
+        length(cs) == 1 ? only(cs) : SymbolicExpression(StaticExpression(Tuple(map(c -> ↓(c), cs)), (*)))
+    SymbolicExpression(StaticExpression((↓(_prodtree(num)), ↓(_prodtree(den))), /))
 end
 
 ↓(x::SymbolicTerms) = ↓(materialize(x))
 
 ## ---- term interface, without materializing
 TermInterface.operation(::SymbolicSum) = +
-TermInterface.operation(x::SymbolicProd) = _hasden(x) ? (/) : (*)
+# a single power, `b^e`, is a product with c = 1 and one key
+_ispower(x::SymbolicProd) = isone(x.c) && length(x.keys) == 1
+TermInterface.operation(x::SymbolicProd) = _ispower(x) ? (^) : (*)
 TermInterface.isexpr(::SymbolicTerms) = true
 TermInterface.iscall(::SymbolicTerms) = true
 TermInterface.head(x::SymbolicTerms) = operation(x)
