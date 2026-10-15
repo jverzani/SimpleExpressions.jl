@@ -18,7 +18,9 @@ for fn ∈ (:airy,
           :erf, :erfc, :erfcinv, :erfcx, :erfi, :erfinv, :eta,
           :digamma, :invdigamma, :polygamma, :trigamma,
           :hankelh1, :hankelh1x, :hankelh2, :hankelh2x,
-          :zeta)
+          :zeta,
+          :expint, :expinti, :expintx, :sinint, :cosint,
+          )
     @eval begin
         SpecialFunctions.$fn(x::SimpleExpressions.AbstractSymbolic, as...) = SimpleExpressions.SymbolicExpression(SpecialFunctions.$fn, (x, as...))
     end

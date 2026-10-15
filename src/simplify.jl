@@ -29,9 +29,9 @@ gt(a, b) = unwrapped_compare(>,  a, b)
 
 ## ------- rules to apply
 canonicalize = [
-    :(~a + (~b + ~c))          => :(+(~a,~b,~c)),
-    :(~a * (~b * ~c))          => :(*(~a,~b,~c)),
-    :(~a - ~a)                 => :(zero(~a)),
+    :(~a + (~b + ~c))              => :(+(~a,~b,~c)),
+    :(~a * (~b * ~c))              => :(*(~a,~b,~c)),
+    :(~a - ~a)                     => :(zero(~a)),
     :(*(~~~a) + *(-1, ~~~a) + ~~b) => :(Σ(~~b)),
 
     :(*(~!a, ~~~x) + *(~!b, ~~~x) + (~~c)) => :(*(~a + ~b, Π(~~~x)) + Σ(~~c)),
@@ -57,34 +57,48 @@ canonicalize = [
 powsimp = [
     :((~x)^(~!m) * (~x)^(~n) * (~~a)) => :(Π(~~a) * (~x)^(~m + ~n)),
     :((~x)^(~!m) * (~y)^(~m) * (~~a)) => :(Π(~~a) * (~x*~y)^(~m)), # needs x,y > 0
-    :(((~x)^(~m))^(~n))       => :((~x)^(~m*~n)),
+    :(((~x)^(~m))^(~n))               => :((~x)^(~m*~n)),
 ]
 
 expsimp = [
     :((~~a) * exp(~x) * exp(~y)) => :(Π(~~a) * exp(~x + ~y)),
-    :(exp(~x)^(~y))              => :(exp(~x * ~y))
+    :(exp(~x)^(~y))              => :(exp(~x * ~y)),
+    :(exp(~!a*log(~x)))          => :((~x)^(~!a)),
+    :(exp(~x::iszero))           => :(one(~x)),
 ]
 
 logsimp = [
     :((~!a)*log(~x) + (~!a)*log(~y) + (~~b))    => :((~!a) * log(~x*~y) + Σ(~~b)),
-
-    :((~n)* log(~x))                            => :(log((~x)^(~n))),
+    :((~n)* log(~x))             => :(log((~x)^(~n))),
+    :(log(~!a*exp(~x)))          => :(log(~!a) + ~x),
+    :(log(~x::isone))            => :(zero(~x)),
 ]
 
 
+iseveninteger(x) = isinteger(x) && iseven(x)
 trigsimp = [
-    :((~!a) * sin(~x)^2 + (~!a) * cos(~x)^2 + ~~b) => :(~a + Σ(~~b)),
-    :((~!a) * sinh(~x)^2 + (~!a) * cosh(~x)^2 + ~~b) => :(~a*cosh(2*~x) + Σ(~~b)),
+    :((~!a) * sin(~x)^2 + (~!a) * cos(~x)^2 + ~~b)          => :(~a + Σ(~~b)),
+    :((~!a) * sinh(~x)^2 + (~!a) * cosh(~x)^2 + ~~b)        => :(~a*cosh(2*~x) + Σ(~~b)),
     :((~!a) * cos(~x)^2 + (-1) *  (~!a) * sin(~x)^2 + ~~b)  => :(~a * cos(2*~x) + Σ(~~b)),
-    :((~!a) * cosh(~x)^2 + (~!a) * sinh(~x)^2 + ~~b) => :(~a * cosh(2*~x) + Σ(~~b)),
+    :((~!a) * cosh(~x)^2 + (~!a) * sinh(~x)^2 + ~~b)        => :(~a * cosh(2*~x) + Σ(~~b)),
     :((~!a) * sin(~x)*cos(~y) + (~!a) * sin(~y)*cos(~x) + ~~b) => :((~!a) * sin(~x + ~y) + Σ(~~b)),
     :((~!a) * sinh(~x)*cosh(~y) + (~!a) * sinh(~y)*cosh(~x) + ~~b) => :((~!a) * sinh(~x + ~y) + Σ(~~b)),
 
     :((~!a) * cos(~x)*cos(~y) + (-1) * (~!a) * sin(~x)*sin(~y) + ~~b) => :((~!a) * cos(~x + ~y) + Σ(~~b)),
-    :((~!a) * cosh(~x)*cosh(~y) + (~!a) * sinh(~y)*sinh(~x) + ~~b) => :((~!a) * cosh(~x + ~y) + Σ(~~b)),
+    :((~!a) * cosh(~x)*cosh(~y) + (~!a) * sinh(~y)*sinh(~x) + ~~b)    => :((~!a) * cosh(~x + ~y) + Σ(~~b)),
 
     :((~!a) * (~m::iseven)*sin(~x)*cos(~x))   => :((~!a) * (~m/2) * sin(2*~x)),
     :((~!a) * (~m::iseven)*sinh(~x)*cosh(~x)) => :((~!a) * (~m/2) * sinh(2*~x)),
+
+    :(sin(0)) => 0,
+    :(sin((~!n::isinteger)*pi)) => 0,
+    :(sin(pi/2)) => 1,
+    :(sin((~!n::isinteger)*pi/2)) => 0,
+    :(cos(0)) => 1,
+    :(cos((~!n::isinteger)*pi)) => 1,
+    :(cos(pi/2)) => 1,
+    :(cos((~!n::iseveninteger)*pi/2)) => :(1*isodd(~n÷2)),
+
 ]
 
 ## --- expand
@@ -115,21 +129,21 @@ expand_pow = [
 
 expand_exp = [
     :(exp(~x + ~y)) => :(exp(~x) * exp(~y)),
-    :(ℯ^(~x + ~y)) => :(exp(~x) * exp(~y)),
+    :(ℯ^(~x + ~y))  => :(exp(~x) * exp(~y)),
     :(exp(~x * ~y)) => :(exp(~x)^(~y)),
-    :(ℯ^(~x * ~y)) => :(exp(~x)^(~y))
+    :(ℯ^(~x * ~y))  => :(exp(~x)^(~y))
 ]
 
 expand_log = [
-    :(log(~x * ~y)) => :(log(~x) + log(~y)),
+    :(log(~x * ~y))   => :(log(~x) + log(~y)),
     :(log((~x) ^ ~n)) => :(~n * log(~x))
 ]
 
 expand_trig = [
-    :(tan(~x)) => :(sin(~x) / cos(~x)),
-    :(cot(~x)) => :(cos(~x) / sin(~x)),
-    :(sec(~x)) => :(1/cos(~x)),
-    :(csc(~x)) => :(1/sin(~x)),
+    :(tan(~x))       => :(sin(~x) / cos(~x)),
+    :(cot(~x))       => :(cos(~x) / sin(~x)),
+    :(sec(~x))       => :(1/cos(~x)),
+    :(csc(~x))       => :(1/sin(~x)),
 
     :(sin(2 * ~x))   => :(2*sin(~x)*cos(~x)),
     :(cos(2 * ~x))   => :(cos(~x) ^ 2 - sin(~x) ^ 2),
@@ -167,6 +181,8 @@ postwalk(f, ex) = walk(ex,    x -> postwalk(f,x), f)
 prewalk(f, ex)  = walk(f(ex), x -> prewalk(f, x), identity)
 
 # apply rules to expression
+__apply_rules(x::Number, rs) = x
+__apply_rules(x::Bool, rs) = x
 function __apply_rules(x, rs)
     for r ∈ rs
         pat, rhs = r

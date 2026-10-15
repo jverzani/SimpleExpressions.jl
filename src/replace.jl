@@ -22,10 +22,20 @@ function map_matched(::Val{true}, x, is_match, f)
     maketerm(ExpressionType, operation(x), children, metadata(x))
 end
 
-function _ismatch(ex, pred)
+function anyQ(ex, pred)
     pred(ex) && return true
-    iscall(ex) && return any(Base.Fix2(_ismatch, pred), arguments(ex))
+    iscall(ex) && return any(Base.Fix2(anyQ, pred), arguments(ex))
     return false
+end
+
+function syntactic_match(a, b)
+    𝑎, 𝑏 = isexpr(a), isexpr(b)
+    𝑎 == 𝑏 || return false
+    !𝑎 && return a == b
+    operation(a) ==  operation(b) || return false
+    as, bs = arguments(a), arguments(b)
+    length(as) == length(bs) || return false
+    all(splat(==), zip(as, bs))
 end
 
 ## -----
@@ -143,6 +153,7 @@ end
 function Base.match(pat::AbstractSymbolic, ex::AbstractSymbolic)
     return match(convert(Expr, pat), ex)
 end
+
 function Base.eachmatch(pattern::Expr, subject::AbstractSymbolic)
     σs = [MatchDict()]
     check_expr_r(subject, pattern, σs)
@@ -436,7 +447,7 @@ end
 is_wildcard(x::AbstractSymbolic) = false
 
 function _replace_arguments(ex, u, v)
-    if _ismatch(u, is_wildcard)
+    if anyQ(u, is_wildcard)
         return replace(ex, convert(Expr, u) => convert(Expr, v))
     else
         return map_matched(ex, ==(u), x -> v)
