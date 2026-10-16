@@ -19,7 +19,7 @@ function _showcall(io::IO, x)
         op = ↓(op′).value
     end
 
-    if x isa SymbolicProd && op === (^) && x.coefs[1] < 0
+    if x isa SymbolicProd && op === (^) && (e = x.coefs[1]) isa Real && e < 0
         d = _display_division((SymbolicNumber(1), materialize(x)))
         d === nothing || return _showcall(io, d)
     end
@@ -37,9 +37,10 @@ function _showcall(io::IO, x)
         else
             n = length(args)
             for (i, a) ∈ enumerate(args)
-                isa(a, SymbolicExpression) && operation(a) ∈ infix_ops && print(io, "(")
+                parens = _infix_parens(a, op, i, infix_ops)
+                parens && print(io, "(")
                 show(io, a)
-                isa(a, SymbolicExpression) && operation(a) ∈ infix_ops && print(io, ")")
+                parens && print(io, ")")
                 i != n && print(io, " ", broadcast, string(op), " ")
             end
         end
@@ -60,6 +61,18 @@ function _showcall(io::IO, x)
         print(io, ")")
 
     end
+end
+
+# does argument `a` (in position `i`) of the infix operator `op` need parentheses?
+# Compound expressions do; so do numbers whose printed form isn't atomic:
+# `x ^ 1//2` parses as `(x ^ 1) // 2` and `-2 ^ x` as `-(2 ^ x)`
+function _infix_parens(a, op, i, infix_ops)
+    isa(a, SymbolicExpression) && operation(a) ∈ infix_ops && return true
+    v = _num(a)
+    v isa Complex && return true
+    v isa Rational && op ∈ (*, /, //, ^) && return true
+    op === (^) && i == 1 && v isa Real && v < 0 && return true
+    false
 end
 
 function Base.show(io::IO, eq::SymbolicEquation)

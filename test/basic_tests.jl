@@ -200,6 +200,19 @@ end
 
     @test repr((1+x)^2) == "(1 + x) ^ 2"
 
+    # non-atomic numbers are wrapped so the output parses back correctly
+    @test repr(x^(1//2)) == "x ^ (1//2)"
+    @test repr(x^(-1//2)) == "1 / (x ^ (1//2))"
+    @test repr(x^(1+2im)) == "x ^ (1 + 2im)"
+    @test repr((-2)^x) == "(-2) ^ x"
+    @test repr((1//2)^x) == "(1//2) ^ x"
+    @test repr(x + 1//2) == "1//2 + x"
+    @test repr((1+2im)*x) == "(1 + 2im) * x"
+    for ex in (x^(1//2), x^(-1//2), (-2)^x, (2//3)*x^(1//2), x^(2//3)*p^(-1//2), x - (1+2im))
+        ex′ = eval(:(let x = $x, p = $p; $(Meta.parse(repr(ex))) end))
+        @test ex′(2, 3) ≈ ex(2, 3)
+    end
+
 end
 
 @testset "combine" begin
