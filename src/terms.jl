@@ -386,7 +386,7 @@ function _display_division(args)
         if v isa Rational && !isone(denominator(v))
             isone(numerator(v)) || push!(num, SymbolicNumber(numerator(v)))
             push!(den, SymbolicNumber(denominator(v)))
-        elseif a isa SymbolicExpression && operation(a) === (^) && (e = _num(arguments(a)[2])) !== nothing && e < 0
+        elseif a isa SymbolicExpression && operation(a) === (^) && (e = _num(arguments(a)[2])) isa Real && e < 0
             push!(den, e == -1 ? arguments(a)[1] : _powexpr(arguments(a)[1], -e))
         else
             push!(num, a)
