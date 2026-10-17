@@ -29,136 +29,136 @@ gt(a, b) = unwrapped_compare(>,  a, b)
 
 ## ------- rules to apply
 canonicalize = [
-    :(~a + (~b + ~c))              => :(+(~a,~b,~c)),
-    :(~a * (~b * ~c))              => :(*(~a,~b,~c)),
-    :(~a - ~a)                     => :(zero(~a)),
-    :(*(~~~a) + *(-1, ~~~a) + ~~b) => :(Σ(~~b)),
+    @rule(~a + (~b + ~c)              => +(~a,~b,~c)),
+    @rule(~a * (~b * ~c)              => *(~a,~b,~c)),
+    @rule(~a - ~a                     => zero(~a)),
+    @rule(*(~~~a) + *(-1, ~~~a) + ~~b => Σ(~~b)),
 
-    :(*(~!a, ~~~x) + *(~!b, ~~~x) + (~~c)) => :(*(~a + ~b, Π(~~~x)) + Σ(~~c)),
-    :(*(~~~a, ~x)  + *(~~b, ~x)   + (~~c)) => :(*(Π(~~~a) + Π(~~b), ~x) + Σ(~~c)),
+    @rule(*(~!a, ~~~x) + *(~!b, ~~~x) + (~~c) => *(~a + ~b, Π(~~~x)) + Σ(~~c)),
+    @rule(*(~~~a, ~x)  + *(~~b, ~x)   + (~~c) => *(Π(~~~a) + Π(~~b), ~x) + Σ(~~c)),
 
-    :((~x)^(~z::iszero))       => :(one(~x)),
-    :((~x)^(~z::isone))        => :(~x),
-    :((~x::isone)^(~z))        => :(one(~x)),
-    :(sqrt(~x))                => :((~x)^(1//2)),
-    :(cbrt(~x))                => :((~x)^(1//3)),
-    :(ℯ^(~z))                  => :(exp(~z)),
-    :(exp(~z::iszero))         => 1,
-    :(exp(~z::isone))          => ℯ,
+    @rule((~x)^(~z::iszero)       => one(~x)),
+    @rule((~x)^(~z::isone)        => ~x),
+    @rule((~x::isone)^(~z)        => one(~x)),
+    @rule(sqrt(~x)                => (~x)^(1//2)),
+    @rule(cbrt(~x)                => (~x)^(1//3)),
+    @rule(ℯ^(~z)                  => exp(~z)),
+    @rule(exp(~z::iszero)         => 1),
+    @rule(exp(~z::isone)          => ℯ),
 
-    :(sin(~x)/cos(~x)) => :(tan(~x)),
-    :(sin(~x)*cot(~x)) => :(cos(~x)),
-    :(cos(~x)/sin(~x)) => :(cot(~x)),
-    :(cos(~x)*cot(~x)) => :(sin(~x)),
+    @rule(sin(~x)/cos(~x) => tan(~x)),
+    @rule(sin(~x)*cot(~x) => cos(~x)),
+    @rule(cos(~x)/sin(~x) => cot(~x)),
+    @rule(cos(~x)*cot(~x) => sin(~x)),
 
 ]
 
 # https://docs.sympy.org/latest/tutorials/intro-tutorial/simplification.html
 powsimp = [
-    :((~x)^(~!m) * (~x)^(~n) * (~~a)) => :(Π(~~a) * (~x)^(~m + ~n)),
-    :((~x)^(~!m) * (~y)^(~m) * (~~a)) => :(Π(~~a) * (~x*~y)^(~m)), # needs x,y > 0
-    :(((~x)^(~m))^(~n))               => :((~x)^(~m*~n)),
+    @rule((~x)^(~!m) * (~x)^(~n) * (~~a) => Π(~~a) * (~x)^(~m + ~n)),
+    @rule((~x)^(~!m) * (~y)^(~m) * (~~a) => Π(~~a) * (~x*~y)^(~m)), # needs x,y > 0
+    @rule(((~x)^(~m))^(~n)               => (~x)^(~m*~n)),
 ]
 
 expsimp = [
-    :((~~a) * exp(~x) * exp(~y)) => :(Π(~~a) * exp(~x + ~y)),
-    :(exp(~x)^(~y))              => :(exp(~x * ~y)),
-    :(exp(~!a*log(~x)))          => :((~x)^(~!a)),
-    :(exp(~x::iszero))           => :(one(~x)),
+    @rule((~~a) * exp(~x) * exp(~y) => Π(~~a) * exp(~x + ~y)),
+    @rule(exp(~x)^(~y)              => exp(~x * ~y)),
+    @rule(exp(~!a*log(~x))          => (~x)^(~!a)),
+    @rule(exp(~x::iszero)           => one(~x)),
 ]
 
 logsimp = [
-    :((~!a)*log(~x) + (~!a)*log(~y) + (~~b))    => :((~!a) * log(~x*~y) + Σ(~~b)),
-    :((~n)* log(~x))             => :(log((~x)^(~n))),
-    :(log(~!a*exp(~x)))          => :(log(~!a) + ~x),
-    :(log(~x::isone))            => :(zero(~x)),
+    @rule((~!a)*log(~x) + (~!a)*log(~y) + (~~b)    => (~!a) * log(~x*~y) + Σ(~~b)),
+    @rule((~n)* log(~x)             => log((~x)^(~n))),
+    @rule(log(~!a*exp(~x))          => log(~!a) + ~x),
+    @rule(log(~x::isone)            => zero(~x)),
 ]
 
 
 iseveninteger(x) = isinteger(x) && iseven(x)
 trigsimp = [
-    :((~!a) * sin(~x)^2 + (~!a) * cos(~x)^2 + ~~b)          => :(~a + Σ(~~b)),
-    :((~!a) * sinh(~x)^2 + (~!a) * cosh(~x)^2 + ~~b)        => :(~a*cosh(2*~x) + Σ(~~b)),
-    :((~!a) * cos(~x)^2 + (-1) *  (~!a) * sin(~x)^2 + ~~b)  => :(~a * cos(2*~x) + Σ(~~b)),
-    :((~!a) * cosh(~x)^2 + (~!a) * sinh(~x)^2 + ~~b)        => :(~a * cosh(2*~x) + Σ(~~b)),
-    :((~!a) * sin(~x)*cos(~y) + (~!a) * sin(~y)*cos(~x) + ~~b) => :((~!a) * sin(~x + ~y) + Σ(~~b)),
-    :((~!a) * sinh(~x)*cosh(~y) + (~!a) * sinh(~y)*cosh(~x) + ~~b) => :((~!a) * sinh(~x + ~y) + Σ(~~b)),
+    @rule((~!a) * sin(~x)^2 + (~!a) * cos(~x)^2 + ~~b          => ~a + Σ(~~b)),
+    @rule((~!a) * sinh(~x)^2 + (~!a) * cosh(~x)^2 + ~~b        => ~a*cosh(2*~x) + Σ(~~b)),
+    @rule((~!a) * cos(~x)^2 + (-1) *  (~!a) * sin(~x)^2 + ~~b  => ~a * cos(2*~x) + Σ(~~b)),
+    @rule((~!a) * cosh(~x)^2 + (~!a) * sinh(~x)^2 + ~~b        => ~a * cosh(2*~x) + Σ(~~b)),
+    @rule((~!a) * sin(~x)*cos(~y) + (~!a) * sin(~y)*cos(~x) + ~~b => (~!a) * sin(~x + ~y) + Σ(~~b)),
+    @rule((~!a) * sinh(~x)*cosh(~y) + (~!a) * sinh(~y)*cosh(~x) + ~~b => (~!a) * sinh(~x + ~y) + Σ(~~b)),
 
-    :((~!a) * cos(~x)*cos(~y) + (-1) * (~!a) * sin(~x)*sin(~y) + ~~b) => :((~!a) * cos(~x + ~y) + Σ(~~b)),
-    :((~!a) * cosh(~x)*cosh(~y) + (~!a) * sinh(~y)*sinh(~x) + ~~b)    => :((~!a) * cosh(~x + ~y) + Σ(~~b)),
+    @rule((~!a) * cos(~x)*cos(~y) + (-1) * (~!a) * sin(~x)*sin(~y) + ~~b => (~!a) * cos(~x + ~y) + Σ(~~b)),
+    @rule((~!a) * cosh(~x)*cosh(~y) + (~!a) * sinh(~y)*sinh(~x) + ~~b    => (~!a) * cosh(~x + ~y) + Σ(~~b)),
 
-    :((~!a) * (~m::iseven)*sin(~x)*cos(~x))   => :((~!a) * (~m/2) * sin(2*~x)),
-    :((~!a) * (~m::iseven)*sinh(~x)*cosh(~x)) => :((~!a) * (~m/2) * sinh(2*~x)),
+    @rule((~!a) * (~m::iseven)*sin(~x)*cos(~x)   => (~!a) * (~m/2) * sin(2*~x)),
+    @rule((~!a) * (~m::iseven)*sinh(~x)*cosh(~x) => (~!a) * (~m/2) * sinh(2*~x)),
 
-    :(sin(0)) => 0,
-    :(sin((~!n::isinteger)*pi)) => 0,
-    :(sin(pi/2)) => 1,
-    :(sin((~!n::isinteger)*pi/2)) => 0,
-    :(cos(0)) => 1,
-    :(cos((~!n::isinteger)*pi)) => 1,
-    :(cos(pi/2)) => 1,
-    :(cos((~!n::iseveninteger)*pi/2)) => :(1*isodd(~n÷2)),
+    @rule(sin(0) => 0),
+    @rule(sin((~!n::isinteger)*pi) => 0),
+    @rule(sin(pi/2) => 1),
+    @rule(sin((~!n::isinteger)*pi/2) => 0),
+    @rule(cos(0) => 1),
+    @rule(cos((~!n::isinteger)*pi) => 1),
+    @rule(cos(pi/2) => 1),
+    @rule(cos((~!n::iseveninteger)*pi/2) => 1*isodd(~n÷2)),
 
 ]
 
 ## --- expand
 expand_canonicalize = [
-    :(*(~!a, +(~~~b)))         => :(sum(scalar_mult(~!a, ~~~b))),
-    :(*(~a + ~b,~x))           => :(*(~a, ~x) + *(~b, ~x)),
-    :(+(~a, ~~b) * +(~c, ~~d) * ~~~e) => :((~a*~c + ~a*Σ(~~d) + ~c*Σ(~~b) + Σ(~~b) * Σ(~~d))*Π(~~e)),
+    @rule(*(~!a, +(~~~b))         => sum(scalar_mult(~!a, ~~~b))),
+    @rule(*(~a + ~b,~x)           => *(~a, ~x) + *(~b, ~x)),
+    @rule(+(~a, ~~b) * +(~c, ~~d) * ~~~e => (~a*~c + ~a*Σ(~~d) + ~c*Σ(~~b) + Σ(~~b) * Σ(~~d))*Π(~~e)),
 
-    :((~x)^(~n::integer_gt(2)))=> :(~x * (~x)^(~n-1)),
-    :((~x)^(~z::iszero))       => :(one(~x)),
-    :((~x)^(~z::isone))        => :(~x),
-    :((~x::isone)^~z)          => :(one(~x)),
-    :((~x)^(1//2))             => :(sqrt(~x)),
-    :((~x)^(1//3))             => :(cbrt(~x)),
+    @rule((~x)^(~n::integer_gt(2))=> ~x * (~x)^(~n-1)),
+    @rule((~x)^(~z::iszero)       => one(~x)),
+    @rule((~x)^(~z::isone)        => ~x),
+    @rule((~x::isone)^~z          => one(~x)),
+    @rule((~x)^(1//2)             => sqrt(~x)),
+    @rule((~x)^(1//3)             => cbrt(~x)),
 
-    :(ℯ^(~z))                  => :(exp(~z)),
-    :(exp(~z::iszero))         => 1,
-    :(exp(~z::isone))          => ℯ,
+    @rule(ℯ^(~z)                  => exp(~z)),
+    @rule(exp(~z::iszero)         => 1),
+    @rule(exp(~z::isone)          => ℯ),
 
 
 ]
 
 expand_pow = [
-    :((~x)^(~m + ~n)) => :((~x)^(~!m) * (~x)^(~n)),
-    :((~x*~y)^(~m)) => :((~x)^(~!m) * (~y)^(~m)),
-    :((~x)^(~m*~n)) =>  :(((~x)^(~m))^(~n))
+    @rule((~x)^(~m + ~n) => (~x)^(~!m) * (~x)^(~n)),
+    @rule((~x*~y)^(~m) => (~x)^(~!m) * (~y)^(~m)),
+    @rule((~x)^(~m*~n) => ((~x)^(~m))^(~n))
 ]
 
 expand_exp = [
-    :(exp(~x + ~y)) => :(exp(~x) * exp(~y)),
-    :(ℯ^(~x + ~y))  => :(exp(~x) * exp(~y)),
-    :(exp(~x * ~y)) => :(exp(~x)^(~y)),
-    :(ℯ^(~x * ~y))  => :(exp(~x)^(~y))
+    @rule(exp(~x + ~y) => exp(~x) * exp(~y)),
+    @rule(ℯ^(~x + ~y)  => exp(~x) * exp(~y)),
+    @rule(exp(~x * ~y) => exp(~x)^(~y)),
+    @rule(ℯ^(~x * ~y)  => exp(~x)^(~y))
 ]
 
 expand_log = [
-    :(log(~x * ~y))   => :(log(~x) + log(~y)),
-    :(log((~x) ^ ~n)) => :(~n * log(~x))
+    @rule(log(~x * ~y)   => log(~x) + log(~y)),
+    @rule(log((~x) ^ ~n) => ~n * log(~x))
 ]
 
 expand_trig = [
-    :(tan(~x))       => :(sin(~x) / cos(~x)),
-    :(cot(~x))       => :(cos(~x) / sin(~x)),
-    :(sec(~x))       => :(1/cos(~x)),
-    :(csc(~x))       => :(1/sin(~x)),
+    @rule(tan(~x)       => sin(~x) / cos(~x)),
+    @rule(cot(~x)       => cos(~x) / sin(~x)),
+    @rule(sec(~x)       => 1/cos(~x)),
+    @rule(csc(~x)       => 1/sin(~x)),
 
-    :(sin(2 * ~x))   => :(2*sin(~x)*cos(~x)),
-    :(cos(2 * ~x))   => :(cos(~x) ^ 2 - sin(~x) ^ 2),
+    @rule(sin(2 * ~x)   => 2*sin(~x)*cos(~x)),
+    @rule(cos(2 * ~x)   => cos(~x) ^ 2 - sin(~x) ^ 2),
 
-    :(sin(~n::integer_gt(3) * ~x)) => :(2*cos(~x)*sin((~n-1)*~x) - sin((~n-2)*~x)),
-    :(cos(~n::integer_gt(3) * ~x)) => :(2*cos(~x)*cos((~n-1)*~x) - cos((~n-2)*~x)),
+    @rule(sin(~n::integer_gt(3) * ~x) => 2*cos(~x)*sin((~n-1)*~x) - sin((~n-2)*~x)),
+    @rule(cos(~n::integer_gt(3) * ~x) => 2*cos(~x)*cos((~n-1)*~x) - cos((~n-2)*~x)),
 
-    :(sinh(2 * ~x))  => :(2*sinh(~x)*cosh(~x)),
-    :(cosh(2 * ~x))  => :(sinh(~x) ^ 2 + cosh(~x) ^ 2),
+    @rule(sinh(2 * ~x)  => 2*sinh(~x)*cosh(~x)),
+    @rule(cosh(2 * ~x)  => sinh(~x) ^ 2 + cosh(~x) ^ 2),
 
-    :(sin(~x + ~y))  => :(sin(~x) * cos(~y) + sin(~y) * cos(~x)),
-    :(cos(~x + ~y))  => :(cos(~x) * cos(~y) - sin(~x) * sin(~y)),
+    @rule(sin(~x + ~y)  => sin(~x) * cos(~y) + sin(~y) * cos(~x)),
+    @rule(cos(~x + ~y)  => cos(~x) * cos(~y) - sin(~x) * sin(~y)),
 
-    :(sinh(~x + ~y)) => :(sinh(~x) * cosh(~y) + sinh(~y) * cosh(~x)),
-    :(cosh(~x + ~y)) => :(cosh(~x) * cosh(~y) + sinh(~y) * sinh(~x))
+    @rule(sinh(~x + ~y) => sinh(~x) * cosh(~y) + sinh(~y) * cosh(~x)),
+    @rule(cosh(~x + ~y) => cosh(~x) * cosh(~y) + sinh(~y) * sinh(~x))
 ]
 
 const simplify_rules = vcat(canonicalize, powsimp, expsimp, logsimp,
@@ -185,12 +185,8 @@ __apply_rules(x::Number, rs) = x
 __apply_rules(x::Bool, rs) = x
 function __apply_rules(x, rs)
     for r ∈ rs
-        pat, rhs = r
-        σ = match(pat, x)
-        if σ != nothing
-            ex = rewrite(σ, rhs)
-            ex != x && return ex
-        end
+        ex = r(x)
+        isnothing(ex) || ex == x || return ex
     end
     return x
 end
