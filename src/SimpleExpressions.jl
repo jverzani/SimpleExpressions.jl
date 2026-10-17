@@ -11,9 +11,9 @@ include("CallableExpressions/CallableExpressions.jl")
 using .CallableExpressions
 using CommonEq
 using TermInterface
-import CommutativePatternMatching
-const CPM = CommutativePatternMatching
-import CommutativePatternMatching: @rule, MatchDict, unwrap_const
+import AssociativeCommutativePatternMatching
+const ACPM = AssociativeCommutativePatternMatching
+import AssociativeCommutativePatternMatching: @rule, MatchDict, unwrap_const
 
 export @symbolic
 

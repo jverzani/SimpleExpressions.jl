@@ -155,7 +155,7 @@ function Base.match(pat::AbstractSymbolic, ex::AbstractSymbolic)
 end
 
 Base.eachmatch(pattern::Expr, subject::AbstractSymbolic) =
-    CPM._eachmatch(pattern, subject)
+    ACPM._ceachmatch(pattern, subject)
 
 Base.eachmatch(pattern::AbstractSymbolic, subject::AbstractSymbolic) =
     eachmatch(convert(Expr, pattern), subject)
@@ -476,7 +476,7 @@ function rewrite(σ::Base.ImmutableDict, rhs::Symbol)
 end
 function rewrite(σ::Base.ImmutableDict, rhs::Expr)
     if rhs.head == :call && rhs.args[1] == :(~)
-        var_name = CPM.varname(rhs.args[2])
+        var_name = ACPM.varname(rhs.args[2])
         if haskey(σ, var_name)
             return unwrap_const(σ[var_name]) # XXX
         else

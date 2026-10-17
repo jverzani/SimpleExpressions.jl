@@ -88,7 +88,7 @@ end
 ## have value given by ex()
 (ex::SymbolicCall)(;kwargs...) = (↓(ex))(NamedTuple(kwargs))
 
-# like Symbolics; extends `CommutativePatternMatching.unwrap_const`, which
+# like Symbolics; extends `AssociativeCommutativePatternMatching.unwrap_const`, which
 # also unwraps named constants such as `:pi`
 unwrap_const(x::SymbolicNumber) = x()
 function unwrap_const(x::SymbolicCall)
