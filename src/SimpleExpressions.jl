@@ -11,7 +11,9 @@ include("CallableExpressions/CallableExpressions.jl")
 using .CallableExpressions
 using CommonEq
 using TermInterface
-using Combinatorics
+import AssociativeCommutativePatternMatching
+const ACPM = AssociativeCommutativePatternMatching
+import AssociativeCommutativePatternMatching: @rule, MatchDict, unwrap_const
 
 export @symbolic
 
@@ -30,8 +32,8 @@ include("generators.jl")
 include("scalar-derivative.jl")
 include("replace.jl")
 
-include("rule2a.jl")
 include("simplify.jl")
 include("polynomial-fns.jl")
 include("solve.jl")
+include("precompile.jl")
 end
