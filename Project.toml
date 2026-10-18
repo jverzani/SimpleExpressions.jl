@@ -1,6 +1,6 @@
 name = "SimpleExpressions"
 uuid = "deba94f7-f32a-40ad-b45e-be020a5ded2f"
-version = "1.3.3"
+version = "1.4.0"
 authors = ["jverzani <jverzani@gmail.com> and contributors"]
 
 [deps]
@@ -20,9 +20,6 @@ RecipesBase = "3cdcf5f2-1ef4-517c-9805-6587b60abb01"
 Roots = "f2b01f46-fcfa-551c-844a-d8ac1e96c665"
 SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
 
-[sources]
-AssociativeCommutativePatternMatching = {path = "../AssociativeCommutativePatternMatching"}
-
 [extensions]
 SimpleExpressionsAbstractTreesExt = "AbstractTrees"
 SimpleExpressionsHypergeometricFunctionsExt = "HypergeometricFunctions"
@@ -33,9 +30,9 @@ SimpleExpressionsRootsExt = "Roots"
 SimpleExpressionsSpecialFunctionsExt = "SpecialFunctions"
 
 [compat]
-AssociativeCommutativePatternMatching = "1"
 AbstractTrees = "0.4"
 Aqua = "0.8"
+AssociativeCommutativePatternMatching = "1.1"
 CommonEq = "0.2.1"
 CommonSolve = "0.2.4"
 HypergeometricFunctions = "0.3"
