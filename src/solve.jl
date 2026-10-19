@@ -44,10 +44,20 @@ Some further rewriting is done:
 * rational functions, e.g. `1/x + 1/(x+1) ~ 1`, are solved through their
   numerator, discarding roots of the denominator;
 * a polynomial in some `g(x)`, e.g. `exp(2x) - 3exp(x) + 2 ~ 0` or
-  `sqrt(x) + x ~ 6`, is solved for `g(x)` first.
+  `sqrt(x) + x ~ 6`, is solved for `g(x)` first;
+* logarithms in any base (`log`, `log10`, `log2`, `log(b, u)`) are combined,
+  `Σ kᵢ⋅log_b(uᵢ) ~ r` becomes `Π uᵢ^kᵢ ~ b^r`;
+* a square root is isolated and both sides squared, e.g. `2x ~ sqrt(x+3)`;
+* `abs(u)` is split into the cases `u ≥ 0` and `u ≤ 0`;
+* a polynomial factor common to all terms is factored out, e.g.
+  `2x - x*exp(6x-1) ~ 0`;
+* `a⋅cos(u) + b⋅sin(u) ~ 0` becomes `tan(u) ~ -a/b`, and a sum of
+  exponentials of one sign equal to `0` has no solutions.
 
 When the equation has no symbolic parameters, numeric solutions are checked in
-the original equation and extraneous ones are discarded.
+the original equation and extraneous ones are discarded. The check uses
+Julia's definitions, so e.g. `x^(1//3)` is not defined for negative `x`
+(`(-8.0)^(1//3)` is a `DomainError`); use `cbrt(x)` for the real cube root.
 
 Return value:
 
@@ -172,16 +182,73 @@ function _neg(t)
     -t
 end
 
-# log(u) ↦ u, c⋅log(u) ↦ uᶜ; else `nothing`
-function _log_arg(t)
+# k⋅log_b(u) ↦ (k, u, b), for log, log10, log2 and log(b, u) = log(u)/log(b);
+# else `nothing`
+_log_base(::typeof(log)) = ℯ
+_log_base(::typeof(log10)) = 10
+_log_base(::typeof(log2)) = 2
+_log_base(::Any) = nothing
+function _log_term(t)
     iscall(t) || return nothing
-    operation(t) == log && return only(arguments(t))
-    if operation(t) == (*) && length(arguments(t)) == 2
-        a, b = arguments(t)
-        is_number(b) && ((a, b) = (b, a))
-        is_number(a) && iscall(b) && operation(b) == log && return only(arguments(b))^_fold(a)
+    is_number(t) && return nothing
+    b = _log_base(operation(t))
+    !isnothing(b) && return (1, only(arguments(t)), b)
+    operation(t) == (*) || return nothing
+    k, u, b = 1, nothing, ℯ
+    for f ∈ arguments(t)
+        if !is_number(f) && iscall(f) && !isnothing(_log_base(operation(f)))
+            isnothing(u) || return nothing
+            u, b′ = only(arguments(f)), _log_base(operation(f))
+            b′ == ℯ || (b == ℯ ? (b = b′) : return nothing)
+        elseif is_number(f) && iscall(f) && operation(f) == (^) && _value(last(arguments(f))) == -1 &&
+               iscall(first(arguments(f))) && operation(first(arguments(f))) == log # 1/log(b)
+            b == ℯ || return nothing
+            b = _fold(only(arguments(first(arguments(f)))))
+        elseif is_number(f)
+            k = k * f
+        else
+            return nothing
+        end
     end
-    nothing
+    isnothing(u) ? nothing : (_fold(k), u, b)
+end
+
+# bˢ, exact when possible
+function _exp_base(b, s)
+    b == ℯ && return _apply(exp, s)
+    v = _value(s)
+    _isexact(v) && return isinteger(v) ? _fold(Rational(b)^Int(v)) : _rpow(b, v)
+    _fold(_S(b)^s)
+end
+
+# sign of a product of constants and exponentials; `nothing` if unknown
+function _exp_sign(t, x)
+    sgn = 1
+    for f ∈ (iscall(t) && operation(t) == (*) ? arguments(t) : (t,))
+        if !contains(f, x)
+            v = _value(f)
+            (isnothing(v) || !isreal(v) || iszero(v)) && return nothing
+            sgn *= sign(real(v))
+        elseif iscall(f) && operation(f) == exp
+            continue
+        elseif iscall(f) && operation(f) == (^) && !contains(first(arguments(f)), x) &&
+               (v = _value(first(arguments(f))); !isnothing(v) && v > 0)
+            continue
+        else
+            return nothing
+        end
+    end
+    sgn
+end
+
+# c⋅sin(w) or c⋅cos(w) ↦ (c, op, w); else `nothing`
+function _trig_term(t)
+    fs = iscall(t) && operation(t) == (*) ? arguments(t) : (t,)
+    i = findfirst(f -> iscall(f) && operation(f) ∈ (sin, cos), fs)
+    isnothing(i) && return nothing
+    all(is_number(fs[j]) for j ∈ eachindex(fs) if j != i) || return nothing
+    c = prod((fs[j] for j ∈ eachindex(fs) if j != i); init = 1)
+    (c, operation(fs[i]), only(arguments(fs[i])))
 end
 
 CommonSolve.init(eq::SymbolicEquation) = throw(ArgumentError("Must specify variable to solve for"))
@@ -223,6 +290,11 @@ _domain_ok(::typeof(log), u) = (v = _value(u); isnothing(v) || (isreal(v) && rea
 function _apply(f, r)
     r = _fold(r)
     r isa AbstractFloat && return f(r)
+    if f == exp # exp(k⋅log(w)) = wᵏ
+        lt = _log_term(r)
+        !isnothing(lt) && lt[3] == ℯ && _isexact(_value(lt[1])) && is_number(lt[2]) &&
+            return _rpow(lt[2], _value(lt[1]))
+    end
     v = _value(r)
     if !isnothing(v)
         f == log && (isone(v) || v == ℯ) && return Int(isone(v) ? 0 : 1)
@@ -296,6 +368,12 @@ function _isolate(u, r, x)
     iscall(u) || return (u ~ r,)
     op, args = operation(u), arguments(u)
 
+    lt = _log_term(u) # k⋅log_b(w) ~ r
+    if !isnothing(lt)
+        k, w, b = lt
+        return _isolate(w, _exp_base(b, _fold(r / k)), x)
+    end
+
     if op == (+) || op == (*)
         i = _only_index(a -> contains(a, x), args)
         if !isnothing(i)
@@ -310,9 +388,24 @@ function _isolate(u, r, x)
             xs = [a for a ∈ args if contains(a, x)]
             rest = [a for a ∈ args if !contains(a, x)]
             r′ = isempty(rest) ? r : r - sum(rest)
-            us = map(_log_arg, xs) # log(u) + log(v) ~ r′
-            all(!isnothing, us) && return _isolate(log(prod(us)), r′, x)
-            if length(xs) == 2 && _iszero(r′) # f(u) - f(v) ~ 0
+            lts = map(_log_term, xs) # Σ kᵢ⋅log_b(uᵢ) ~ r′  ⟹  Π uᵢ^kᵢ ~ b^r′
+            if all(!isnothing, lts) && all(lt -> lt[3] == lts[1][3], lts)
+                U = prod(isone(k) ? w : w^k for (k, w, _) ∈ lts)
+                return _isolate(U, _exp_base(lts[1][3], _fold(r′)), x)
+            end
+            if _iszero(r′)
+                # sum of exponentials of one sign
+                sgns = map(t -> _exp_sign(t, x), xs)
+                all(!isnothing, sgns) && allequal(sgns) && return ()
+            end
+            if length(xs) == 2 && _iszero(r′)
+                # a⋅cos(w) + b⋅sin(w) ~ 0  ⟹  tan(w) ~ -a/b
+                t₁, t₂ = _trig_term(xs[1]), _trig_term(xs[2])
+                if !isnothing(t₁) && !isnothing(t₂) && t₁[2] != t₂[2] && isequal(t₁[3], t₂[3])
+                    (c, _, w), (s′, _, _) = t₁[2] == cos ? (t₁, t₂) : (t₂, t₁)
+                    return _isolate(tan(w), _fold(-c / s′), x)
+                end
+                # f(u) - f(v) ~ 0
                 m = _match_sides(xs[1], _neg(xs[2]), x)
                 !isnothing(m) && return _solve(m..., x)
             end
@@ -351,9 +444,115 @@ function _isolate(u, r, x)
         isnothing(sols) && return (u ~ r,)
         return Tuple(s for s ∈ sols if !_vanishes(den, s.rhs))
     end
-    sols = _substitute(u - r, x)
-    isnothing(sols) ? (u ~ r,) : sols
+    ex = u - r
+    for f ∈ (_common_factor, _split_abs, _square_radical, _substitute)
+        sols = f(ex, x)
+        !isnothing(sols) && return sols
+    end
+    (u ~ r,)
 end
+
+_terms(ex) = iscall(ex) && operation(ex) == (+) ? arguments(ex) : (ex,)
+_factors(ex) = iscall(ex) && operation(ex) == (*) ? arguments(ex) : (ex,)
+
+# ex = Σ Pᵢ(x)⋅Nᵢ ~ 0 with polynomials Pᵢ sharing a factor G(x):
+# solve G ~ 0 and Σ (Pᵢ/G)⋅Nᵢ ~ 0
+function _common_factor(ex, x)
+    Ps, Ns = Any[], Any[]
+    for t ∈ _terms(ex)
+        P, N = Any[1], one(x)
+        for f ∈ _factors(t)
+            cs = _poly_coeffs(f, x)
+            isnothing(cs) ? (N = N * f) : (P = _poly_mul(P, cs))
+        end
+        i = findfirst(n -> isequal(n, N), Ns)
+        isnothing(i) ? (push!(Ps, P); push!(Ns, N)) : (Ps[i] = _poly_add(Ps[i], P))
+    end
+    length(Ns) > 1 || return nothing
+    qs = map(P -> _exact_coeffs(P), Ps)
+    any(isnothing, qs) && return nothing
+    G = reduce(_poly_gcd, qs)
+    length(G) > 1 || return nothing
+    Qs = map(q -> first(_poly_divrem(q, G)), qs)
+    ex′ = sum(_poly_expr(Q, x) * N for (Q, N) ∈ zip(Qs, Ns))
+    _branches((_poly_roots(map(_fold ∘ Rational{Int}, G), x), _isolate(ex′, zero(x), x)))
+end
+
+_exact_coeffs(P) = (vs = map(_value, P); all(_isexact, vs) ? Rational{BigInt}.(vs) : nothing)
+_poly_expr(q, x) = sum(_fold(Rational{Int}(c)) * x^(i - 1) for (i, c) ∈ enumerate(q) if !iszero(c); init = zero(x))
+
+# quotient and remainder of a ÷ b; coefficients in increasing degree
+function _poly_divrem(a, b)
+    a = copy(a)
+    n, m = length(a), length(b)
+    n < m && return ([zero(eltype(a))], a)
+    q = zeros(eltype(a), n - m + 1)
+    for i ∈ (n - m + 1):-1:1
+        c = a[i + m - 1] / b[m]
+        q[i] = c
+        for j ∈ 1:m
+            a[i + j - 1] -= c * b[j]
+        end
+    end
+    r = a[1:m-1]
+    while length(r) > 1 && iszero(last(r)); pop!(r); end
+    (q, isempty(r) ? [zero(eltype(a))] : r)
+end
+
+# monic greatest common divisor
+function _poly_gcd(a, b)
+    while !(length(b) == 1 && iszero(only(b)))
+        a, b = b, last(_poly_divrem(a, b))
+    end
+    a ./ last(a)
+end
+
+# split abs(w) into the cases w ≥ 0 and w ≤ 0
+function _split_abs(ex, x)
+    a = _find(t -> iscall(t) && operation(t) == abs && contains(t, x), ex)
+    isnothing(a) && return nothing
+    w = only(arguments(a))
+    _branches((_abs_case(ex, a, w, s, x) for s ∈ (1, -1)))
+end
+function _abs_case(ex, a, w, s, x)
+    sols = _isolate(_subst(ex, [a], [s == 1 ? w : -w], x), zero(x), x)
+    isnothing(sols) && return nothing
+    Tuple(sol for sol ∈ sols if !(isequal(sol.lhs, x) && is_number(sol.rhs)) ||
+              _sign_ok(w, s, sol.rhs(), x))
+end
+function _sign_ok(w, s, v, x)
+    fs = free_symbols(w)
+    (fs.x == (x,) && isempty(fs.p)) || return true
+    s * w(v) ≥ -1e-12
+end
+
+# first subexpression satisfying pred
+function _find(pred, ex)
+    pred(ex) && return ex
+    iscall(ex) || return nothing
+    for a ∈ arguments(ex)
+        t = _find(pred, a)
+        !isnothing(t) && return t
+    end
+    nothing
+end
+
+# c⋅√w + R ~ 0  ⟹  c²⋅w ~ R²; may introduce extraneous solutions
+function _square_radical(ex, x)
+    issqrt(f) = iscall(f) && operation(f) == sqrt && contains(f, x)
+    ts = collect(_terms(ex))
+    i = findfirst(t -> count(issqrt, _factors(t)) == 1, ts)
+    isnothing(i) && return nothing
+    R = [-t for (j, t) ∈ enumerate(ts) if j != i]
+    lhs = _square(ts[i])
+    rhs = sum(_square(t) for t ∈ R; init = zero(x)) +
+        sum(2 * R[j] * R[k] for j ∈ eachindex(R) for k ∈ eachindex(R) if j < k; init = zero(x))
+    ex′ = lhs - rhs
+    _count(issqrt, ex′) < _count(issqrt, ex) || return nothing
+    _isolate(ex′, zero(x), x)
+end
+_square(t) = prod((iscall(f) && operation(f) == sqrt ? only(arguments(f)) : f^2) for f ∈ _factors(t))
+_count(pred, ex) = pred(ex) + (iscall(ex) ? sum(a -> _count(pred, a), arguments(ex); init = 0) : 0)
 
 # numerator, denominator coefficients of ex as a rational function of x
 function _rat_coeffs(ex, x)

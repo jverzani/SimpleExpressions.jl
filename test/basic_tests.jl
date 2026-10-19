@@ -544,6 +544,32 @@ end
     @test solve(x^2 ~ 0, x).rhs == 0
     # floats in, floats out
     @test solve(x^2 ~ 2.0, x)[2].rhs() ≈ sqrt(2)
+
+    # logarithms in other bases
+    @test map(last, solve(log(4, x^2 - 2x) ~ log(4, 5x - 12), x)) == (3, 4)
+    @test map(last, solve(log(3, 25 - x^2) ~ 2, x)) == (-4, 4)
+    @test solve(log(2, x + 1) - log(2, 2 - x) ~ 3, x).rhs == 5//3
+    @test solve(log10(x) + log10(x - 21) ~ 2, x).rhs == 25
+    @test solve(log(4, -x) + log(4, 6 - x) ~ 2, x).rhs == -2
+    # radicals: isolate and square, extraneous roots dropped
+    @test solve(2x ~ sqrt(x + 3), x).rhs == 1
+    @test solve(7 ~ sqrt(39 + 3x) - x, x).rhs == -1
+    @test map(last, solve(x ~ 1 + sqrt(2x - 2), x)) == (1, 3)
+    @test solve(1 + sqrt(1 - x) ~ sqrt(2x + 4), x).rhs == 0
+    # abs split into cases
+    @test solve(6x ~ abs(1 + 3x), x).rhs == 1//3
+    @test map(last, solve(abs(2x - 3) ~ 4 - x, x)) == (-1, 7//3)
+    @test map(last, solve(abs(x/2 + 4) ~ abs(4x - 6), x)) == (4//9, 20//7)
+    # common polynomial factor
+    s1, s2 = solve(2x - x*exp(6x - 1) ~ 0, x)
+    @test s1.rhs == 0 && s2.rhs() ≈ (1 + log(2))/6
+    @test length(solve(4x + 1 ~ (12x + 3)*exp(x^2 - 2), x)) == 3
+    # exponentials of one sign; a⋅cos + b⋅sin
+    @test solve(14exp(6 - x) + exp(12x - 7) ~ 0, x) == ()
+    @test solve(9cos(4x/9) + 21sin(4x/9) ~ 0, x).rhs() ≈ 9atan(-3/7)/4
+    # x^(1//3) is undefined for negative x in Julia; use cbrt
+    @test solve(4x^(2//3) + 21x^(1//3) + 27 ~ 0, x) == ()
+    @test map(last, solve(4cbrt(x)^2 + 21cbrt(x) + 27 ~ 0, x)) == (-27, -729//64)
 end
 
 @testset "polynomial_coefficients" begin
