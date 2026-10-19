@@ -284,7 +284,7 @@ Base.getindex(x::AbstractSymbolic, i::Integer) =
 
 ## ---- special cases
 ## log
-Base.log(a::Number, x::AbstractSymbolic) = log(x) / log(symbolicnumber(a))
+Base.log(a::Number, x::AbstractSymbolic) = log(x) / log(SymbolicNumber(a))
 function Base.broadcasted(::typeof(log), a, b::AbstractSymbolic)
     SymbolicExpression(Base.broadcasted, (log, a, b))
 end
