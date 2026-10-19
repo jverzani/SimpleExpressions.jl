@@ -194,6 +194,7 @@ end
 
 # √u when u is the square of a polynomial in one symbol with rational coefficients
 function _sqrt_poly(u)
+    u isa Number && return nothing
     syms = _symbols(u)
     length(syms) == 1 || return nothing
     s = only(syms)
@@ -440,11 +441,14 @@ function _apply(f, r)
     _fold(f(_S(r)))
 end
 
-# asin, acos, atan at the standard values, as a multiple of π
+# asin, acos, atan at the standard values, as a multiple of π: angles
+# k⋅π/12 and k⋅π/8 in [0, π/2]
+const _std_angles = (0//1, 1//12, 1//8, 1//6, 1//4, 1//3, 3//8, 5//12, 1//2)
+const _sin_tbl = Tuple((sin(k * π), k) for k ∈ _std_angles)
+const _tan_tbl = Tuple((tan(k * π), k) for k ∈ _std_angles if k < 1//2)
 function _special_angle(f, v)
     f ∈ (asin, acos, atan) && isreal(v) || return nothing
-    tbl = f == atan ? ((0, 0//1), (1/sqrt(3), 1//6), (1, 1//4), (sqrt(3), 1//3)) :
-        ((0, 0//1), (1/2, 1//6), (sqrt(2)/2, 1//4), (sqrt(3)/2, 1//3), (1, 1//2))
+    tbl = f == atan ? _tan_tbl : _sin_tbl
     i = findfirst(t -> isapprox(first(t), abs(v); atol = 1e-14), tbl)
     isnothing(i) && return nothing
     k = last(tbl[i])
@@ -585,11 +589,166 @@ function _isolate(u, r, x)
         return Tuple(s for s ∈ sols if !_vanishes(den, s.rhs))
     end
     ex = u - r
-    for f ∈ (_common_factor, _split_abs, _square_radical, _substitute)
+    for f ∈ (_common_factor, _split_abs, _square_radical, _substitute, _trig_identity)
         sols = f(ex, x)
         !isnothing(sols) && return sols
     end
     (_Sol(u, r),)
+end
+
+## ---- trig identities
+# Write ex, built from trig functions of integer multiples of one angle u,
+# as a polynomial P(S, C) in S = sin(u), C = cos(u) (the numerator, for tan,
+# sec, ...). With C² = 1 - S², P = A(S) + C⋅B(S) (or with S, C swapped):
+# solve for sin(u) or cos(u) when one of them is absent, factor out C when
+# A = 0, else square: A² = (1 - S²)⋅B², choosing asin(σ) or π - asin(σ) by
+# the sign of C = -A/B.
+const _trigfns = (sin, cos, tan, sec, csc, cot)
+function _trig_identity(ex, x)
+    atoms = Any[]
+    _find_all!(t -> iscall(t) && operation(t) ∈ _trigfns && _has(t, x), ex, atoms)
+    isempty(atoms) && return nothing
+    kws = map(a -> _split_int(only(arguments(a))), atoms)
+    w = last(first(kws))
+    all(kw -> isequal(last(kw), w), kws) || return nothing
+    g = reduce(gcd, first.(kws))
+    u = isone(g) ? w : g * w
+    nd = _sc(ex, x, w, g)
+    isnothing(nd) && return nothing
+    P = first(nd)
+    A₁, B₁ = _reduce_sc(P, 1) # A(S) + C⋅B(S)
+    A₂, B₂ = _reduce_sc(P, 2) # A(C) + S⋅B(C)
+    z(cs) = all(_iszero, cs)
+    z(B₁) && return _trig_roots(A₁, sin(u), x)
+    z(B₂) && return _trig_roots(A₂, cos(u), x)
+    z(A₁) && return _branches((_isolate(cos(u), 0, x), _trig_roots(B₁, sin(u), x)))
+    z(A₂) && return _branches((_isolate(sin(u), 0, x), _trig_roots(B₂, cos(u), x)))
+    # A + C⋅B = 0 ⟹ A² - (1 - S²)⋅B² = 0
+    Q = _poly_add(_poly_mul(A₁, A₁), _poly_mul(Any[-1, 0, 1], _poly_mul(B₁, B₁)))
+    σs = _poly_roots(_trim(Q), _𝓎)
+    isnothing(σs) && return nothing
+    out = Any[]
+    for sol ∈ σs
+        isequal(sol.lhs, _𝓎) || return nothing
+        σ = sol.rhs
+        σv, Av, Bv = _value(σ), _value(_horner(A₁, σ)), _value(_horner(B₁, σ))
+        if isnothing(σv) || isnothing(Av) || isnothing(Bv) || abs(Bv) < 1e-12
+            push!(out, _isolate(sin(u), σ, x))
+        elseif isreal(σv) && abs(σv) ≤ 1
+            θ = _apply(asin, σ) # C = -A/B decides the quadrant
+            θ = -Av / Bv ≥ 0 ? θ : _pi_fold(_fold((σv ≥ 0 ? 1 : -1) * _constant(π) - θ)) # in (-π, π]
+            push!(out, _isolate(u, θ, x))
+        end
+    end
+    _branches(out)
+end
+
+# solve the polynomial with coefficients cs (in increasing degree) for f(u)
+function _trig_roots(cs, f, x)
+    cs = _trim(cs)
+    length(cs) == 1 && return _iszero(only(cs)) ? nothing : ()
+    ts = _poly_roots(cs, _𝓎)
+    (isnothing(ts) || !all(t -> isequal(t.lhs, _𝓎), ts)) && return nothing
+    _branches((_isolate(f, t.rhs, x) for t ∈ ts))
+end
+
+# all subexpressions satisfying pred
+function _find_all!(pred, ex, out)
+    pred(ex) && (any(a -> isequal(a, ex), out) || push!(out, ex))
+    iscall(ex) && foreach(a -> _find_all!(pred, a, out), arguments(ex))
+    out
+end
+
+# coefficients folded, trailing zeros dropped
+function _trim(cs)
+    cs = map(_fold, cs)
+    while length(cs) > 1 && _iszero(last(cs))
+        pop!(cs)
+    end
+    cs
+end
+
+# (numerator, denominator) of ex as polynomials in S, C (Dicts (i, j) => coeff
+# of SⁱCʲ); trig arguments are k⋅w with g dividing k
+function _sc(ex, x, w, g)
+    _has(ex, x) || return (_bp(ex), _bp(1))
+    iscall(ex) || return nothing
+    op, args = operation(ex), arguments(ex)
+    if op ∈ _trigfns
+        k, w′ = _split_int(only(args))
+        isequal(w′, w) || return nothing
+        sₘ, cₘ = _sin_cos(k ÷ g)
+        one = _bp(1)
+        return op == sin ? (sₘ, one) : op == cos ? (cₘ, one) : op == tan ? (sₘ, cₘ) :
+            op == cot ? (cₘ, sₘ) : op == sec ? (one, cₘ) : (one, sₘ)
+    elseif op == (+) || op == (*)
+        n, d = _bp(op == (+) ? 0 : 1), _bp(1)
+        for a ∈ args
+            nd = _sc(a, x, w, g)
+            isnothing(nd) && return nothing
+            n′, d′ = nd
+            if op == (*)
+                n, d = _bp_mul(n, n′), _bp_mul(d, d′)
+            elseif d == d′
+                n = _bp_add(n, n′)
+            else
+                n, d = _bp_add(_bp_mul(n, d′), _bp_mul(n′, d)), _bp_mul(d, d′)
+            end
+        end
+        return (n, d)
+    elseif op == (^)
+        a, b = args
+        _is_int(b) || return nothing
+        nd = _sc(a, x, w, g)
+        isnothing(nd) && return nothing
+        k = Int(_value(b))
+        n, d = k ≥ 0 ? nd : reverse(nd)
+        return (_bp_pow(n, abs(k)), _bp_pow(d, abs(k)))
+    end
+    nothing
+end
+
+# bivariate polynomials in S, C
+_bp(c) = Dict{Tuple{Int,Int},Any}((0, 0) => c)
+function _bp_add(a, b)
+    out = copy(a)
+    for (k, v) ∈ b
+        out[k] = haskey(out, k) ? _fold(out[k] + v) : v
+    end
+    filter!(((_, v),) -> !_iszero(v), out)
+    isempty(out) ? _bp(0) : out
+end
+function _bp_mul(a, b)
+    out = Dict{Tuple{Int,Int},Any}()
+    for ((i, j), v) ∈ a, ((k, l), w) ∈ b
+        key = (i + k, j + l)
+        out[key] = _fold(get(out, key, 0) + v * w)
+    end
+    filter!(((_, v),) -> !_iszero(v), out)
+    isempty(out) ? _bp(0) : out
+end
+_bp_pow(a, n) = n == 0 ? _bp(1) : foldl(_bp_mul, ntuple(_ -> a, n))
+
+# sin(m⋅u), cos(m⋅u) as polynomials in S, C
+function _sin_cos(m)
+    m < 0 && ((s, c) = _sin_cos(-m); return (_bp_mul(_bp(-1), s), c))
+    s, c = _bp(0), _bp(1)
+    S, C = Dict{Tuple{Int,Int},Any}((1, 0) => 1), Dict{Tuple{Int,Int},Any}((0, 1) => 1)
+    for _ ∈ 1:m # sin((k+1)u) = sin(ku)C + cos(ku)S, cos((k+1)u) = cos(ku)C - sin(ku)S
+        s, c = _bp_add(_bp_mul(s, C), _bp_mul(c, S)), _bp_add(_bp_mul(c, C), _bp_mul(_bp(-1), _bp_mul(s, S)))
+    end
+    (s, c)
+end
+
+# P(S, C) as A(T) + U⋅B(T) using U² = 1 - T²; T, U = S, C (t = 1) or C, S (t = 2)
+function _reduce_sc(P, t)
+    A, B = Any[0], Any[0]
+    for ((i, j), c) ∈ P
+        a, b = t == 1 ? (i, j) : (j, i)
+        term = _poly_mul(Any[c], _poly_mul(Any[(k == a ? 1 : 0) for k ∈ 0:a], _poly_pow(Any[1, 0, -1], b ÷ 2)))
+        isodd(b) ? (B = _poly_add(B, term)) : (A = _poly_add(A, term))
+    end
+    (A, B)
 end
 
 _sum_terms(ex) = iscall(ex) && operation(ex) == (+) ? arguments(ex) : (ex,)
@@ -994,7 +1153,7 @@ function _poly_roots(cs, x)
     n == 0 && return ()
     if n == 1
         a₀, a₁ = cs
-        return (_Sol(x, _expand_poly(_fold(-a₀ / a₁))),)
+        return (_Sol(x, _expand_poly(_fold(-_S(a₀) / a₁))),)
     end
     sols = _rational_roots(cs, x)
     !isnothing(sols) && return sols

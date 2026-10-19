@@ -622,6 +622,22 @@ end
     @test solve(x^3 - 2 ~ 0, x).rhs == cbrt(S(2))
     @test map(last, solve(x^3 - 6x - 4 ~ 0, x)) == (1 - sqrt(S(3)), -2, 1 + sqrt(S(3)))[[2, 1, 3]]
     @test length(solve(x^4 - 10x^2 + 1 ~ 0, x)) == 4
+
+    # trig identities: rewritten as polynomials in sin(u), cos(u)
+    π′ = S(π)
+    @test map(last, solve(sin(2x) ~ cos(x), x)) == (π′/6, π′/2)
+    @test map(last, solve(sin(x)^2 + cos(x) ~ 1, x)) == (0, π′/2)
+    @test map(last, solve(cos(2x) + cos(x) ~ 0, x)) == (π′/3, π′)
+    @test map(last, solve(2cos(x)^2 + 3sin(x) ~ 3, x)) == (π′/6, π′/2)
+    @test map(last, solve(tan(x) ~ 2sin(x), x)) == (0, π′/3)
+    @test map(last, solve(cos(2x) ~ sin(x), x)) == (-π′/2, π′/6)
+    @test map(last, solve(sec(x)^2 - 2tan(x) ~ 0, x)) == (-3π′/4, π′/4)
+    @test map(last, solve(sin(3x) ~ sin(x), x)) == (-π′/4, 0, π′/4)
+    @test map(last, solve(sin(4x) ~ cos(2x), x)) == (π′/12, π′/4)
+    @test map(last, solve(sin(x)*cos(x) ~ 1//4, x)) == (-11π′/12, -7π′/12, π′/12, 5π′/12)
+    @test solve(3sin(x) + 2cos(x)^2 ~ 0, x).rhs == -π′/6
+    eq = cos(x) - sin(x) ~ sqrt(S(2))*sin(x)*cos(x)
+    @test all(s -> abs(eq(s.rhs())) < 1e-12, solve(eq, x))
 end
 
 @testset "polynomial_coefficients" begin
