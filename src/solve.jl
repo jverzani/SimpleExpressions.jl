@@ -55,7 +55,23 @@ Some further rewriting is done:
   exponentials of one sign equal to `0` has no solutions.
 
 When the equation has no symbolic parameters, numeric solutions are checked in
-the original equation and extraneous ones are discarded. The check uses
+the original equation and extraneous ones are discarded.
+
+With symbolic parameters (or other variables), each solution is valid only
+under some conditions: logarithms of positive values, square roots of
+nonnegative ones, nonzero denominators, and conditions from squaring or from
+splitting `abs`. These are evaluated at the solution: a solution failing a
+numeric condition is discarded, as is one which fails at every sampled value
+of the parameters. Conditions holding at every sampled value are dropped (this
+is a heuristic, not a proof). Pass `conditions=true` to have each solution
+returned as a pair `eq => conds` of the equation and a tuple of the
+remaining conditions, e.g.
+
+```julia
+solve(sqrt(x) ~ p, x; conditions=true)     # x ~ p^2 => (p >= 0,)
+solve(abs(x - p) ~ 2x, x; conditions=true) # (x ~ -p => (p <= 0,), x ~ p/3 => (p >= 0,))
+```
+ The check uses
 Julia's definitions, so e.g. `x^(1//3)` is not defined for negative `x`
 (`(-8.0)^(1//3)` is a `DomainError`); use `cbrt(x)` for the real cube root.
 
@@ -86,13 +102,26 @@ A = A(u) # use equation in replacement
 v = solve(D(A, w) ~ 0, w)
 ```
 """
-function CommonSolve.solve(eq::SymbolicEquation, x::𝑉)
+function CommonSolve.solve(eq::SymbolicEquation, x::𝑉; conditions::Bool = false)
     l, r = eq.lhs, eq.rhs
     sols = _solve(l, r, x)
     isnothing(sols) && return nothing
     sols = _verify(sols, l, r, x)
-    length(sols) == 1 ? only(sols) : sols
+    out = conditions ? Tuple(e => c for (e, c) ∈ sols) : Tuple(e for (e, _) ∈ sols)
+    length(out) == 1 ? only(out) : out
 end
+
+# a solution carrying conditions (on x) under which it is valid
+struct _Sol{E}
+    eq::E
+    conds::Vector{Any}
+end
+Base.getproperty(s::_Sol, f::Symbol) =
+    f === :lhs ? getfield(s, :eq).lhs : f === :rhs ? getfield(s, :eq).rhs : getfield(s, f)
+_eq(s) = s isa _Sol ? s.eq : s
+_conds(s) = s isa _Sol ? s.conds : Any[]
+# add condition (ex, kind) to each solution; kind is one of :pos, :nonneg, :nonzero
+_tag(sols, cond) = isnothing(sols) ? sols : Tuple(_Sol(_eq(s), Any[_conds(s)..., cond]) for s ∈ sols)
 
 function _solve(l, r, x)
     if contains(l, x) && contains(r, x)
@@ -106,15 +135,176 @@ function _solve(l, r, x)
     _isolate(l, r, x)
 end
 
-# drop numeric solutions which do not satisfy l ~ r
+# Check solutions against l ~ r, returning (equation, conditions) pairs.
+# Without parameters numeric solutions are checked directly. With parameters
+# the conditions are evaluated at the solution; those which are numeric are
+# decided, the others are sampled over the parameters: conditions holding at
+# every sample are dropped, as are solutions valid at no sample.
 function _verify(sols, l, r, x)
     fs = free_symbols(l - r)
-    (fs.x == (x,) && isempty(fs.p)) || return sols
-    sols = Tuple(s for s ∈ sols if !(isequal(s.lhs, x) && is_number(s.rhs)) ||
-                     _satisfies(l, r, s.rhs()))
+    ps = Tuple(s for s ∈ (fs.x..., fs.p...) if !isequal(s, x))
+    dom = _domain!(Any[], l - r, nothing)
+    out = Any[]
+    for s ∈ sols
+        e = _eq(s)
+        if !isequal(e.lhs, x)
+            push!(out, (e, ()))
+        elseif isempty(ps)
+            is_number(e.rhs) && !_satisfies(l, r, e.rhs()) && continue
+            push!(out, (e, ()))
+        else
+            ρ = e.rhs
+            cs = Any[(_expand_poly(_subst(c, [x], [ρ], x)), k) for (c, k) ∈ vcat(dom, _conds(s))]
+            append!(cs, _domain!(Any[], ρ, nothing))
+            cs = _decide(cs, ps)
+            isnothing(cs) && continue
+            _valid_somewhere(l, r, x, ρ, cs, ps) || continue
+            conds = Any[]
+            for c ∈ cs
+                c′ = _cond_expr(c)
+                any(d -> isequal(d, c′), conds) || push!(conds, c′)
+            end
+            push!(out, (e, Tuple(conds)))
+        end
+    end
     # sort when all are numeric
-    all(s -> isequal(s.lhs, x) && is_number(s.rhs), sols) || return sols
-    Tuple(sort!(collect(sols), by = s -> s.rhs()))
+    all(((e, _),) -> isequal(e.lhs, x) && is_number(e.rhs), out) &&
+        sort!(out, by = ((e, _),) -> e.rhs())
+    Tuple(out)
+end
+
+# conditions for the expressions in ex to be defined; with x == nothing,
+# those for any non-numeric subexpression
+function _domain!(out, ex, x)
+    iscall(ex) || return out
+    op, args = operation(ex), arguments(ex)
+    has(w) = isnothing(x) ? !is_number(w) : contains(w, x)
+    if length(args) == 1 && has(only(args))
+        w = only(args)
+        op ∈ (log, log10, log2) && push!(out, (w, :pos))
+        op == sqrt && push!(out, (w, :nonneg))
+        op == acosh && push!(out, (w - 1, :nonneg))
+        op ∈ (asin, acos) && push!(out, (1 - w^2, :nonneg))
+    elseif op == (^) && has(first(args))
+        b, n = args
+        v = _value(n)
+        if !isnothing(v)
+            v < 0 && push!(out, (b, :nonzero))
+            v isa Rational && iseven(denominator(v)) && push!(out, (b, :nonneg))
+        end
+    end
+    foreach(a -> _domain!(out, a, x), args)
+    out
+end
+
+# Decide conditions (ex, kind) which are numeric, or which hold at every
+# sample where they are defined (where they are not is covered by the
+# conditions for the solution itself); `nothing` if one never holds
+function _decide(cs, ps)
+    out = Any[]
+    for (c, k) ∈ cs
+        any(((c′, k′),) -> isequal(c′, c) && k′ == k, out) && continue
+        if is_number(c) || c isa Number
+            _holds(_value(c), k) || return nothing
+            continue
+        end
+        vs = filter(!isnothing, [_at(c, ps, i) for i ∈ 1:_nsamples])
+        hs = map(v -> _holds(v, k), vs)
+        any(hs) || return nothing
+        all(hs) && continue
+        push!(out, (c, k))
+    end
+    out
+end
+_holds(::Nothing, k) = false
+_holds(v, k) = isreal(v) && !isnan(v) &&
+    (k == :pos ? real(v) > 0 : k == :nonneg ? real(v) ≥ -1e-12 : abs(v) > 1e-12)
+
+# is there a sample where all conditions hold and l ~ r is satisfied?
+function _valid_somewhere(l, r, x, ρ, cs, ps)
+    for i ∈ 1:_nsamples
+        all(((c, k),) -> _holds(_at(c, ps, i), k), cs) || continue
+        v = _at(ρ, ps, i)
+        (isnothing(v) || !isreal(v)) && continue
+        lv, rv = _at(l, ps, i, x => real(v)), _at(r, ps, i, x => real(v))
+        (isnothing(lv) || isnothing(rv)) && continue
+        isfinite(lv) && isfinite(rv) && isapprox(lv, rv; atol = 1e-8, rtol = 1e-8) && return true
+    end
+    false
+end
+
+# sample values for the parameters: 0 and ±10ᵏ over k ∈ -3:1/8:3/2 (larger
+# values underflow exp(-p)); several parameters take values from the list
+# with different strides
+const _samples = vcat(0.0, [s * 10.0^k for k ∈ -3:1/8:3/2 for s ∈ (1, -1)])
+const _nsamples = length(_samples)
+const _strides = (1, 7, 11, 13, 17, 19, 23)
+function _at(ex, ps, i, extra...)
+    prs = (p => _samples[mod1(i * _strides[mod1(j, length(_strides))], _nsamples)]
+           for (j, p) ∈ enumerate(ps))
+    v = try
+        ex isa Number ? ex : ex(prs..., extra...)
+    catch err
+        err isa DomainError || err isa DivideError || rethrow()
+        return nothing
+    end
+    v isa Number ? v : is_number(v) ? (try v() catch; nothing end) : nothing
+end
+
+# (ex, kind) as a symbolic comparison; a linear condition is solved for its symbol
+function _cond_expr((c, k))
+    op = k == :pos ? (>) : k == :nonneg ? (≥) : (!=)
+    fs = free_symbols(c)
+    syms = (fs.x..., fs.p...)
+    if length(syms) == 1
+        cs = _poly_coeffs(c, only(syms))
+        vs = isnothing(cs) ? nothing : map(_value, cs)
+        if !isnothing(vs) && length(vs) == 2 && all(_isexact, vs)
+            b, a = vs
+            op′ = a < 0 && op != (!=) ? (op == (>) ? (<) : (≤)) : op
+            return SymbolicExpression(op′, (only(syms), SymbolicNumber(_fold(-b // a))))
+        end
+    end
+    SymbolicExpression(op, (c, SymbolicNumber(0)))
+end
+
+# expand an expression polynomial in its symbols, folding numbers
+function _expand_poly(u)
+    u isa Number && return u
+    is_number(u) && return _fold(u)
+    fs = free_symbols(u)
+    syms = (fs.x..., fs.p...)
+    isempty(syms) && return _fold(u)
+    s = first(syms)
+    cs = _poly_coeffs(u, s)
+    isnothing(cs) && return u
+    terms = [(isone(i) ? _expand_poly(c) : _expand_poly(c) * s^(i - 1)) for (i, c) ∈ enumerate(cs) if !_iszero(_expand_poly(c))]
+    isempty(terms) && return 0
+    _fold(sum(terms))
+end
+
+# √u when u is the square of a polynomial in one symbol with rational coefficients
+function _sqrt_poly(u)
+    fs = free_symbols(u)
+    syms = (fs.x..., fs.p...)
+    length(syms) == 1 || return nothing
+    s = only(syms)
+    cs = _poly_coeffs(u, s)
+    isnothing(cs) && return nothing
+    P = _exact_coeffs(cs)
+    (isnothing(P) || iseven(length(P))) && return nothing
+    m = (length(P) - 1) ÷ 2
+    k, rest = _surd(P[end], 2)
+    (isone(rest) && P[end] > 0) || return nothing
+    Q = zeros(Rational{BigInt}, m + 1)
+    Q[m+1] = k
+    for j ∈ 1:m # coefficient of s^(m-j)
+        d = 2m - j + 1
+        acc = P[d] - sum(Q[a] * Q[d - a + 1] for a ∈ (m - j + 2):(m + 1) if 1 ≤ d - a + 1 ≤ m + 1 && d - a + 1 > m - j + 1; init = 0)
+        Q[m - j + 1] = acc / (2Q[m+1])
+    end
+    _poly_mul(Any[Q...], Any[Q...]) == Any[P...] || return nothing
+    _expand_poly(_poly_expr(Q, s))
 end
 
 function _satisfies(l, r, v)
@@ -292,8 +482,12 @@ function _apply(f, r)
     r isa AbstractFloat && return f(r)
     if f == exp # exp(k⋅log(w)) = wᵏ
         lt = _log_term(r)
-        !isnothing(lt) && lt[3] == ℯ && _isexact(_value(lt[1])) && is_number(lt[2]) &&
-            return _rpow(lt[2], _value(lt[1]))
+        if !isnothing(lt) && lt[3] == ℯ && _isexact(_value(lt[1]))
+            k, w = _value(lt[1]), lt[2]
+            isone(k) && return w
+            is_number(w) && return _rpow(w, k)
+            isinteger(k) && return w^Int(k)
+        end
     end
     v = _value(r)
     if !isnothing(v)
@@ -422,7 +616,8 @@ function _isolate(u, r, x)
         a = only(args)
         if op == abs || op == cosh  # two branches
             _maybe_nonneg(r) && _domain_ok(op == abs ? identity : acosh, r) || return ()
-            return _isolate_pm(a, op == abs ? _fold(r) : _apply(acosh, r), x)
+            sols = _isolate_pm(a, op == abs ? _fold(r) : _apply(acosh, r), x)
+            return op == abs ? _tag(sols, (r, :nonneg)) : sols
         end
         if op ∈ _injective && iscall(r) && operation(r) == op # f(u) ~ f(v)
             return _isolate(a, only(arguments(r)), x)
@@ -431,7 +626,8 @@ function _isolate(u, r, x)
         if !isnothing(f⁻¹)
             op == sqrt && !_maybe_nonneg(r) && return ()
             _domain_ok(f⁻¹, r) || return ()
-            return _isolate(a, _apply(f⁻¹, r), x)
+            sols = _isolate(a, _apply(f⁻¹, r), x)
+            return op == sqrt ? _tag(sols, (r, :nonneg)) : sols
         end
     end
 
@@ -452,16 +648,16 @@ function _isolate(u, r, x)
     (u ~ r,)
 end
 
-_terms(ex) = iscall(ex) && operation(ex) == (+) ? arguments(ex) : (ex,)
-_factors(ex) = iscall(ex) && operation(ex) == (*) ? arguments(ex) : (ex,)
+_sum_terms(ex) = iscall(ex) && operation(ex) == (+) ? arguments(ex) : (ex,)
+_prod_factors(ex) = iscall(ex) && operation(ex) == (*) ? arguments(ex) : (ex,)
 
 # ex = Σ Pᵢ(x)⋅Nᵢ ~ 0 with polynomials Pᵢ sharing a factor G(x):
 # solve G ~ 0 and Σ (Pᵢ/G)⋅Nᵢ ~ 0
 function _common_factor(ex, x)
     Ps, Ns = Any[], Any[]
-    for t ∈ _terms(ex)
+    for t ∈ _sum_terms(ex)
         P, N = Any[1], one(x)
-        for f ∈ _factors(t)
+        for f ∈ _prod_factors(t)
             cs = _poly_coeffs(f, x)
             isnothing(cs) ? (N = N * f) : (P = _poly_mul(P, cs))
         end
@@ -517,8 +713,9 @@ end
 function _abs_case(ex, a, w, s, x)
     sols = _isolate(_subst(ex, [a], [s == 1 ? w : -w], x), zero(x), x)
     isnothing(sols) && return nothing
-    Tuple(sol for sol ∈ sols if !(isequal(sol.lhs, x) && is_number(sol.rhs)) ||
-              _sign_ok(w, s, sol.rhs(), x))
+    sols = Tuple(sol for sol ∈ sols if !(isequal(sol.lhs, x) && is_number(sol.rhs)) ||
+                     _sign_ok(w, s, sol.rhs(), x))
+    _tag(sols, (s == 1 ? w : -w, :nonneg))
 end
 function _sign_ok(w, s, v, x)
     fs = free_symbols(w)
@@ -540,8 +737,8 @@ end
 # c⋅√w + R ~ 0  ⟹  c²⋅w ~ R²; may introduce extraneous solutions
 function _square_radical(ex, x)
     issqrt(f) = iscall(f) && operation(f) == sqrt && contains(f, x)
-    ts = collect(_terms(ex))
-    i = findfirst(t -> count(issqrt, _factors(t)) == 1, ts)
+    ts = collect(_sum_terms(ex))
+    i = findfirst(t -> count(issqrt, _prod_factors(t)) == 1, ts)
     isnothing(i) && return nothing
     R = [-t for (j, t) ∈ enumerate(ts) if j != i]
     lhs = _square(ts[i])
@@ -549,9 +746,10 @@ function _square_radical(ex, x)
         sum(2 * R[j] * R[k] for j ∈ eachindex(R) for k ∈ eachindex(R) if j < k; init = zero(x))
     ex′ = lhs - rhs
     _count(issqrt, ex′) < _count(issqrt, ex) || return nothing
-    _isolate(ex′, zero(x), x)
+    c = prod((f for f ∈ _prod_factors(ts[i]) if !issqrt(f)); init = 1)
+    _tag(_isolate(ex′, zero(x), x), (c * sum(R; init = zero(x)), :nonneg)) # c⋅√w = R
 end
-_square(t) = prod((iscall(f) && operation(f) == sqrt ? only(arguments(f)) : f^2) for f ∈ _factors(t))
+_square(t) = prod((iscall(f) && operation(f) == sqrt ? only(arguments(f)) : f^2) for f ∈ _prod_factors(t))
 _count(pred, ex) = pred(ex) + (iscall(ex) ? sum(a -> _count(pred, a), arguments(ex); init = 0) : 0)
 
 # numerator, denominator coefficients of ex as a rational function of x
@@ -593,8 +791,8 @@ function _vanishes(cs, v)
     length(cs) == 1 && return false
     vs = map(_value, cs)
     c = _value(v)
-    (isnothing(c) || any(isnothing, vs)) && return false
-    iszero(_horner(vs, c))
+    (isnothing(c) || any(isnothing, vs)) || return iszero(_horner(vs, c))
+    _iszero(_expand_poly(_horner(cs, v)))
 end
 
 # Solve ex ~ 0 when ex is a polynomial in some g(x) (e.g. exp(x), sqrt(x)):
@@ -613,7 +811,14 @@ function _substitute(ex, x)
     ys = _isolate(ex′, zero(x), _𝓎)
     isnothing(ys) && return nothing
     all(s -> isequal(s.lhs, _𝓎), ys) || return nothing
-    _branches((_isolate(gᵠ, s.rhs, x) for s ∈ ys))
+    _branches((_carry(_isolate(gᵠ, s.rhs, x), s, gᵠ) for s ∈ ys))
+end
+# conditions on 𝓎 for solution s, as conditions on x through 𝓎 = gᵠ
+function _carry(sols, s, gᵠ)
+    for (c, k) ∈ _conds(s)
+        sols = _tag(sols, (_subst(c, [_𝓎], [gᵠ], _𝓎), k))
+    end
+    sols
 end
 
 # maximal non-polynomial subexpressions containing x
@@ -725,7 +930,7 @@ function _poly_roots(cs, x)
     n == 0 && return ()
     if n == 1
         a₀, a₁ = cs
-        return (x ~ _fold(-a₀ / a₁),)
+        return (x ~ _expand_poly(_fold(-a₀ / a₁)),)
     end
     sols = _rational_roots(cs, x)
     !isnothing(sols) && return sols
@@ -760,9 +965,11 @@ function _quadratic_roots(cs, x)
         iszero(p) && return (x ~ -q, x ~ q)
         return (x ~ p - q, x ~ p + q)
     end
-    sΔ = _root(Δ, 2)
-    (x ~ _fold((-a₁ - sΔ) / (2a₂)),
-     x ~ _fold((-a₁ + sΔ) / (2a₂)))
+    Δ = _expand_poly(Δ)
+    sΔ = _sqrt_poly(Δ)
+    sΔ = isnothing(sΔ) ? _root(Δ, 2) : sΔ
+    (x ~ _expand_poly(_fold((-a₁ - sΔ) / (2a₂))),
+     x ~ _expand_poly(_fold((-a₁ + sΔ) / (2a₂))))
 end
 
 # r^(1/n), kept exact: a rational when possible, else k⋅ⁿ√m
@@ -775,6 +982,10 @@ function _root(r, n)
         isone(m) && return _fold(k)
         rad = _radical(m, n)
         !isnothing(rad) && return isone(k) ? rad : _fold(k) * rad
+    end
+    if n == 2 && isnothing(v) # used for ±√r, so a polynomial square root will do
+        q = _sqrt_poly(_expand_poly(r))
+        !isnothing(q) && return q
     end
     r = _S(r)
     _fold(n == 2 ? sqrt(r) : n == 3 ? cbrt(r) : r^(1//n))

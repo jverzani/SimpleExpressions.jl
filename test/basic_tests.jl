@@ -570,6 +570,22 @@ end
     # x^(1//3) is undefined for negative x in Julia; use cbrt
     @test solve(4x^(2//3) + 21x^(1//3) + 27 ~ 0, x) == ()
     @test map(last, solve(4cbrt(x)^2 + 21cbrt(x) + 27 ~ 0, x)) == (-27, -729//64)
+
+    # parameters: never-valid solutions dropped; conditions on request
+    @test solve(log(x) + log(x + 1) ~ p, x).lhs == x # only one root
+    @test solve(sqrt(x - 1) ~ p - x, x).lhs == x
+    @test solve((x^2 - p^2)/(x - p) ~ 0, x).rhs == -p
+    @test solve(log(x) ~ log(p), x).rhs == p
+    eq, cs = solve(sqrt(x) ~ p, x; conditions=true)
+    @test eq.rhs == p^2 && length(cs) == 1 && string(only(cs)) == "p >= 0"
+    (e1, c1), (e2, c2) = solve(abs(x - p) ~ 2x, x; conditions=true)
+    @test string.((c1..., c2...)) == ("p <= 0", "p >= 0")
+    @test string(only(last(solve(log(x - p) ~ log(2x), x; conditions=true)))) == "p < 0"
+    @test string(only(last(solve(x/(x + 1) ~ p, x; conditions=true)))) == "p != 1"
+    @test string(only(last(solve(sqrt(x - 1) ~ p - x, x; conditions=true)))) == "p >= 3//4"
+    @test last(solve(x^2 - 5x + 6 ~ 0, x; conditions=true)[1]) == ()
+    # expanded discriminant
+    @test contains(string(solve(sqrt(x - 1) ~ p - x, x).rhs), "sqrt(-3 + (4 * p))")
 end
 
 @testset "polynomial_coefficients" begin
