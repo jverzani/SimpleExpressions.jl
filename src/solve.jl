@@ -378,15 +378,15 @@ _log_base(::typeof(log)) = ℯ
 _log_base(::typeof(log10)) = 10
 _log_base(::typeof(log2)) = 2
 _log_base(::Any) = nothing
-function _log_term(t)
+function _log_term(t; numeric = false)
     iscall(t) || return nothing
-    is_number(t) && return nothing
+    !numeric && is_number(t) && return nothing
     b = _log_base(operation(t))
     !isnothing(b) && return (1, only(arguments(t)), b)
     operation(t) == (*) || return nothing
     k, u, b = 1, nothing, ℯ
     for f ∈ arguments(t)
-        if !is_number(f) && iscall(f) && !isnothing(_log_base(operation(f)))
+        if (numeric || !is_number(f)) && iscall(f) && !isnothing(_log_base(operation(f)))
             isnothing(u) || return nothing
             u, b′ = only(arguments(f)), _log_base(operation(f))
             b′ == ℯ || (b == ℯ ? (b = b′) : return nothing)
@@ -429,6 +429,20 @@ function _exp_sign(t, x)
         end
     end
     sgn
+end
+
+# a⋅cos(w) + b⋅sin(w) ~ c, numeric a, b: R⋅cos(w - φ) ~ c with
+# R = √(a² + b²), φ = atan(b, a)
+function _harmonic(xs, c, x)
+    t₁, t₂ = _trig_term(xs[1]), _trig_term(xs[2])
+    (isnothing(t₁) || isnothing(t₂) || t₁[2] == t₂[2] || !isequal(t₁[3], t₂[3])) && return nothing
+    (a, _, w), (b, _, _) = t₁[2] == cos ? (t₁, t₂) : (t₂, t₁)
+    av, bv = _value(a), _value(b)
+    (isnothing(av) || isnothing(bv) || !isreal(av) || !isreal(bv)) && return nothing
+    R = _root(_fold(a^2 + b^2), 2)
+    φ = iszero(av) ? _fold(sign(bv) * SymbolicNumber(π) / 2) : _apply(atan, _fold(_S(b) / a))
+    av < 0 && (φ = _fold(φ + (bv ≥ 0 ? 1 : -1) * SymbolicNumber(π)))
+    _isolate(cos(w - φ), _fold(_S(c) / R), x)
 end
 
 # c⋅sin(w) or c⋅cos(w) ↦ (c, op, w); else `nothing`
@@ -481,7 +495,7 @@ function _apply(f, r)
     r = _fold(r)
     r isa AbstractFloat && return f(r)
     if f == exp # exp(k⋅log(w)) = wᵏ
-        lt = _log_term(r)
+        lt = _log_term(r; numeric = true)
         if !isnothing(lt) && lt[3] == ℯ && _isexact(_value(lt[1]))
             k, w = _value(lt[1]), lt[2]
             isone(k) && return w
@@ -559,6 +573,7 @@ _inverse(::typeof(sqrt)) = r -> _pow_int(r, 2)
 # Returns a tuple of equations (possibly empty) or `nothing` if `x` cancels
 function _isolate(u, r, x)
     u == x && return (x ~ _fold(r),)
+    contains(u, x) || return _iszero(_fold(u - r)) ? nothing : () # x cancelled
     iscall(u) || return (u ~ r,)
     op, args = operation(u), arguments(u)
 
@@ -592,12 +607,17 @@ function _isolate(u, r, x)
                 sgns = map(t -> _exp_sign(t, x), xs)
                 all(!isnothing, sgns) && allequal(sgns) && return ()
             end
+            if length(xs) == 2 && !_iszero(r′)
+                # a⋅cos(w) + b⋅sin(w) ~ c  ⟹  R⋅cos(w - φ) ~ c
+                sols = _harmonic(xs, r′, x)
+                !isnothing(sols) && return sols
+            end
             if length(xs) == 2 && _iszero(r′)
                 # a⋅cos(w) + b⋅sin(w) ~ 0  ⟹  tan(w) ~ -a/b
                 t₁, t₂ = _trig_term(xs[1]), _trig_term(xs[2])
                 if !isnothing(t₁) && !isnothing(t₂) && t₁[2] != t₂[2] && isequal(t₁[3], t₂[3])
                     (c, _, w), (s′, _, _) = t₁[2] == cos ? (t₁, t₂) : (t₂, t₁)
-                    return _isolate(tan(w), _fold(-c / s′), x)
+                    return _isolate(tan(w), _fold(-_S(c) / s′), x)
                 end
                 # f(u) - f(v) ~ 0
                 m = _match_sides(xs[1], _neg(xs[2]), x)
@@ -734,22 +754,126 @@ function _find(pred, ex)
     nothing
 end
 
-# c⋅√w + R ~ 0  ⟹  c²⋅w ~ R²; may introduce extraneous solutions
+# Remove square or cube roots: write ex ~ 0 as L ~ R with L holding a
+# radical term (about half of them, for three or more square roots) and raise
+# both sides to the power n = 2 or 3. Products of square roots are merged,
+# √a⋅√b = √(ab), so each step lowers the number of radicals. Squaring may
+# introduce extraneous solutions; it needs L⋅R ≥ 0.
 function _square_radical(ex, x)
-    issqrt(f) = iscall(f) && operation(f) == sqrt && contains(f, x)
-    ts = collect(_sum_terms(ex))
-    i = findfirst(t -> count(issqrt, _prod_factors(t)) == 1, ts)
-    isnothing(i) && return nothing
-    R = [-t for (j, t) ∈ enumerate(ts) if j != i]
-    lhs = _square(ts[i])
-    rhs = sum(_square(t) for t ∈ R; init = zero(x)) +
-        sum(2 * R[j] * R[k] for j ∈ eachindex(R) for k ∈ eachindex(R) if j < k; init = zero(x))
-    ex′ = lhs - rhs
-    _count(issqrt, ex′) < _count(issqrt, ex) || return nothing
-    c = prod((f for f ∈ _prod_factors(ts[i]) if !issqrt(f)); init = 1)
-    _tag(_isolate(ex′, zero(x), x), (c * sum(R; init = zero(x)), :nonneg)) # c⋅√w = R
+    for n ∈ (2, 3)
+        ts = _group_radicals(collect(_sum_terms(ex)), n, x)
+        is = [i for (i, t) ∈ enumerate(ts) if _nrads(t, n, x) == 1]
+        isempty(is) && continue
+        k = n == 2 && length(is) ≥ 3 ? cld(length(is), 2) : 1
+        left = is[1:k]
+        L = [ts[i] for i ∈ left]
+        R = [-t for (i, t) ∈ enumerate(ts) if i ∉ left]
+        if n == 2
+            ex′ = _sq_sum(L, x) - _sq_sum(R, x)
+        else
+            any(t -> _nrads(t, 3, x) > 0, R) && continue
+            ex′ = _pow_term(only(L), 3, x) - sum(R; init = zero(x))^3
+        end
+        _nroots(ex′, x) < _nroots(ex, x) || continue
+        sols = _isolate(ex′, zero(x), x)
+        n == 3 && return sols
+        Lₑ, Rₑ = sum(L), sum(R; init = zero(x))
+        if k == 1 # c⋅√w = R needs c⋅R ≥ 0
+            Lₑ = prod((f for f ∈ _prod_factors(only(L)) if isnothing(_rad_parts(f, x))); init = 1)
+        end
+        return _tag(sols, (Lₑ * Rₑ, :nonneg))
+    end
+    nothing
 end
-_square(t) = prod((iscall(f) && operation(f) == sqrt ? only(arguments(f)) : f^2) for f ∈ _prod_factors(t))
+
+# radical factor f = (ⁿ√w)ᵐ ↦ (w, n, m); else `nothing`
+function _rad_parts(f, x)
+    iscall(f) || return nothing
+    op, args = operation(f), arguments(f)
+    if op == sqrt || op == cbrt
+        w = only(args)
+        contains(w, x) || return nothing
+        return (w, op == sqrt ? 2 : 3, 1)
+    elseif op == (^)
+        b, e = args
+        v = _value(e)
+        isnothing(v) && return nothing
+        if isinteger(v)
+            inner = _rad_parts(b, x)
+            isnothing(inner) && return nothing
+            w, n, m = inner
+            return (w, n, m * Int(v))
+        elseif v isa Rational && denominator(v) ∈ (2, 3) && contains(b, x)
+            return (b, denominator(v), numerator(v))
+        end
+    end
+    nothing
+end
+_isrootnode(f, x) = iscall(f) && contains(f, x) &&
+    (operation(f) ∈ (sqrt, cbrt) ||
+     (operation(f) == (^) && (v = _value(last(arguments(f))); v isa Rational && denominator(v) ∈ (2, 3))))
+# number of distinct radicals in ex
+_nroots(ex, x) = length(_roots!(Any[], ex, x))
+function _roots!(out, ex, x)
+    _isrootnode(ex, x) && !any(r -> isequal(r, ex), out) && push!(out, ex)
+    iscall(ex) && foreach(a -> _roots!(out, a, x), arguments(ex))
+    out
+end
+
+# combine terms c₁⋅ⁿ√w + c₂⋅ⁿ√w into (c₁ + c₂)⋅ⁿ√w
+function _group_radicals(ts, n, x)
+    keys, coefs, out = Any[], Any[], Any[]
+    for t ∈ ts
+        fs = _prod_factors(t)
+        i = findfirst(f -> (rp = _rad_parts(f, x); !isnothing(rp) && rp[2] == n), fs)
+        if isnothing(i) || _nrads(t, n, x) != 1
+            push!(out, t)
+            continue
+        end
+        c = prod((fs[j] for j ∈ eachindex(fs) if j != i); init = 1)
+        k = findfirst(f -> isequal(f, fs[i]), keys)
+        isnothing(k) ? (push!(keys, fs[i]); push!(coefs, c)) : (coefs[k] += c)
+    end
+    append!(out, (c * f for (c, f) ∈ zip(coefs, keys)))
+end
+_nrads(t, n, x) = count(f -> (rp = _rad_parts(f, x); !isnothing(rp) && rp[2] == n), _prod_factors(t))
+
+# tⁿ for a term t, with (ⁿ√w)ᵐ ↦ wᵐ
+_pow_term(t, n, x) = prod((rp = _rad_parts(f, x); isnothing(rp) || rp[2] != n ? f^n : rp[1]^rp[3])
+                          for f ∈ _prod_factors(t))
+
+# (Σ tᵢ)² expanded, merging products of square roots
+function _sq_sum(ts, x)
+    out = zero(x)
+    for (i, t) ∈ enumerate(ts), (j, t′) ∈ enumerate(ts)
+        j < i && continue
+        out += (i == j ? 1 : 2) * _sqrt_mul(t, t′, x)
+    end
+    out
+end
+
+# t⋅t′ with square-root factors combined into one √
+function _sqrt_mul(t, t′, x)
+    rest, rads = Any[], Any[] # (w, m) for (√w)ᵐ
+    for f ∈ (_prod_factors(t)..., _prod_factors(t′)...)
+        rp = _rad_parts(f, x)
+        if isnothing(rp) || rp[2] != 2
+            push!(rest, f)
+        else
+            w, _, m = rp
+            i = findfirst(((w′, _),) -> isequal(w′, w), rads)
+            isnothing(i) ? push!(rads, (w, m)) : (rads[i] = (w, rads[i][2] + m))
+        end
+    end
+    odd = Any[]
+    for (w, m) ∈ rads # (√w)ᵐ = w^⌊m/2⌋ ⋅ √w if m is odd
+        h = fld(m, 2)
+        iszero(h) || push!(rest, w^h)
+        isodd(m) && push!(odd, w)
+    end
+    isempty(odd) || push!(rest, sqrt(prod(odd)))
+    prod(rest; init = 1)
+end
 _count(pred, ex) = pred(ex) + (iscall(ex) ? sum(a -> _count(pred, a), arguments(ex); init = 0) : 0)
 
 # numerator, denominator coefficients of ex as a rational function of x
@@ -808,6 +932,10 @@ function _substitute(ex, x)
     gᵠ = isone(q) ? g : g^q
     ex′ = _subst(ex, atoms, [_𝓎^_fold(Rational(qᵢ // q)) for (_, qᵢ) ∈ gqs], x)
     contains(ex′, x) && return nothing
+    # no progress if gᵠ appears once, linearly: it could not be isolated already
+    cs = _poly_coeffs(ex′, _𝓎)
+    isone(q) && count(t -> contains(t, x), _sum_terms(ex)) == 1 &&
+        !isnothing(cs) && length(cs) ≤ 2 && return nothing
     ys = _isolate(ex′, zero(x), _𝓎)
     isnothing(ys) && return nothing
     all(s -> isequal(s.lhs, _𝓎), ys) || return nothing
@@ -847,12 +975,24 @@ function _as_power(a, x)
         v isa Rational && return (b, v)
         contains(b, x) && return (a, 1)
         k, w = _split_int(c)
-        return (b^w, k)                   # bᵏʷ
+        m, e = _min_base(b)               # b = mᵉ
+        return (SymbolicNumber(m)^w, k * e) # bᵏʷ = (mʷ)ᵏᵉ
     elseif op == exp
         k, w = _split_int(only(args))
         return (exp(w), k)                # exp(k⋅w)
     end
     (a, 1)
+end
+
+# b = mᵉ for an integer b with the smallest base m; (b, 1) otherwise
+function _min_base(b)
+    v = _value(b)
+    (v isa Integer && v > 1) || return (b, 1)
+    for e ∈ floor(Int, log2(v)):-1:2
+        m, rest = _surd(v, e)
+        isone(rest) && isinteger(m) && return (Int(m), e)
+    end
+    (v, 1)
 end
 
 # k⋅w ↦ (k, w) for an integer k

@@ -586,6 +586,29 @@ end
     @test last(solve(x^2 - 5x + 6 ~ 0, x; conditions=true)[1]) == ()
     # expanded discriminant
     @test contains(string(solve(sqrt(x - 1) ~ p - x, x).rhs), "sqrt(-3 + (4 * p))")
+
+    # no infinite recursion when g(x) can't be isolated
+    @test solve(x^x ~ 4, x).lhs != x
+    @test solve(floor(x) ~ 2, x).lhs != x
+    # a branch where x cancels is dropped
+    @test map(last, solve(abs(x) + abs(x - 2) ~ 4, x)) == (-1, 3)
+    # exp(log(2)) = 2
+    @test solve(log(x + 1) - log(x) ~ log(S(2)), x).rhs == 1
+    # powers of a common base
+    @test map(last, solve(4^x - 3*2^x + 2 ~ 0, x)) == (0, 1)
+    @test map(last, solve(9^x - 4*3^x + 3 ~ 0, x)) == (0, 1)
+    # a⋅cos + b⋅sin ~ c
+    @test solve(3cos(x) + 4sin(x) ~ 5, x).rhs == atan(S(4//3))
+    v = solve(cos(x) + sin(x) ~ 1, x).rhs() # π/2; principal branch
+    @test cos(v) + sin(v) ≈ 1
+    # cube roots
+    @test solve(cbrt(x + 6) ~ x, x).rhs == 2
+    @test solve(cbrt(x) ~ x - 6, x).rhs == 8
+    # radical in a denominator
+    @test solve(x/sqrt(x^2 + 1) ~ 1//2, x).rhs == sqrt(S(3))/3
+    # three square roots
+    @test solve(sqrt(x + 1) + sqrt(x + 4) + sqrt(x + 9) ~ 6, x).rhs == 0
+    @test map(last, solve(sqrt(2x + 1) - sqrt(x) ~ 1, x)) == (0, 4)
 end
 
 @testset "polynomial_coefficients" begin
