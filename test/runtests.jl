@@ -5,6 +5,8 @@ import SimpleExpressions: @symbolic_expression
 
 include("basic_tests.jl")
 
+include("solve_examples.jl")
+
 include("test_match.jl")
 
 include("test_simplify.jl")
