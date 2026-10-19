@@ -42,9 +42,43 @@ _equation(l, r) = l ~ r
 
 ## entry point
 """
-    solve(eq::SymbolicEquation, x; conditions=false)
+    solve(eq::SymbolicEquation, x; conditions::Bool=false, interval=nothing)
 
 Very *simple* symbolic equations can be solved with the unexported `solve` method.
+
+* `eq::SymbolicEquation`:. equations are specified with `~`, as in `x^2 ~ p`
+* `x`: variable to solve for
+* `conditions`: set to true to reveal conditions on parameters for which the identified solution(s) hold.
+* interval: If specified, through a tuple `(a,b)` all solutions in this interval are found.
+
+# Return value:
+
+* an equation `x ~ r` when there is a single solution;
+* a tuple of equations, e.g. `(x ~ r₁, x ~ r₂)`, when there are more
+  (quadratics, even powers);
+* `()` when numeric values show there are no real solutions;
+* `nothing` when `x` does not appear in the equation (or cancels out);
+* an equation whose left-hand side is not `x` when `x` could not be isolated.
+
+# Examples
+
+```julia
+import SimpleExpressions: solve
+SimpleExpressions.@symbolic_variables A a B b # (A, a, B, b)
+solve(sin(A)/a ~ sin(B)/b, b) # b ~ (a * sin(B)) / sin(A)
+solve(sin(A)/a ~ sin(B)/b, A) # A ~ asin((sin(B) * a) / b)
+```
+
+```julia
+SimpleExpressions.@symbolic_variables w p h  # (w, p, h)
+constraint = p ~ 2w + 2h;
+A = w * h;
+u = solve(constraint, h)      # h ~ (p / 2) + (-1 * w)
+A = A(u)                      # w * ((p / 2) + (-1 * w)), use equation in replacement
+v = solve(diff(A, w) ~ 0, w)  # w ~ p / 4
+```
+
+# Extended help
 
 The equation is rearranged by moving terms free of `x` to the right-hand side
 and applying inverse functions (e.g. `exp(u) ~ r` becomes `u ~ log(r)`,
@@ -78,8 +112,8 @@ Some further rewriting is done:
 * `abs(u)` is split into the cases `u ≥ 0` and `u ≤ 0`;
 * a polynomial factor common to all terms is factored out, e.g.
   `2x - x*exp(6x-1) ~ 0`;
-* `a⋅cos(u) + b⋅sin(u) ~ 0` becomes `tan(u) ~ -a/b`, and a sum of
-  exponentials of one sign equal to `0` has no solutions.
+* `a⋅cos(u) + b⋅sin(u) ~ 0` becomes `tan(u) ~ -a/b`, and
+* a sum of exponentials of one sign equal to `0` has no solutions.
 
 When the equation has no symbolic parameters, numeric solutions are checked in
 the original equation and extraneous ones are discarded.
@@ -98,18 +132,23 @@ remaining conditions, e.g.
 solve(sqrt(x) ~ p, x; conditions=true)     # x ~ p^2 => (p >= 0,)
 solve(abs(x - p) ~ 2x, x; conditions=true) # (x ~ -p => (p <= 0,), x ~ p/3 => (p >= 0,))
 ```
- The check uses
-Julia's definitions, so e.g. `x^(1//3)` is not defined for negative `x`
+
+The check uses Julia's definitions, so e.g. `x^(1//3)` is not defined for negative `x`
 (`(-8.0)^(1//3)` is a `DomainError`); use `cbrt(x)` for the real cube root.
 
-Return value:
 
-* an equation `x ~ r` when there is a single solution;
-* a tuple of equations, e.g. `(x ~ r₁, x ~ r₂)`, when there are more
-  (quadratics, even powers);
-* `()` when numeric values show there are no real solutions;
-* `nothing` when `x` does not appear in the equation (or cancels out);
-* an equation whose left-hand side is not `x` when `x` could not be isolated.
+Pass `interval=(a, b)` to get every real solution with `a ≤ x ≤ b` (a closed
+interval). Periodic functions then give all their branches, e.g.
+`sin(u) ~ r` gives `u = asin(r) + 2πn` and `u = π - asin(r) + 2πn`, and those
+in the interval are listed:
+
+```julia
+solve(4sin(3x) ~ 2, x; interval=(0, 4π/3))     # (π/18, 5π/18, 13π/18, 17π/18)
+solve(x^2 - 5x + 6 ~ 0, x; interval=(0, 2.5))  # x ~ 2; other equations are filtered
+```
+
+The equation must not have parameters when `interval` is given. Without
+`interval`, inverse trigonometric functions give principal values.
 
 !!! warning
     Inverse functions are applied without regard to domain or range
@@ -118,19 +157,11 @@ Return value:
     solutions; `sqrt(u) ~ r` gives `u ~ r^2`, which may introduce extraneous
     solutions when `r` is negative. Symbolic answers are not checked; check them.
 
-```{julia}
-@symbolic w p; @symbolic h  # two variables, one parameter
-import SimpleExpressions: solve, D
-constraint = p ~ 2w + 2h
-A = w * h
-
-u = solve(constraint, h)
-A = A(u) # use equation in replacement
-v = solve(D(A, w) ~ 0, w)
-```
+!!! note
+    The original solve.jl was rewritten and extended with Claude AI.
 """
-function CommonSolve.solve(eq::SymbolicEquation, x::𝑉; conditions::Bool = false)
-    solve_equation(eq.lhs, eq.rhs, x; conditions)
+function CommonSolve.solve(eq::SymbolicEquation, x::𝑉; conditions::Bool = false, interval = nothing)
+    solve_equation(eq.lhs, eq.rhs, x; conditions, interval)
 end
 
 CommonSolve.init(eq::SymbolicEquation) = throw(ArgumentError("Must specify variable to solve for"))

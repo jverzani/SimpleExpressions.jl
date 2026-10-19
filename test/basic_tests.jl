@@ -638,6 +638,22 @@ end
     @test solve(3sin(x) + 2cos(x)^2 ~ 0, x).rhs == -π′/6
     eq = cos(x) - sin(x) ~ sqrt(S(2))*sin(x)*cos(x)
     @test all(s -> abs(eq(s.rhs())) < 1e-12, solve(eq, x))
+
+    # all solutions in a closed interval
+    @test map(last, solve(4sin(3x) ~ 2, x; interval = (0, 4π′/3))) ==
+        (π′/18, 5π′/18, 13π′/18, 17π′/18)
+    @test map(last, solve(sin(2x) ~ cos(x), x; interval = (0, 2π′))) ==
+        (π′/6, π′/2, 5π′/6, 3π′/2)
+    @test map(last, solve(sin(x) ~ 0, x; interval = (0, 2π′))) == (0, π′, 2π′) # closed
+    @test map(last, solve(tan(x) ~ 1, x; interval = (0, 2π′))) == (π′/4, 5π′/4)
+    @test map(last, solve(sind(x) ~ 1//2, x; interval = (0, 360))) == (30, 150)
+    @test solve(cos(x) ~ 2, x; interval = (0, 10)) == ()
+    @test length(solve(sin(x^2) ~ 1//2, x; interval = (0, 4))) == 6
+    @test solve(x^2 - 5x + 6 ~ 0, x; interval = (0, 2.5)).rhs == 2 # filters
+    @test solve(sin(x) ~ 1, x; interval = (0, 1)) == ()
+    @test last(solve(sin(x) ~ 1//2, x; interval = (0, π′), conditions = true)[1]) == ()
+    @test_throws ArgumentError solve(sin(x) ~ p, x; interval = (0, 1))
+    @test_throws ArgumentError solve(sin(x) ~ 1//2, x; interval = (1, 0))
 end
 
 @testset "polynomial_coefficients" begin

@@ -142,3 +142,72 @@ import SimpleExpressions: solve
         @test (id, status) == (id, "OK")
     end
 end
+
+# The trig problems which ask for all solutions in an interval. Solutions are
+# compared with an independent numeric search: sign changes of lhs - rhs on a
+# fine grid, refined by bisection, keeping real zeros (not poles).
+@testset "solve: Paul's Online Notes examples, intervals" begin
+    @symbolic x
+    S = SimpleExpressions.SymbolicNumber
+    π′ = S(π)
+    I = Tuple{String,Any,Any}[]
+    add(id, f, ab) = push!(I, (id, f, ab))
+    add("T2",  () -> 4sin(3x) ~ 2,                          (0, 4π′/3))
+    add("T4",  () -> 2cos(x/3) + sqrt(S(2)) ~ 0,            (-7π′, 7π′))
+    add("T5",  () -> 4cos(6x) ~ sqrt(S(12)),                (0, π′/2))
+    add("T6",  () -> 2sin(3x/2) + sqrt(S(3)) ~ 0,           (-7π′/3, 0))
+    add("T7",  () -> 8tan(2x) - 5 ~ 3,                      (-π′/2, 3π′/2))
+    add("T8",  () -> 16 ~ -9sin(7x) - 4,                    (-2π′, 9π′/4))
+    add("T9",  () -> sqrt(S(3))*tan(x/4) + 5 ~ 4,           (0, 4π′))
+    add("T10", () -> sqrt(S(3))*csc(9x) - 7 ~ -5,           (-π′/3, 4π′/9))
+    add("T11", () -> 1 - 14cos(2x/5) ~ -6,                  (5π′, 40π′/3))
+    add("T12", () -> 15 ~ 17 + 4cos(x/7),                   (10π′, 15π′))
+    add("T14", () -> 6 + 5cos(x/3) ~ 10,                    (0, 38))
+    add("T16", () -> 4sin(6x) + 13//10 ~ -3//10,            (0, 2))
+    add("T17", () -> 9cos(4x/9) + 21sin(4x/9) ~ 0,          (-10, 10))
+    add("T18", () -> 3tan(x/4) - 1 ~ 11 - 2tan(x/4),        (-50, 0))
+    add("T19", () -> 17 - 3sec(x/2) ~ 2,                    (20, 45))
+    add("T20", () -> 12sin(7x) + 11 ~ 3 + 4sin(7x),         (-2, -1//2))
+    add("T21", () -> 5 - 14tan(8x) ~ 30,                    (-1, 1))
+    add("T22", () -> 0 ~ 18 + 2csc(x/3),                    (0, 5))
+    add("T23", () -> cos(x/8)/2 + 1//4 ~ 2//3,              (0, 100))
+    add("T24", () -> 4//3 ~ 1 + 3sec(2x),                   (-4, 6))
+
+    function zeros_numeric(f, a, b; n = 200_000)
+        xs = range(a, b, length = n)
+        ys = map(f, xs)
+        out = Float64[]
+        for i ∈ 1:n-1
+            sign(ys[i]) == sign(ys[i+1]) && continue
+            l, r = xs[i], xs[i+1]
+            for _ ∈ 1:80
+                m = (l + r) / 2
+                sign(f(m)) == sign(f(l)) ? (l = m) : (r = m)
+            end
+            m = (l + r) / 2
+            abs(f(m)) < 1e-6 && push!(out, m)  # a zero, not a pole
+        end
+        for i ∈ 2:n-1 # zeros where f touches 0 without changing sign
+            abs(ys[i]) < 1e-6 && abs(ys[i]) ≤ abs(ys[i-1]) && abs(ys[i]) ≤ abs(ys[i+1]) || continue
+            l, r = xs[i-1], xs[i+1]
+            for _ ∈ 1:100 # ternary search for the minimum of |f|
+                m₁, m₂ = l + (r - l)/3, r - (r - l)/3
+                abs(f(m₁)) < abs(f(m₂)) ? (r = m₂) : (l = m₁)
+            end
+            m = (l + r) / 2
+            any(e -> isapprox(e, m; atol = 1e-6), out) || push!(out, m)
+        end
+        out
+    end
+
+    for (id, f, (a, b)) ∈ I
+        eq = f()
+        a′, b′ = map(v -> float(v isa Number ? v : v()), (a, b))
+        sols = solve(eq, x; interval = (a, b))
+        sols = sols isa Tuple ? sols : (sols,)
+        vs = map(s -> s.rhs(), collect(sols))
+        expected = zeros_numeric(t -> eq(t), a′, b′)
+        @test (id, length(vs)) == (id, length(expected))
+        @test (id, all(v -> any(e -> isapprox(v, e; atol = 1e-6), expected), vs)) == (id, true)
+    end
+end
