@@ -448,6 +448,102 @@ end
     @test !contains(r, a)
     @test contains(r, B) # parameterized still
 
+    @symbolic x p
+    # linear, either side
+    @test solve(2x + 3 ~ 7, x).rhs == 2
+    @test Tuple(solve(5 ~ x - p, x)) == Tuple(solve(x - p ~ 5, x))
+    @test solve(p ~ 2x + 2a, x).lhs == x
+    # powers and quadratics return tuples of roots
+    @test map(last, solve(x^2 ~ 4, x)) == (-2, 2)
+    @test map(last, solve(x^2 - 5x + 6 ~ 0, x)) == (2, 3)
+    @test map(last, solve((x+1)^2 ~ 4, x)) == (-3, 1)
+    @test solve(x^3 ~ 8, x).rhs() ≈ 2
+    s1, s2 = solve(a*x^2 + b*x ~ p, x)
+    @test s1.lhs == x && !contains(s1.rhs, x)
+    # no real solutions
+    @test solve(x^2 + 1 ~ 0, x) == ()
+    @test solve(exp(x) ~ -1, x) == ()
+    @test solve(sqrt(x) ~ -1, x) == ()
+    # inverse functions (principal values)
+    @test solve(exp(2x) ~ p, x).rhs(p => 2)() ≈ log(2)/2
+    @test solve(2^x ~ p, x).rhs(p => 8)() ≈ 3
+    @test solve(sqrt(x + 1) ~ p, x).rhs(p => 3)() ≈ 8
+    # no x, or x cancels
+    @test isnothing(solve(a ~ b, x))
+    @test isnothing(solve(x ~ x, x))
+    # can't isolate
+    @test solve(x * exp(x) ~ 1, x).lhs != x
+
+    # zero-product rule
+    @test map(last, solve((x-1)*(x-2)*(x-3) ~ 0, x)) == (1, 2, 3)
+    @test solve(x * sin(x) ~ 0, x).rhs == 0
+    @test map(last, solve(exp(x)*(x^2 - 4) ~ 0, x)) == (-2, 2)
+    @test map(last, solve((x-1)^2*(x+2) ~ 0, x)) == (-2, 1)
+    # two branches
+    @test map(last, solve(abs(x - 1) ~ 2, x)) == (-1, 3)
+    @test solve(abs(x) ~ -1, x) == ()
+    @test solve(cosh(x) ~ 1//2, x) == ()
+    s1, s2 = solve(cosh(x) ~ 2, x)
+    @test s1.rhs() ≈ -acosh(2) && s2.rhs() ≈ acosh(2)
+    @test solve(x^(2//3) ~ 4, x).rhs == 8 # (-8.0)^(2//3) is a DomainError
+    # higher degree polynomials
+    @test map(last, solve(x^3 - 2x^2 ~ 0, x)) == (0, 2)
+    @test map(last, solve(x^3 - 6x^2 + 11x - 6 ~ 0, x)) == (1, 2, 3)
+    @test map(last, solve(2x^3 - 3x^2 + 1 ~ 0, x)) == (-1//2, 1)
+    @test map(last, solve(x^4 - 5x^2 + 4 ~ 0, x)) == (-2, -1, 1, 2)
+    @test map(last, solve(x^6 - 9x^3 + 8 ~ 0, x)) == (1, 2)
+    @test solve(x^4 + 1 ~ 0, x) == ()
+    @test length(solve(x^3 - x^2 - 2x + 2 ~ 0, x)) == 3 # 1, ±√2
+    @test solve(x^3 + x ~ 1, x).lhs != x # no rational roots
+    # exact values
+    @test map(last, solve(x^2 ~ 4//9, x)) == (-2//3, 2//3)
+    @test solve(x^3 ~ -8, x).rhs() === -2
+    @test solve(2x + 3 ~ 7, x).rhs() === 2
+
+    # same function on both sides
+    @test solve(2^x ~ 2^(3x - 4), x).rhs == 2
+    @test solve(exp(x) ~ exp(2x + 1), x).rhs == -1
+    @test solve(log(x) ~ log(2x - 3), x).rhs == 3
+    @test solve(sqrt(x + 5) ~ sqrt(2x), x).rhs == 5
+    @test solve(sqrt(x) ~ sqrt(p), x).rhs == p
+    @test solve(2^x ~ 3^(x + 1), x).rhs() ≈ log(3) / (log(2) - log(3))
+    @test solve(exp(x) ~ 2exp(-x), x).rhs() ≈ log(2) / 2
+    # sums of logs; extraneous roots dropped
+    @test solve(log(x) + log(x - 1) ~ log(6), x).rhs == 3
+    @test solve(2log(x) ~ log(4), x).rhs() ≈ 2
+    # rational functions; roots of the denominator dropped
+    @test solve((x^2 - 1)/(x - 1) ~ 0, x).rhs == -1
+    @test solve(x/(x - 2) ~ 2/(x - 2), x) == ()
+    @test solve(1/x ~ 0, x) == ()
+    @test all(s -> s.rhs()^2 - s.rhs() - 1 ≈ 0, solve(1/x + 1/(x + 1) ~ 1, x))
+    u = solve(x/(x + 1) ~ p, x)
+    @test u.lhs == x && !contains(u.rhs, x)
+    # substitution
+    @test all(≈(0, atol=1e-12), map(s -> exp(2s.rhs()) - 3exp(s.rhs()) + 2,
+                                     solve(exp(2x) - 3exp(x) + 2 ~ 0, x)))
+    @test solve(sqrt(x) + x ~ 6, x).rhs() ≈ 4
+    @test solve(sqrt(x) ~ x - 2, x).rhs() ≈ 4   # x = 1 is extraneous
+    @test map(s -> s.rhs(), solve(cbrt(x)^2 - cbrt(x) ~ 2, x)) == (-1, 8)
+    @test length(solve(log(x)^2 - log(x) ~ 2, x)) == 2
+
+    # exact (symbolic) values rather than floats
+    S = SimpleExpressions.SymbolicNumber
+    @test map(last, solve(x^2 ~ 2, x)) == (-sqrt(S(2)), sqrt(S(2)))
+    @test map(last, solve(x^2 - 2x - 1 ~ 0, x)) == (1 - sqrt(S(2)), 1 + sqrt(S(2)))
+    @test map(last, solve(x^2 ~ 8, x)) == (-2sqrt(S(2)), 2sqrt(S(2)))
+    @test solve(x^3 ~ 16, x).rhs == 2cbrt(S(2))
+    @test solve(sin(x) ~ 1//2, x).rhs == S(π) / 6
+    @test solve(cos(2x) ~ 0, x).rhs == S(π) / 4
+    @test solve(tan(x) ~ -1, x).rhs == -S(π) / 4
+    @test solve(acos(x) ~ 0, x).rhs == 1
+    @test solve(exp(x) ~ 2, x).rhs == log(S(2))
+    @test solve(2^x ~ 8, x).rhs == 3
+    @test solve(2^x ~ 1//4, x).rhs == -2
+    @test map(last, solve(exp(2x) - 3exp(x) + 2 ~ 0, x)) == (0, log(S(2)))
+    @test map(last, solve(sin(x)^2 - sin(x) ~ 0, x)) == (0, S(π) / 2)
+    @test solve(x^2 ~ 0, x).rhs == 0
+    # floats in, floats out
+    @test solve(x^2 ~ 2.0, x)[2].rhs() ≈ sqrt(2)
 end
 
 @testset "polynomial_coefficients" begin
