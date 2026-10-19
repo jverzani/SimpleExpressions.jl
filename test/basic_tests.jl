@@ -494,7 +494,7 @@ end
     @test map(last, solve(x^6 - 9x^3 + 8 ~ 0, x)) == (1, 2)
     @test solve(x^4 + 1 ~ 0, x) == ()
     @test length(solve(x^3 - x^2 - 2x + 2 ~ 0, x)) == 3 # 1, ±√2
-    @test solve(x^3 + x ~ 1, x).lhs != x # no rational roots
+    @test solve(x^3 + x ~ 1, x).lhs == x # no rational roots; Cardano
     # exact values
     @test map(last, solve(x^2 ~ 4//9, x)) == (-2//3, 2//3)
     @test solve(x^3 ~ -8, x).rhs() === -2
@@ -609,6 +609,19 @@ end
     # three square roots
     @test solve(sqrt(x + 1) + sqrt(x + 4) + sqrt(x + 9) ~ 6, x).rhs == 0
     @test map(last, solve(sqrt(2x + 1) - sqrt(x) ~ 1, x)) == (0, 4)
+
+    # cubics and quartics without rational roots
+    resid(eq, sols) = maximum(s -> abs(eq(s.rhs())), sols isa Tuple ? sols : (sols,))
+    for eq ∈ (x^3 + x ~ 1, x^3 - 3x + 1 ~ 0, 2x^3 + 3x^2 - x + 5 ~ 0,
+              x^4 + x - 2 ~ 0, x^4 - 10x^2 + 1 ~ 0, x^4 + 4x - 1 ~ 0, x^4 + 1 ~ 3x)
+        sols = solve(eq, x)
+        @test all(s -> isequal(s.lhs, x), sols isa Tuple ? sols : (sols,))
+        @test resid(eq, sols) < 1e-12
+    end
+    @test length(solve(x^3 - 3x + 1 ~ 0, x)) == 3        # three real roots, trig form
+    @test solve(x^3 - 2 ~ 0, x).rhs == cbrt(S(2))
+    @test map(last, solve(x^3 - 6x - 4 ~ 0, x)) == (1 - sqrt(S(3)), -2, 1 + sqrt(S(3)))[[2, 1, 3]]
+    @test length(solve(x^4 - 10x^2 + 1 ~ 0, x)) == 4
 end
 
 @testset "polynomial_coefficients" begin

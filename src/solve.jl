@@ -1085,12 +1085,85 @@ function _poly_roots(cs, x)
         return _branches((_isolate_power(x, g, s.rhs, x) for s ∈ ys))
     end
 
+    n == 3 && return _cubic_roots(cs, x)
+    n == 4 && return _quartic_roots(cs, x)
     nothing
 end
 
+# numeric coefficients, as exact rationals when possible
+function _num_coeffs(cs)
+    vs = map(_value, cs)
+    all(v -> !isnothing(v) && isreal(v), vs) || return nothing
+    all(_isexact, vs) ? Rational{BigInt}.(vs) : float.(real.(vs))
+end
+_q(v::Rational) = _fold(Rational{Int}(v))
+_q(v) = v
+
+# a₀ + a₁x + a₂x² + a₃x³ ~ 0, numeric coefficients. With x = t - a₂/(3a₃),
+# t³ + p⋅t + q = 0: Cardano's formula when there is one real root, the
+# trigonometric form when there are three
+function _cubic_roots(cs, x)
+    vs = _num_coeffs(cs)
+    isnothing(vs) && return nothing
+    a₀, a₁, a₂, a₃ = vs
+    s = a₂ / (3a₃)
+    p = (3a₃ * a₁ - a₂^2) / (3a₃^2)
+    q = (2a₂^3 - 9a₃ * a₂ * a₁ + 27a₃^2 * a₀) / (27a₃^3)
+    Δ = q^2 / 4 + p^3 / 27
+    shift(t) = x ~ _pi_fold(_fold(t - _q(s)))
+    iszero(p) && iszero(q) && return (shift(0),)
+    if iszero(Δ) # a double root
+        return _branches(((shift(_q(3q / p)),), (shift(_q(-3q / (2p))),)))
+    elseif Δ > 0
+        sΔ = _root(_q(Δ), 2)
+        u, v = _fold(_q(-q / 2) + sΔ), _fold(_q(-q / 2) - sΔ)
+        return (shift(_fold(_root(u, 3) + _root(v, 3))),)
+    end
+    m = _fold(2 * _root(_q(-p / 3), 2))
+    θ = _fold(_apply(acos, _fold(_q(3q / (2p)) * _root(_q(-3 / p), 2))) / 3)
+    Tuple(shift(_fold(m * _apply(cos, _pi_fold(_fold(θ - 2k * SymbolicNumber(π) / 3)))))
+          for k ∈ 0:2)
+end
+
+# a₀ + a₁x + ⋯ + a₄x⁴ ~ 0, numeric coefficients, by Ferrari's method: with
+# x = y - b/4, y⁴ + p⋅y² + q⋅y + r = 0 factors into two quadratics using a
+# positive root m of the resolvent 8m³ + 8p⋅m² + (2p² - 8r)⋅m - q² = 0
+function _quartic_roots(cs, x)
+    vs = _num_coeffs(cs)
+    isnothing(vs) && return nothing
+    e, d, c, b = vs[1:4] ./ vs[5]
+    p = c - 3b^2 / 8
+    q = d - b * c / 2 + b^3 / 8
+    r = e - b * d / 4 + b^2 * c / 16 - 3b^4 / 256
+    shift(sols) = isnothing(sols) ? nothing :
+        Tuple(x ~ _fold(sol.rhs - _q(b / 4)) for sol ∈ sols if isequal(sol.lhs, _𝓎))
+    iszero(q) && return shift(_poly_roots(Any[_q(r), 0, _q(p), 0, 1], _𝓎))
+    ms = _poly_roots(Any[_q(-q^2), _q(2p^2 - 8r), _q(8p), 8], _𝓎)
+    isnothing(ms) && return nothing
+    ms = [sol.rhs for sol ∈ ms if isequal(sol.lhs, _𝓎) && (v = _value(sol.rhs); isreal(v) && real(v) > 0)]
+    isempty(ms) && return nothing
+    m = argmin(m -> length(string(m)), ms) # the simplest
+    s₂ = _root(_fold(2m), 2)
+    _branches((shift(_quadratic_roots(Any[_fold(_q(p / 2) + m - _q(q / 2) / s₂), s₂, 1], _𝓎)),
+               shift(_quadratic_roots(Any[_fold(_q(p / 2) + m + _q(q / 2) / s₂), _fold(-s₂), 1], _𝓎))))
+end
+
+# c₀ + c₁⋅π for a combination of rationals and π; else u
+const _𝓅 = SymbolicVariable(:𝓅)
+function _pi_fold(u)
+    u isa Number && return u
+    (is_number(u) && !(u isa SymbolicNumber)) || return u
+    π′ = SymbolicNumber(π)
+    u′ = _subst(u, [π′], [_𝓅], π′)
+    contains(u′, _𝓅) || return u
+    cs = _poly_coeffs(u′, _𝓅)
+    (isnothing(cs) || length(cs) != 2 || !all(_isexact ∘ _value, cs)) && return u
+    _fold(_fold(cs[1]) + _fold(cs[2]) * π′)
+end
+
 function _quadratic_roots(cs, x)
-    a₀, a₁, a₂ = cs
-    Δ = _fold(a₁^2 - 4 * a₂ * a₀)
+    a₀, a₁, a₂ = map(_S, cs)
+    Δ = _fold(_pow_int(a₁, 2) - 4 * a₂ * a₀)
     v = _value(Δ)
     if !isnothing(v)
         v < 0 && return ()
@@ -1183,11 +1256,13 @@ function _rational_roots(cs, x)
         push!(roots, cands[i])
         qs = _deflate(qs, cands[i])
     end
-    length(qs) > 3 && return nothing
-    isempty(roots) && return nothing  # leave to quadratic formula
+    length(qs) > 5 && return nothing
+    isempty(roots) && return nothing  # leave to the formulas
     sols = (x ~ _fold(Rational{Int}(c)) for c ∈ sort!(roots))
     length(qs) < 3 && return _branches((sols,))
-    _branches((sols, _quadratic_roots(map(_fold ∘ Rational{Int}, qs), x)))
+    rest = map(_fold ∘ Rational{Int}, qs)
+    f = (_quadratic_roots, _cubic_roots, _quartic_roots)[length(qs) - 2]
+    _branches((sols, f(rest, x)))
 end
 
 _horner(qs, c) = foldr((q, acc) -> acc * c + q, qs; init = zero(c))
