@@ -678,6 +678,9 @@ end
     @test e₀.rhs == W(p) && length(c₀) == 1 && length(c₁) == 2
     @test string(W(x)) == "lambertw(x)" && string(W(x, -1)) == "lambertw(x, -1)"
     @test W(x)(1.0) ≈ 0.5671432904097838
+
+    # rational coefficients written with //
+    @test map(last, solve(x^3/2 - x//4 ~ 0, x)) == (-sqrt(S(2))/2, 0, sqrt(S(2))/2)
 end
 
 @testset "polynomial_coefficients" begin
@@ -687,6 +690,7 @@ end
     @test length(polynomial_coefficients(x^2*(x+1)*(x+p) ~ 0, x)) == 4 + 1
     @test isnothing(polynomial_coefficients(x + 1/x ~ 1, x))
     @test isnothing(polynomial_coefficients(x + sin(x)*x^2 ~ 1, x))
+    @test length(polynomial_coefficients(x^2/2 + x//4 ~ 1, x)) == 3 # // as /
 end
 
 @testset "sympify" begin
