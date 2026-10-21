@@ -286,6 +286,10 @@ Base.getindex(x::AbstractSymbolic, i::Integer) =
 ## log
 Base.log(a::Number, x::AbstractSymbolic) = log(x) / log(SymbolicNumber(a))
 Base.log(a::AbstractSymbolic, x::AbstractSymbolic) = log(x) / log(a)
+
+## Lambert W, branch k (from LambertW.jl)
+LambertW.lambertw(x::AbstractSymbolic) = SymbolicExpression(lambertw, (x,))
+LambertW.lambertw(x::AbstractSymbolic, k::Integer) = SymbolicExpression(lambertw, (x, SymbolicNumber(k)))
 function Base.broadcasted(::typeof(log), a, b::AbstractSymbolic)
     SymbolicExpression(Base.broadcasted, (log, a, b))
 end

@@ -112,8 +112,13 @@ Some further rewriting is done:
 * `abs(u)` is split into the cases `u ≥ 0` and `u ≤ 0`;
 * a polynomial factor common to all terms is factored out, e.g.
   `2x - x*exp(6x-1) ~ 0`;
-* `a⋅cos(u) + b⋅sin(u) ~ 0` becomes `tan(u) ~ -a/b`, and
-* a sum of exponentials of one sign equal to `0` has no solutions.
+* `a⋅cos(u) + b⋅sin(u) ~ 0` becomes `tan(u) ~ -a/b`;
+* a sum of exponentials of one sign equal to `0` has no solutions;
+* equations mixing `x` with an exponential or logarithm of a linear
+  function of `x`, e.g. `x*exp(x) ~ 1`, `2^x ~ x + 1`, `x + log(x) ~ 2` or
+  `x^x ~ 4`, are solved with the Lambert W function: `lambertw(z)` and, for
+  `-1/e ≤ z < 0`, the second real branch `lambertw(z, -1)` (from LambertW.jl).
+  Simple values are recognized, e.g. `x^x ~ 4` gives `x ~ 2`.
 
 When the equation has no symbolic parameters, numeric solutions are checked in
 the original equation and extraneous ones are discarded.

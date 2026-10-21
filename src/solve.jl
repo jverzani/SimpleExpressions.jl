@@ -167,7 +167,7 @@ function _isolate(u, r, x)
         return Tuple(s for s ∈ sols if !_vanishes(den, s.rhs))
     end
     ex = u - r
-    for f ∈ (_common_factor, _split_abs, _square_radical, _substitute, _trig_identity)
+    for f ∈ (_common_factor, _split_abs, _square_radical, _substitute, _lambert, _trig_identity)
         sols = f(ex, x)
         !isnothing(sols) && return sols
     end
@@ -219,7 +219,11 @@ function _domain!(out, ex, x)
     iscall(ex) || return out
     op, args = operation(ex), arguments(ex)
     has(w) = isnothing(x) ? !_isnumeric(w) : _has(w, x)
-    if length(args) == 1 && has(only(args))
+    if op == lambertw && has(first(args)) # W₀ needs z ≥ -1/e; W₋₁ also z < 0
+        w = first(args)
+        push!(out, (w + exp(_constant(-1)), :nonneg))
+        length(args) == 2 && push!(out, (-w, :pos))
+    elseif length(args) == 1 && has(only(args))
         w = only(args)
         op ∈ (log, log10, log2) && push!(out, (w, :pos))
         op == sqrt && push!(out, (w, :nonneg))
@@ -569,6 +573,152 @@ function _special_angle(f, v)
         return v < 0 ? 1 - k : k
     end
     v < 0 ? -k : k
+end
+
+## ---- Lambert W
+# Equations solved with W, the inverse of w ↦ w⋅eʷ, with real branches W₀
+# (z ≥ -1/e) and W₋₁ (-1/e ≤ z < 0):
+#   α⋅x + β + γ⋅b^(p⋅x + q) ~ 0     x = -W(z)/(p⋅log b) - β/α
+#   c⋅(a₁⋅x + a₀)⋅b^(p⋅x + q) ~ r   x = W(z)/(p⋅log b) - a₀/a₁
+#   α⋅x + β + γ⋅log(p⋅x + q) ~ 0    (any log base)
+#   c⋅uᵘ ~ r,  c⋅u⋅log(u) ~ r       u = exp(W(z))
+function _lambert(ex, x)
+    ts = collect(_sum_terms(ex))
+    xts = [t for t ∈ ts if _has(t, x)]
+    r = _fold(-sum((t for t ∈ ts if !_has(t, x)); init = zero(x))) # x-terms ~ r
+    if length(xts) == 1
+        sols = _lambert_product(only(xts), r, x)
+        !isnothing(sols) && return sols
+    end
+    _lambert_sum(xts, r, x)
+end
+
+# c⋅uᵘ ~ r, c⋅u⋅log(u) ~ r, c⋅(a₁⋅x + a₀)⋅b^(p⋅x + q) ~ r
+function _lambert_product(t, r, x)
+    fs = _prod_factors(t)
+    c = prod((f for f ∈ fs if !_has(f, x)); init = 1)
+    xfs = [f for f ∈ fs if _has(f, x)]
+    R = _fold(_S(r) / c)
+    if length(xfs) == 1 && iscall(only(xfs)) && operation(only(xfs)) == (^)
+        u, v = arguments(only(xfs))
+        isequal(u, v) || return nothing # uᵘ ~ R ⟹ log(u)⋅e^log(u) = log(R)
+        _domain_ok(log, R) || return ()
+        return _branches((_isolate(u, _apply(exp, ω), x) for ω ∈ _W(_apply(log, R))))
+    end
+    length(xfs) == 2 || return nothing
+    i = findfirst(f -> iscall(f) && operation(f) == log, xfs)
+    if !isnothing(i) # u⋅log(u) ~ R
+        u = only(arguments(xfs[i]))
+        isequal(u, xfs[3 - i]) || return nothing
+        return _branches((_isolate(u, _apply(exp, ω), x) for ω ∈ _W(R)))
+    end
+    for (P, E) ∈ (xfs, reverse(xfs)) # (a₁⋅x + a₀)⋅b^(p⋅x + q) ~ R
+        cs = _linear(P, x)
+        e = _exponential(E, x)
+        (isnothing(cs) || isnothing(e)) && continue
+        a₀, a₁ = cs
+        b, p, q = e
+        _iszero(R) && return nothing
+        a = _div(-_S(a₀), a₁)
+        z = _fold(_div(_S(p) * _log_of(b) * R, a₁) * _exp_base(b, _fold(-p * a - q)))
+        return Tuple(_Sol(x, _fold(_div(_div_log(ω, b), p) + a)) for ω ∈ _W(z))
+    end
+    nothing
+end
+
+# α⋅x + β + γ⋅b^(p⋅x + q) ~ 0 or α⋅x + β + γ⋅log_b(p⋅x + q) ~ 0, terms xts ~ r
+function _lambert_sum(xts, r, x)
+    α, β, other = 0, _fold(-_S(r)), nothing
+    for t ∈ xts
+        cs = _linear(t, x)
+        if !isnothing(cs)
+            α, β = _fold(α + cs[2]), _fold(β + cs[1])
+        else
+            isnothing(other) || return nothing
+            other = t
+        end
+    end
+    (isnothing(other) || _iszero(α)) && return nothing
+    fs = _prod_factors(other)
+    γ = prod((f for f ∈ fs if !_has(f, x)); init = 1)
+    xfs = [f for f ∈ fs if _has(f, x)]
+    length(xfs) == 1 || return nothing
+    e = _exponential(only(xfs), x)
+    if !isnothing(e)
+        b, p, q = e
+        z = _fold(_div(_S(p) * _log_of(b) * γ, α) * _exp_base(b, _fold(q - p * _div(β, α))))
+        return Tuple(_Sol(x, _fold(-_div(_div_log(ω, b), p) - _div(β, α))) for ω ∈ _W(z))
+    end
+    lt = _log_term(other)
+    isnothing(lt) && return nothing
+    k, w, b = lt
+    cs = _linear(w, x)
+    isnothing(cs) && return nothing
+    q, p = cs
+    γ = _div(k, _log_of(b)) # natural logarithm coefficient
+    κ = _div(α, _fold(p * γ)) # t = p⋅x + q: (κt)⋅e^(κt) = κ⋅e^C
+    C = _fold(_div(_S(α) * q, _fold(p * γ)) - _div(β, γ))
+    Tuple(_Sol(x, _div(_fold(_div(ω, κ) - q), p)) for ω ∈ _W(_fold(κ * _apply(exp, C))))
+end
+
+# (a₀, a₁) when t = a₀ + a₁⋅x, a₁ ≠ 0
+function _linear(t, x)
+    cs = _poly_coeffs(t, x)
+    (isnothing(cs) || length(cs) != 2 || _iszero(cs[2])) && return nothing
+    (cs[1], cs[2])
+end
+
+# (b, p, q) when E = b^(p⋅x + q) (b = ℯ for exp), b > 0
+function _exponential(E, x)
+    iscall(E) || return nothing
+    if operation(E) == exp
+        b, L = ℯ, only(arguments(E))
+    elseif operation(E) == (^) && !_has(first(arguments(E)), x)
+        b, L = arguments(E)
+        v = _value(b)
+        (isnothing(v) || !isreal(v) || v ≤ 0) && return nothing
+        b = _fold(b)
+    else
+        return nothing
+    end
+    cs = _linear(L, x)
+    isnothing(cs) && return nothing
+    (b, cs[2], cs[1])
+end
+_log_of(b) = b == ℯ ? 1 : _apply(log, _S(b))
+_div(a, b) = _fold(_S(a) / b) # exact for numbers
+
+# ω / log(b), exact when ω = log(m) with m a power of b
+function _div_log(ω, b)
+    b == ℯ && return ω
+    _iszero(ω) && return 0
+    if iscall(ω) && operation(ω) == log && _isexact(_value(only(arguments(ω))))
+        return _log_ratio(only(arguments(ω)), b)
+    end
+    _div(ω, _log_of(b))
+end
+
+# the real values W₀(z), W₋₁(z); exact when W(z) is a small rational or the
+# logarithm of one (checked numerically), symbolic otherwise
+function _W(z)
+    zv = _value(z)
+    isnothing(zv) && return (lambertw(_S(z)), lambertw(_S(z), -1)) # with conditions
+    isreal(zv) || return ()
+    zv, e⁻¹ = real(zv), exp(-1)
+    zv < -e⁻¹ - 1e-14 && return ()
+    ks = zv < 0 && zv > -e⁻¹ + 1e-14 ? (0, -1) : (0,)
+    Tuple(_W(z, zv, k) for k ∈ ks)
+end
+function _W(z, zv, k)
+    k == 0 && iszero(zv) && return 0
+    wv = lambertw(max(zv, -exp(-1)), k)
+    (_has_float(z) || z isa AbstractFloat) && return wv
+    ok(w) = isapprox(w * exp(w), zv; atol = 1e-13, rtol = 1e-13)
+    q = rationalize(wv; tol = 1e-12)
+    denominator(q) ≤ 12 && ok(float(q)) && return _fold(q)
+    m = rationalize(exp(wv); tol = 1e-12)
+    denominator(m) ≤ 12 && numerator(m) ≤ 10^4 && ok(log(float(m))) && return _apply(log, _constant(m))
+    k == 0 ? lambertw(_S(z)) : lambertw(_S(z), k)
 end
 
 ## ---- trig identities

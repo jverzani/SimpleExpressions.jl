@@ -14,6 +14,8 @@ using TermInterface
 import AssociativeCommutativePatternMatching
 const ACPM = AssociativeCommutativePatternMatching
 import AssociativeCommutativePatternMatching: @rule, MatchDict, unwrap_const
+import LambertW
+import LambertW: lambertw
 
 export @symbolic
 

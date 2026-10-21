@@ -472,7 +472,7 @@ end
     @test isnothing(solve(a ~ b, x))
     @test isnothing(solve(x ~ x, x))
     # can't isolate
-    @test solve(x * exp(x) ~ 1, x).lhs != x
+    @test solve(x * exp(x) ~ 1, x).lhs == x # Lambert W
 
     # zero-product rule
     @test map(last, solve((x-1)*(x-2)*(x-3) ~ 0, x)) == (1, 2, 3)
@@ -588,7 +588,7 @@ end
     @test contains(string(solve(sqrt(x - 1) ~ p - x, x).rhs), "sqrt(-3 + (4 * p))")
 
     # no infinite recursion when g(x) can't be isolated
-    @test solve(x^x ~ 4, x).lhs != x
+    @test solve(x^x ~ 4, x).rhs == 2 # Lambert W
     @test solve(floor(x) ~ 2, x).lhs != x
     # a branch where x cancels is dropped
     @test map(last, solve(abs(x) + abs(x - 2) ~ 4, x)) == (-1, 3)
@@ -654,6 +654,30 @@ end
     @test last(solve(sin(x) ~ 1//2, x; interval = (0, π′), conditions = true)[1]) == ()
     @test_throws ArgumentError solve(sin(x) ~ p, x; interval = (0, 1))
     @test_throws ArgumentError solve(sin(x) ~ 1//2, x; interval = (1, 0))
+
+    # Lambert W
+    W = SimpleExpressions.lambertw
+    @test solve(x*exp(x) ~ 1, x).rhs == W(S(1))
+    @test solve(exp(-x) ~ x, x).rhs == W(S(1))
+    @test map(last, solve(x*exp(x) ~ -1//4, x)) == (W(S(-1//4), -1), W(S(-1//4)))
+    @test solve(x*exp(x) ~ -1, x) == () # below -1/e
+    @test solve(x^x ~ 4, x).rhs == 2
+    @test solve(x^x ~ 27, x).rhs == 3
+    @test map(last, solve(2^x ~ x + 1, x)) == (0, 1)
+    @test solve(x + exp(x) ~ 1, x).rhs == 0
+    @test solve(x + exp(x) ~ 2, x).rhs == 2 - W(exp(S(2)))
+    @test solve(x + log(x) ~ 1, x).rhs == 1
+    @test solve(x*log(x) ~ 2log(S(2)), x).rhs == 2
+    @test solve(x*2^x ~ 8, x).rhs == 2
+    @test solve((x + 1)*exp(x) ~ 1, x).rhs == 0
+    for eq ∈ (x*log(x) ~ 1, 3^x ~ 3x, x - log10(x) ~ 2, 4x - exp(x) ~ 0, x^x ~ 0.8, x*exp(x) ~ 2.5)
+        sols = solve(eq, x)
+        @test all(s -> abs(eq(s.rhs())) < 1e-12, sols isa Tuple ? sols : (sols,))
+    end
+    (e₀, c₀), (e₁, c₁) = solve(x*exp(x) ~ p, x; conditions = true)
+    @test e₀.rhs == W(p) && length(c₀) == 1 && length(c₁) == 2
+    @test string(W(x)) == "lambertw(x)" && string(W(x, -1)) == "lambertw(x, -1)"
+    @test W(x)(1.0) ≈ 0.5671432904097838
 end
 
 @testset "polynomial_coefficients" begin
