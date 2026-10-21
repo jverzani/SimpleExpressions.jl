@@ -1,6 +1,6 @@
 name = "SimpleExpressions"
 uuid = "deba94f7-f32a-40ad-b45e-be020a5ded2f"
-version = "1.4.1"
+version = "1.5.0"
 authors = ["jverzani <jverzani@gmail.com> and contributors"]
 
 [deps]
