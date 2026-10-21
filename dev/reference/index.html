@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>SimpleExpressions.jl — SimpleExpressions</title>
-  <link rel="stylesheet" href="../assets/materialdocs.css?v=a7c7827a">
+  <link rel="stylesheet" href="../assets/materialdocs.css?v=733508ed">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;600;700&family=Source+Sans+3:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap">
   <meta name="title" content="SimpleExpressions.jl — SimpleExpressions">
   <meta property="og:title" content="SimpleExpressions.jl — SimpleExpressions">
@@ -52,7 +52,7 @@
 <div class="md-docstring" id="SimpleExpressions.SimpleExpressions">
 <div class="md-docstring-header">
 <h4 class="md-docstring-binding"><code>SimpleExpressions.SimpleExpressions</code></h4>
-<a class="md-docstring-source" href="https://github.com/jverzani/SimpleExpressions.jl/blob/2eedd6861c4b313cca2000f106d522252c4ea3a3/src/SimpleExpressions.jl#L1-L6" title="View source">source</a>
+<a class="md-docstring-source" href="https://github.com/jverzani/SimpleExpressions.jl/blob/fefdf581dfda152a7c94fb58f0199dfae8fd6dcf/src/SimpleExpressions.jl#L1-L6" title="View source">source</a>
 </div>
 <div class="md-docstring-content">
 <div class="md-code-block">
@@ -97,7 +97,7 @@ plot(eq, 0, pi/2) # like plot([eq...], 0, pi/2)</code></pre>
 <div class="md-docstring" id="SimpleExpressions.SymbolicEquation">
 <div class="md-docstring-header">
 <h4 class="md-docstring-binding"><code>SimpleExpressions.SymbolicEquation</code></h4>
-<a class="md-docstring-source" href="https://github.com/jverzani/SimpleExpressions.jl/blob/2eedd6861c4b313cca2000f106d522252c4ea3a3/src/equations.jl#L3-L17" title="View source">source</a>
+<a class="md-docstring-source" href="https://github.com/jverzani/SimpleExpressions.jl/blob/fefdf581dfda152a7c94fb58f0199dfae8fd6dcf/src/equations.jl#L3-L17" title="View source">source</a>
 </div>
 <div class="md-docstring-content">
 <p>a ~ b</p>
@@ -112,7 +112,7 @@ plot(eq, 0, pi/2) # like plot([eq...], 0, pi/2)</code></pre>
 <div class="md-docstring" id="Base.Unicode.isnumeric-Tuple{SimpleExpressions.AbstractSymbolic}">
 <div class="md-docstring-header">
 <h4 class="md-docstring-binding"><code>Base.Unicode.isnumeric</code> — <span class="md-docstring-sig">Tuple{SimpleExpressions.AbstractSymbolic}</span></h4>
-<a class="md-docstring-source" href="https://github.com/jverzani/SimpleExpressions.jl/blob/2eedd6861c4b313cca2000f106d522252c4ea3a3/src/introspection.jl#L145-L149" title="View source">source</a>
+<a class="md-docstring-source" href="https://github.com/jverzani/SimpleExpressions.jl/blob/fefdf581dfda152a7c94fb58f0199dfae8fd6dcf/src/introspection.jl#L145-L149" title="View source">source</a>
 </div>
 <div class="md-docstring-content">
 <p>isnumeric(x::AbstractSymbolic)</p>
@@ -122,7 +122,7 @@ plot(eq, 0, pi/2) # like plot([eq...], 0, pi/2)</code></pre>
 <div class="md-docstring" id="Base.match-Tuple{Expr, SimpleExpressions.AbstractSymbolic}">
 <div class="md-docstring-header">
 <h4 class="md-docstring-binding"><code>Base.match</code> — <span class="md-docstring-sig">Tuple{Expr, SimpleExpressions.AbstractSymbolic}</span></h4>
-<a class="md-docstring-source" href="https://github.com/jverzani/SimpleExpressions.jl/blob/2eedd6861c4b313cca2000f106d522252c4ea3a3/src/replace.jl#L45-L146" title="View source">source</a>
+<a class="md-docstring-source" href="https://github.com/jverzani/SimpleExpressions.jl/blob/fefdf581dfda152a7c94fb58f0199dfae8fd6dcf/src/replace.jl#L45-L146" title="View source">source</a>
 </div>
 <div class="md-docstring-content">
 <div class="md-code-block">
@@ -259,7 +259,7 @@ julia&gt; match(:(~x + ~~~y), x)           # nothing</code></pre>
 <div class="md-docstring" id="Base.replace-Tuple{SimpleExpressions.AbstractSymbolic, Vararg{Pair}}">
 <div class="md-docstring-header">
 <h4 class="md-docstring-binding"><code>Base.replace</code> — <span class="md-docstring-sig">Tuple{SimpleExpressions.AbstractSymbolic, Vararg{Pair}}</span></h4>
-<a class="md-docstring-source" href="https://github.com/jverzani/SimpleExpressions.jl/blob/2eedd6861c4b313cca2000f106d522252c4ea3a3/src/replace.jl#L165-L329" title="View source">source</a>
+<a class="md-docstring-source" href="https://github.com/jverzani/SimpleExpressions.jl/blob/fefdf581dfda152a7c94fb58f0199dfae8fd6dcf/src/replace.jl#L165-L329" title="View source">source</a>
 </div>
 <div class="md-docstring-content">
 <div class="md-code-block">
@@ -416,31 +416,115 @@ sin
 <div class="md-docstring" id="CommonSolve.solve-Tuple{SimpleExpressions.SymbolicEquation, Union{SimpleExpressions.SymbolicParameter, SimpleExpressions.SymbolicVariable}}">
 <div class="md-docstring-header">
 <h4 class="md-docstring-binding"><code>CommonSolve.solve</code> — <span class="md-docstring-sig">Tuple{SimpleExpressions.SymbolicEquation, Union{SimpleExpressions.SymbolicParameter, SimpleExpressions.SymbolicVariable}}</span></h4>
-<a class="md-docstring-source" href="https://github.com/jverzani/SimpleExpressions.jl/blob/2eedd6861c4b313cca2000f106d522252c4ea3a3/src/solve.jl#L31-L46" title="View source">source</a>
+<a class="md-docstring-source" href="https://github.com/jverzani/SimpleExpressions.jl/blob/fefdf581dfda152a7c94fb58f0199dfae8fd6dcf/src/solve_interface.jl#L44-L167" title="View source">source</a>
 </div>
 <div class="md-docstring-content">
 <div class="md-code-block">
 <button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
-<pre><code class="language-julia">solve(eq::SymboliclEquation, x)</code></pre>
+<pre><code class="language-julia">solve(eq::SymbolicEquation, x; conditions::Bool=false, interval=nothing)</code></pre>
 </div>
-<p>Very <em>simple</em> symbolic equations can be solved with the unexported <code class="md-code-inline">solve</code> method. This example shows a usage.</p>
+<p>Very <em>simple</em> symbolic equations can be solved with the unexported <code class="md-code-inline">solve</code> method.</p>
+<ul class="md-list-tight">
+<li><p><code class="md-code-inline">eq::SymbolicEquation</code>:. equations are specified with <code class="md-code-inline">~</code>, as in <code class="md-code-inline">x^2 ~ p</code></p>
+</li>
+<li><p><code class="md-code-inline">x</code>: variable to solve for</p>
+</li>
+<li><p><code class="md-code-inline">conditions</code>: set to true to reveal conditions on parameters for which the identified solution(s) hold.</p>
+</li>
+<li><p>interval: If specified, through a tuple <code class="md-code-inline">(a,b)</code> all solutions in this interval are found.</p>
+</li>
+</ul>
+<p><strong>Return value:</strong></p>
+<ul class="md-list-tight">
+<li><p>an equation <code class="md-code-inline">x ~ r</code> when there is a single solution;</p>
+</li>
+<li><p>a tuple of equations, e.g. <code class="md-code-inline">(x ~ r₁, x ~ r₂)</code>, when there are more (quadratics, even powers);</p>
+</li>
+<li><p><code class="md-code-inline">()</code> when numeric values show there are no real solutions;</p>
+</li>
+<li><p><code class="md-code-inline">nothing</code> when <code class="md-code-inline">x</code> does not appear in the equation (or cancels out);</p>
+</li>
+<li><p>an equation whose left-hand side is not <code class="md-code-inline">x</code> when <code class="md-code-inline">x</code> could not be isolated.</p>
+</li>
+</ul>
+<p><strong>Examples</strong></p>
 <div class="md-code-block">
 <button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
-<pre><code class="language-{julia}">@symbolic w p; @symbolic h  # two variables, one parameter
-import SimpleExpressions: solve, D
-constraint = p ~ 2w + 2h
-A = w * h
-
-u = solve(constraint, h)
-A = A(u) # use equation in replacement
-v = solve(D(A, w) ~ 0, w)</code></pre>
+<pre><code class="language-julia">import SimpleExpressions: solve
+SimpleExpressions.@symbolic_variables A a B b # (A, a, B, b)
+solve(sin(A)/a ~ sin(B)/b, b) # b ~ (a * sin(B)) / sin(A)
+solve(sin(A)/a ~ sin(B)/b, A) # A ~ asin((sin(B) * a) / b)</code></pre>
+</div>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">SimpleExpressions.@symbolic_variables w p h  # (w, p, h)
+constraint = p ~ 2w + 2h;
+A = w * h;
+u = solve(constraint, h)      # h ~ (p / 2) + (-1 * w)
+A = A(u)                      # w * ((p / 2) + (-1 * w)), use equation in replacement
+v = solve(diff(A, w) ~ 0, w)  # w ~ p / 4</code></pre>
+</div>
+<p><strong>Extended help</strong></p>
+<p>The equation is rearranged by moving terms free of <code class="md-code-inline">x</code> to the right-hand side and applying inverse functions (e.g. <code class="md-code-inline">exp(u) ~ r</code> becomes <code class="md-code-inline">u ~ log(r)</code>, <code class="md-code-inline">abs(u) ~ r</code> becomes <code class="md-code-inline">u ~ ±r</code>). A product equal to <code class="md-code-inline">0</code> is solved factor by factor. Polynomials in <code class="md-code-inline">x</code> are solved when they are linear or quadratic, after factoring out powers of <code class="md-code-inline">x</code>, when they are a polynomial in <code class="md-code-inline">xᵏ</code> (e.g. <code class="md-code-inline">x^4 - 5x^2 + 4</code>), or when their numeric rational coefficients allow roots to be found by the rational root theorem.</p>
+<p>Answers are kept exact where possible: rational values stay rational and other values are left as symbolic numbers, e.g. <code class="md-code-inline">x^2 ~ 8</code> gives <code class="md-code-inline">x ~ ±2⋅sqrt(2)</code>, <code class="md-code-inline">exp(x) ~ 2</code> gives <code class="md-code-inline">x ~ log(2)</code>, <code class="md-code-inline">2^x ~ 8</code> gives <code class="md-code-inline">x ~ 3</code> and <code class="md-code-inline">sin(x) ~ 1//2</code> gives <code class="md-code-inline">x ~ π/6</code> (standard values of <code class="md-code-inline">asin</code>, <code class="md-code-inline">acos</code> and <code class="md-code-inline">atan</code> are recognized). Calling a symbolic number, e.g. <code class="md-code-inline">solve(x^2 ~ 2, x)[2].rhs()</code>, gives its floating point value. When the equation has floating point values, so does the answer.</p>
+<p>Some further rewriting is done:</p>
+<ul class="md-list-tight">
+<li><p>an injective function on both sides is removed, e.g. <code class="md-code-inline">log(u) ~ log(v)</code> becomes <code class="md-code-inline">u ~ v</code>; exponentials on both sides are compared through their logarithms, e.g. <code class="md-code-inline">2^x ~ 3^(x+1)</code>;</p>
+</li>
+<li><p>sums of logarithms are combined, <code class="md-code-inline">log(u) + log(v) ~ r</code> becomes <code class="md-code-inline">log(u⋅v) ~ r</code>;</p>
+</li>
+<li><p>rational functions, e.g. <code class="md-code-inline">1/x + 1/(x+1) ~ 1</code>, are solved through their numerator, discarding roots of the denominator;</p>
+</li>
+<li><p>a polynomial in some <code class="md-code-inline">g(x)</code>, e.g. <code class="md-code-inline">exp(2x) - 3exp(x) + 2 ~ 0</code> or <code class="md-code-inline">sqrt(x) + x ~ 6</code>, is solved for <code class="md-code-inline">g(x)</code> first;</p>
+</li>
+<li><p>logarithms in any base (<code class="md-code-inline">log</code>, <code class="md-code-inline">log10</code>, <code class="md-code-inline">log2</code>, <code class="md-code-inline">log(b, u)</code>) are combined, <code class="md-code-inline">Σ kᵢ⋅log_b(uᵢ) ~ r</code> becomes <code class="md-code-inline">Π uᵢ^kᵢ ~ b^r</code>;</p>
+</li>
+<li><p>a square root is isolated and both sides squared, e.g. <code class="md-code-inline">2x ~ sqrt(x+3)</code>;</p>
+</li>
+<li><p><code class="md-code-inline">abs(u)</code> is split into the cases <code class="md-code-inline">u ≥ 0</code> and <code class="md-code-inline">u ≤ 0</code>;</p>
+</li>
+<li><p>a polynomial factor common to all terms is factored out, e.g. <code class="md-code-inline">2x - x*exp(6x-1) ~ 0</code>;</p>
+</li>
+<li><p><code class="md-code-inline">a⋅cos(u) + b⋅sin(u) ~ 0</code> becomes <code class="md-code-inline">tan(u) ~ -a/b</code>;</p>
+</li>
+<li><p>a sum of exponentials of one sign equal to <code class="md-code-inline">0</code> has no solutions;</p>
+</li>
+<li><p>equations mixing <code class="md-code-inline">x</code> with an exponential or logarithm of a linear function of <code class="md-code-inline">x</code>, e.g. <code class="md-code-inline">x*exp(x) ~ 1</code>, <code class="md-code-inline">2^x ~ x + 1</code>, <code class="md-code-inline">x + log(x) ~ 2</code> or <code class="md-code-inline">x^x ~ 4</code>, are solved with the Lambert W function: <code class="md-code-inline">lambertw(z)</code> and, for <code class="md-code-inline">-1/e ≤ z &lt; 0</code>, the second real branch <code class="md-code-inline">lambertw(z, -1)</code> (from LambertW.jl). Simple values are recognized, e.g. <code class="md-code-inline">x^x ~ 4</code> gives <code class="md-code-inline">x ~ 2</code>.</p>
+</li>
+</ul>
+<p>When the equation has no symbolic parameters, numeric solutions are checked in the original equation and extraneous ones are discarded.</p>
+<p>With symbolic parameters (or other variables), each solution is valid only under some conditions: logarithms of positive values, square roots of nonnegative ones, nonzero denominators, and conditions from squaring or from splitting <code class="md-code-inline">abs</code>. These are evaluated at the solution: a solution failing a numeric condition is discarded, as is one which fails at every sampled value of the parameters. Conditions holding at every sampled value are dropped (this is a heuristic, not a proof). Pass <code class="md-code-inline">conditions=true</code> to have each solution returned as a pair <code class="md-code-inline">eq =&gt; conds</code> of the equation and a tuple of the remaining conditions, e.g.</p>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">solve(sqrt(x) ~ p, x; conditions=true)     # x ~ p^2 =&gt; (p &gt;= 0,)
+solve(abs(x - p) ~ 2x, x; conditions=true) # (x ~ -p =&gt; (p &lt;= 0,), x ~ p/3 =&gt; (p &gt;= 0,))</code></pre>
+</div>
+<p>The check uses Julia&#39;s definitions, so e.g. <code class="md-code-inline">x^(1//3)</code> is not defined for negative <code class="md-code-inline">x</code> (<code class="md-code-inline">(-8.0)^(1//3)</code> is a <code class="md-code-inline">DomainError</code>); use <code class="md-code-inline">cbrt(x)</code> for the real cube root.</p>
+<p>Pass <code class="md-code-inline">interval=(a, b)</code> to get every real solution with <code class="md-code-inline">a ≤ x ≤ b</code> (a closed interval). Periodic functions then give all their branches, e.g. <code class="md-code-inline">sin(u) ~ r</code> gives <code class="md-code-inline">u = asin(r) + 2πn</code> and <code class="md-code-inline">u = π - asin(r) + 2πn</code>, and those in the interval are listed:</p>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">solve(4sin(3x) ~ 2, x; interval=(0, 4π/3))     # (π/18, 5π/18, 13π/18, 17π/18)
+solve(x^2 - 5x + 6 ~ 0, x; interval=(0, 2.5))  # x ~ 2; other equations are filtered</code></pre>
+</div>
+<p>The equation must not have parameters when <code class="md-code-inline">interval</code> is given. Without <code class="md-code-inline">interval</code>, inverse trigonometric functions give principal values.</p>
+<div class="md-admonition md-admonition-warning">
+<p class="md-admonition-title">Warning</p>
+<div class="md-admonition-body">
+<p>Inverse functions are applied without regard to domain or range restrictions and only the <em>principal value</em> is returned. For example, <code class="md-code-inline">sin(x) ~ a</code> gives <code class="md-code-inline">x ~ asin(a)</code> and not the infinitely many other solutions; <code class="md-code-inline">sqrt(u) ~ r</code> gives <code class="md-code-inline">u ~ r^2</code>, which may introduce extraneous solutions when <code class="md-code-inline">r</code> is negative. Symbolic answers are not checked; check them.</p>
+</div>
+</div>
+<div class="md-admonition md-admonition-note">
+<p class="md-admonition-title">Note</p>
+<div class="md-admonition-body">
+<p>The original solve.jl was rewritten and extended with Claude AI.</p>
+</div>
 </div>
 </div>
 </div>
 <div class="md-docstring" id="SimpleExpressions.isconstant-Tuple{Number}">
 <div class="md-docstring-header">
 <h4 class="md-docstring-binding"><code>SimpleExpressions.isconstant</code> — <span class="md-docstring-sig">Tuple{Number}</span></h4>
-<a class="md-docstring-source" href="https://github.com/jverzani/SimpleExpressions.jl/blob/2eedd6861c4b313cca2000f106d522252c4ea3a3/src/introspection.jl#L155-L159" title="View source">source</a>
+<a class="md-docstring-source" href="https://github.com/jverzani/SimpleExpressions.jl/blob/fefdf581dfda152a7c94fb58f0199dfae8fd6dcf/src/introspection.jl#L155-L159" title="View source">source</a>
 </div>
 <div class="md-docstring-content">
 <div class="md-code-block">
@@ -453,7 +537,7 @@ v = solve(D(A, w) ~ 0, w)</code></pre>
 <div class="md-docstring" id="SimpleExpressions.isvariable-Tuple{Any}">
 <div class="md-docstring-header">
 <h4 class="md-docstring-binding"><code>SimpleExpressions.isvariable</code> — <span class="md-docstring-sig">Tuple{Any}</span></h4>
-<a class="md-docstring-source" href="https://github.com/jverzani/SimpleExpressions.jl/blob/2eedd6861c4b313cca2000f106d522252c4ea3a3/src/introspection.jl#L173-L177" title="View source">source</a>
+<a class="md-docstring-source" href="https://github.com/jverzani/SimpleExpressions.jl/blob/fefdf581dfda152a7c94fb58f0199dfae8fd6dcf/src/introspection.jl#L173-L177" title="View source">source</a>
 </div>
 <div class="md-docstring-content">
 <div class="md-code-block">
@@ -466,7 +550,7 @@ v = solve(D(A, w) ~ 0, w)</code></pre>
 <div class="md-docstring" id="SimpleExpressions.map_matched-Tuple{Any, Any, Any}">
 <div class="md-docstring-header">
 <h4 class="md-docstring-binding"><code>SimpleExpressions.map_matched</code> — <span class="md-docstring-sig">Tuple{Any, Any, Any}</span></h4>
-<a class="md-docstring-source" href="https://github.com/jverzani/SimpleExpressions.jl/blob/2eedd6861c4b313cca2000f106d522252c4ea3a3/src/replace.jl#L5-L13" title="View source">source</a>
+<a class="md-docstring-source" href="https://github.com/jverzani/SimpleExpressions.jl/blob/fefdf581dfda152a7c94fb58f0199dfae8fd6dcf/src/replace.jl#L5-L13" title="View source">source</a>
 </div>
 <div class="md-docstring-content">
 <div class="md-code-block">
@@ -478,10 +562,23 @@ v = solve(D(A, w) ~ 0, w)</code></pre>
 <p>Not exported.</p>
 </div>
 </div>
+<div class="md-docstring" id="SimpleExpressions.solve_equation-Tuple{Any, Any, Any}">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>SimpleExpressions.solve_equation</code> — <span class="md-docstring-sig">Tuple{Any, Any, Any}</span></h4>
+<a class="md-docstring-source" href="https://github.com/jverzani/SimpleExpressions.jl/blob/fefdf581dfda152a7c94fb58f0199dfae8fd6dcf/src/solve.jl#L18-L25" title="View source">source</a>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">solve_equation(l, r, x; conditions=false)</code></pre>
+</div>
+<p>Solve <code class="md-code-inline">l ~ r</code> for <code class="md-code-inline">x</code>. This is the generic solver behind <code class="md-code-inline">solve</code>; see its docstring for what is solved and what is returned. It walks expressions with TermInterface, builds them with ordinary operators, and uses the hooks of <code class="md-code-inline">solve_interface.jl</code> for everything else.</p>
+</div>
+</div>
 <div class="md-docstring" id="SimpleExpressions.sympify-Tuple{String}">
 <div class="md-docstring-header">
 <h4 class="md-docstring-binding"><code>SimpleExpressions.sympify</code> — <span class="md-docstring-sig">Tuple{String}</span></h4>
-<a class="md-docstring-source" href="https://github.com/jverzani/SimpleExpressions.jl/blob/2eedd6861c4b313cca2000f106d522252c4ea3a3/src/terminterface.jl#L61-L67" title="View source">source</a>
+<a class="md-docstring-source" href="https://github.com/jverzani/SimpleExpressions.jl/blob/fefdf581dfda152a7c94fb58f0199dfae8fd6dcf/src/terminterface.jl#L61-L67" title="View source">source</a>
 </div>
 <div class="md-docstring-content">
 <div class="md-code-block">
@@ -495,7 +592,7 @@ v = solve(D(A, w) ~ 0, w)</code></pre>
 <div class="md-docstring" id="SimpleExpressions.@symbolic-Tuple">
 <div class="md-docstring-header">
 <h4 class="md-docstring-binding"><code>SimpleExpressions.@symbolic</code> — <span class="md-docstring-sig">Tuple</span></h4>
-<a class="md-docstring-source" href="https://github.com/jverzani/SimpleExpressions.jl/blob/2eedd6861c4b313cca2000f106d522252c4ea3a3/src/constructors.jl#L2-L184" title="View source">source</a>
+<a class="md-docstring-source" href="https://github.com/jverzani/SimpleExpressions.jl/blob/fefdf581dfda152a7c94fb58f0199dfae8fd6dcf/src/constructors.jl#L2-L184" title="View source">source</a>
 </div>
 <div class="md-docstring-content">
 <div class="md-code-block">
@@ -652,7 +749,7 @@ u((1,2),(3,4))</code></pre>
 <div class="md-docstring" id="SimpleExpressions.@symbolic_variables-Tuple">
 <div class="md-docstring-header">
 <h4 class="md-docstring-binding"><code>SimpleExpressions.@symbolic_variables</code> — <span class="md-docstring-sig">Tuple</span></h4>
-<a class="md-docstring-source" href="https://github.com/jverzani/SimpleExpressions.jl/blob/2eedd6861c4b313cca2000f106d522252c4ea3a3/src/decl.jl#L4-L24" title="View source">source</a>
+<a class="md-docstring-source" href="https://github.com/jverzani/SimpleExpressions.jl/blob/fefdf581dfda152a7c94fb58f0199dfae8fd6dcf/src/decl.jl#L4-L24" title="View source">source</a>
 </div>
 <div class="md-docstring-content">
 <div class="md-code-block">
@@ -693,6 +790,6 @@ julia&gt; x
   <script>hljs.highlightAll();</script>
   <script src="../siteinfo.js"></script>
   <script src="../../versions.js"></script>
-  <script src="../assets/materialdocs.js?v=a7c7827a"></script>
+  <script src="../assets/materialdocs.js?v=733508ed"></script>
 </body>
 </html>

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>SimpleExpressions.jl — SimpleExpressions</title>
-  <link rel="stylesheet" href="./assets/materialdocs.css?v=806079aa">
+  <link rel="stylesheet" href="./assets/materialdocs.css?v=e141a4ca">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;600;700&family=Source+Sans+3:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap">
   <meta name="title" content="SimpleExpressions.jl — SimpleExpressions">
   <meta property="og:title" content="SimpleExpressions.jl — SimpleExpressions">
@@ -208,7 +208,7 @@ find_zero(cos(x) ~ sin(x), (0, pi/2)) # use bisection</code></pre>
 </div>
 <pre class="md-output md-output-text"><code class="nohighlight ansi">0.3167508287712212</code></pre>
 </div>
-<p><em>Linear</em> symbolic equations can be solved symbolically through this package (though the lack of simplification is annoying). Instead of specifying an interval, a variable to solve for is given.</p>
+<p><em>Simple</em> symbolic equations – linear and quadratic equations, along with those that can be solved by applying inverse functions – can be solved symbolically through this package. Instead of specifying an interval, a variable to solve for is given. When there is more than one solution, a tuple of equations is returned.</p>
 <div class="md-multi-output">
 <div class="md-code-block">
 <button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
@@ -216,9 +216,16 @@ find_zero(cos(x) ~ sin(x), (0, pi/2)) # use bisection</code></pre>
 @symbolic b B
 solve(sin(A)/a ~ sin(B)/b, A)  # solve not exported, but is imported with Roots above</code></pre>
 </div>
-<pre class="md-output md-output-text"><code class="nohighlight ansi">A ~ asin((a * sin(B)) / b)</code></pre>
+<pre class="md-output md-output-text"><code class="nohighlight ansi">A ~ asin((sin(B) * a) / b)</code></pre>
 </div>
-<p>This example shows &quot;inverse&quot; functions are applied (without concern for domain/range restrictions) when possible.</p>
+<div class="md-multi-output">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">solve(x^2 - 5x + 6 ~ 0, x)</code></pre>
+</div>
+<pre class="md-output md-output-text"><code class="nohighlight ansi">(x ~ 2, x ~ 3)</code></pre>
+</div>
+<p>These examples show &quot;inverse&quot; functions are applied (without concern for domain/range restrictions, so only principal values are found) when possible.</p>
 <h3 id="Plotting" class="md-heading">Plotting<a href="#Plotting" class="md-heading-anchor" aria-label="Link to this section">#</a></h3>
 <p>For plotting a symbolic equation, <code class="md-code-inline">eq</code>, the values <code class="md-code-inline">eq.lhs</code> and <code class="md-code-inline">eq.rhs</code> may be used separately to produce a pair of traces. With <code class="md-code-inline">Plots</code>, where a vector of functions may be plotted, <code class="md-code-inline">plot([eq...], a, b)</code> will plot each side with separate trace. Though with <code class="md-code-inline">Plots</code> there is a recipe to plot a symbolic equation as two separate functions.</p>
 <h2 id="Derivatives" class="md-heading">Derivatives<a href="#Derivatives" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
@@ -411,6 +418,6 @@ out = expand((a + b) * (c + d))
   <script>hljs.highlightAll();</script>
   <script src="./siteinfo.js"></script>
   <script src="./../versions.js"></script>
-  <script src="./assets/materialdocs.js?v=806079aa"></script>
+  <script src="./assets/materialdocs.js?v=e141a4ca"></script>
 </body>
 </html>
