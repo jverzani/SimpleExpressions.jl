@@ -681,6 +681,15 @@ end
 
     # rational coefficients written with //
     @test map(last, solve(x^3/2 - x//4 ~ 0, x)) == (-sqrt(S(2))/2, 0, sqrt(S(2))/2)
+
+    # dividing by an expression with π, stored as π^-1, can be evaluated
+    @symbolic L; @symbolic T; @symbolic g
+    @test (1/S(π))() ≈ 1/π
+    @test (T/S(π))(2) ≈ 2/π
+    @test (S(π)^-2)() ≈ 1/π^2
+    u = solve(T ~ 1/(2*one(x)*pi)*sqrt(L/g), L) # pendulum
+    @test u.lhs == L
+    @test u.rhs(T => 2, g => 9.8)() ≈ 9.8 * (2π * 2)^2 # L = g(2πT)²
 end
 
 @testset "polynomial_coefficients" begin

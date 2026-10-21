@@ -88,6 +88,13 @@ end
 ## have value given by ex()
 (ex::SymbolicCall)(;kwargs...) = (↓(ex))(NamedTuple(kwargs))
 
+# Evaluation applies each operation through CallableExpressions' `_apply`,
+# which handles integer bases raised to negative powers. Do the same for
+# irrational bases: `x / π` is stored as `x * π^-1`, and at run time
+# `π^-1` throws a DomainError (only literal powers are rewritten as `inv(π)`).
+CallableExpressions.ExpressionEvaluated._apply(::typeof(^), a::AbstractIrrational, b::Integer) =
+    b < 0 ? float(a)^b : a^b
+
 # like Symbolics; extends `AssociativeCommutativePatternMatching.unwrap_const`, which
 # also unwraps named constants such as `:pi`
 unwrap_const(x::SymbolicNumber) = x()
