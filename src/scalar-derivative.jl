@@ -152,6 +152,11 @@ D(::typeof(log), args,x)   = (𝑥 = only(args); D(𝑥,x) * (1/𝑥) * 𝕀(Ge(
 D(::typeof(log2), args,x)  = (𝑥 = only(args); D(𝑥,x) * (1/𝑥/log(2)) * 𝕀(Ge(𝑥, 0)))
 D(::typeof(log10), args,x) = (𝑥 = only(args); D(𝑥,x) * (1/𝑥/log(10)) * 𝕀(Ge(𝑥, 0)))
 D(::typeof(log1p), args,x) = (𝑥 = only(args); D(𝑥,x) * 1/(1 + 𝑥))
+function D(::typeof(lambertw), args, x) # W′(z) = W / (z (1 + W))
+    𝑥 = first(args)
+    W = length(args) == 1 ? lambertw(𝑥) : lambertw(𝑥, Int(last(args)()))
+    D(𝑥, x) * W / (𝑥 * (1 + W))
+end
 
 
 D(::typeof(sin), args,x) = (𝑥 = only(args); D(𝑥,x) *  cos(𝑥))

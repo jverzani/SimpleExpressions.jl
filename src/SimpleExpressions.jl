@@ -14,6 +14,8 @@ using TermInterface
 import AssociativeCommutativePatternMatching
 const ACPM = AssociativeCommutativePatternMatching
 import AssociativeCommutativePatternMatching: @rule, MatchDict, unwrap_const
+import LambertW
+import LambertW: lambertw
 
 export @symbolic
 
@@ -34,6 +36,8 @@ include("replace.jl")
 
 include("simplify.jl")
 include("polynomial-fns.jl")
+include("solve_interface.jl")
+include("exact.jl")
 include("solve.jl")
 include("precompile.jl")
 end

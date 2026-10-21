@@ -33,7 +33,9 @@ import SimpleExpressions: is_number, isconstant, isvariable
     g = cos(x)
     @test (f∘g)(x₀) == f(g(x₀)) == sin(cos(x₀))
     for op ∈ (+, -, *, /, ^)
-        @test op(f,g)(x₀) ≈ op(f(x₀), g(x₀)) atol = eps(x₀)
+        # values are of size ≈ 1; allow a few ulps (f/g is evaluated as f * g^-1,
+        # and libm results differ slightly across platforms)
+        @test op(f,g)(x₀) ≈ op(f(x₀), g(x₀)) atol = 8eps()
     end
 
     # +,* nary
@@ -448,6 +450,248 @@ end
     @test !contains(r, a)
     @test contains(r, B) # parameterized still
 
+    @symbolic x p
+    # linear, either side
+    @test solve(2x + 3 ~ 7, x).rhs == 2
+    @test Tuple(solve(5 ~ x - p, x)) == Tuple(solve(x - p ~ 5, x))
+    @test solve(p ~ 2x + 2a, x).lhs == x
+    # powers and quadratics return tuples of roots
+    @test map(last, solve(x^2 ~ 4, x)) == (-2, 2)
+    @test map(last, solve(x^2 - 5x + 6 ~ 0, x)) == (2, 3)
+    @test map(last, solve((x+1)^2 ~ 4, x)) == (-3, 1)
+    @test solve(x^3 ~ 8, x).rhs() ≈ 2
+    s1, s2 = solve(a*x^2 + b*x ~ p, x)
+    @test s1.lhs == x && !contains(s1.rhs, x)
+    # no real solutions
+    @test solve(x^2 + 1 ~ 0, x) == ()
+    @test solve(exp(x) ~ -1, x) == ()
+    @test solve(sqrt(x) ~ -1, x) == ()
+    # inverse functions (principal values)
+    @test solve(exp(2x) ~ p, x).rhs(p => 2)() ≈ log(2)/2
+    @test solve(2^x ~ p, x).rhs(p => 8)() ≈ 3
+    @test solve(sqrt(x + 1) ~ p, x).rhs(p => 3)() ≈ 8
+    # no x, or x cancels
+    @test isnothing(solve(a ~ b, x))
+    @test isnothing(solve(x ~ x, x))
+    # can't isolate
+    @test solve(x * exp(x) ~ 1, x).lhs == x # Lambert W
+
+    # zero-product rule
+    @test map(last, solve((x-1)*(x-2)*(x-3) ~ 0, x)) == (1, 2, 3)
+    @test solve(x * sin(x) ~ 0, x).rhs == 0
+    @test map(last, solve(exp(x)*(x^2 - 4) ~ 0, x)) == (-2, 2)
+    @test map(last, solve((x-1)^2*(x+2) ~ 0, x)) == (-2, 1)
+    # two branches
+    @test map(last, solve(abs(x - 1) ~ 2, x)) == (-1, 3)
+    @test solve(abs(x) ~ -1, x) == ()
+    @test solve(cosh(x) ~ 1//2, x) == ()
+    s1, s2 = solve(cosh(x) ~ 2, x)
+    @test s1.rhs() ≈ -acosh(2) && s2.rhs() ≈ acosh(2)
+    @test solve(x^(2//3) ~ 4, x).rhs == 8 # (-8.0)^(2//3) is a DomainError
+    # higher degree polynomials
+    @test map(last, solve(x^3 - 2x^2 ~ 0, x)) == (0, 2)
+    @test map(last, solve(x^3 - 6x^2 + 11x - 6 ~ 0, x)) == (1, 2, 3)
+    @test map(last, solve(2x^3 - 3x^2 + 1 ~ 0, x)) == (-1//2, 1)
+    @test map(last, solve(x^4 - 5x^2 + 4 ~ 0, x)) == (-2, -1, 1, 2)
+    @test map(last, solve(x^6 - 9x^3 + 8 ~ 0, x)) == (1, 2)
+    @test solve(x^4 + 1 ~ 0, x) == ()
+    @test length(solve(x^3 - x^2 - 2x + 2 ~ 0, x)) == 3 # 1, ±√2
+    @test solve(x^3 + x ~ 1, x).lhs == x # no rational roots; Cardano
+    # exact values
+    @test map(last, solve(x^2 ~ 4//9, x)) == (-2//3, 2//3)
+    @test solve(x^3 ~ -8, x).rhs() === -2
+    @test solve(2x + 3 ~ 7, x).rhs() === 2
+
+    # same function on both sides
+    @test solve(2^x ~ 2^(3x - 4), x).rhs == 2
+    @test solve(exp(x) ~ exp(2x + 1), x).rhs == -1
+    @test solve(log(x) ~ log(2x - 3), x).rhs == 3
+    @test solve(sqrt(x + 5) ~ sqrt(2x), x).rhs == 5
+    @test solve(sqrt(x) ~ sqrt(p), x).rhs == p
+    @test solve(2^x ~ 3^(x + 1), x).rhs() ≈ log(3) / (log(2) - log(3))
+    @test solve(exp(x) ~ 2exp(-x), x).rhs() ≈ log(2) / 2
+    # sums of logs; extraneous roots dropped
+    @test solve(log(x) + log(x - 1) ~ log(6), x).rhs == 3
+    @test solve(2log(x) ~ log(4), x).rhs() ≈ 2
+    # rational functions; roots of the denominator dropped
+    @test solve((x^2 - 1)/(x - 1) ~ 0, x).rhs == -1
+    @test solve(x/(x - 2) ~ 2/(x - 2), x) == ()
+    @test solve(1/x ~ 0, x) == ()
+    @test all(s -> s.rhs()^2 - s.rhs() - 1 ≈ 0, solve(1/x + 1/(x + 1) ~ 1, x))
+    u = solve(x/(x + 1) ~ p, x)
+    @test u.lhs == x && !contains(u.rhs, x)
+    # substitution
+    @test all(≈(0, atol=1e-12), map(s -> exp(2s.rhs()) - 3exp(s.rhs()) + 2,
+                                     solve(exp(2x) - 3exp(x) + 2 ~ 0, x)))
+    @test solve(sqrt(x) + x ~ 6, x).rhs() ≈ 4
+    @test solve(sqrt(x) ~ x - 2, x).rhs() ≈ 4   # x = 1 is extraneous
+    @test map(s -> s.rhs(), solve(cbrt(x)^2 - cbrt(x) ~ 2, x)) == (-1, 8)
+    @test length(solve(log(x)^2 - log(x) ~ 2, x)) == 2
+
+    # exact (symbolic) values rather than floats
+    S = SimpleExpressions.SymbolicNumber
+    @test map(last, solve(x^2 ~ 2, x)) == (-sqrt(S(2)), sqrt(S(2)))
+    @test map(last, solve(x^2 - 2x - 1 ~ 0, x)) == (1 - sqrt(S(2)), 1 + sqrt(S(2)))
+    @test map(last, solve(x^2 ~ 8, x)) == (-2sqrt(S(2)), 2sqrt(S(2)))
+    @test solve(x^3 ~ 16, x).rhs == 2cbrt(S(2))
+    @test solve(sin(x) ~ 1//2, x).rhs == S(π) / 6
+    @test solve(cos(2x) ~ 0, x).rhs == S(π) / 4
+    @test solve(tan(x) ~ -1, x).rhs == -S(π) / 4
+    @test solve(acos(x) ~ 0, x).rhs == 1
+    @test solve(exp(x) ~ 2, x).rhs == log(S(2))
+    @test solve(2^x ~ 8, x).rhs == 3
+    @test solve(2^x ~ 1//4, x).rhs == -2
+    @test map(last, solve(exp(2x) - 3exp(x) + 2 ~ 0, x)) == (0, log(S(2)))
+    @test map(last, solve(sin(x)^2 - sin(x) ~ 0, x)) == (0, S(π) / 2)
+    @test solve(x^2 ~ 0, x).rhs == 0
+    # floats in, floats out
+    @test solve(x^2 ~ 2.0, x)[2].rhs() ≈ sqrt(2)
+
+    # logarithms in other bases
+    @test map(last, solve(log(4, x^2 - 2x) ~ log(4, 5x - 12), x)) == (3, 4)
+    @test map(last, solve(log(3, 25 - x^2) ~ 2, x)) == (-4, 4)
+    @test solve(log(2, x + 1) - log(2, 2 - x) ~ 3, x).rhs == 5//3
+    @test solve(log10(x) + log10(x - 21) ~ 2, x).rhs == 25
+    @test solve(log(4, -x) + log(4, 6 - x) ~ 2, x).rhs == -2
+    # radicals: isolate and square, extraneous roots dropped
+    @test solve(2x ~ sqrt(x + 3), x).rhs == 1
+    @test solve(7 ~ sqrt(39 + 3x) - x, x).rhs == -1
+    @test map(last, solve(x ~ 1 + sqrt(2x - 2), x)) == (1, 3)
+    @test solve(1 + sqrt(1 - x) ~ sqrt(2x + 4), x).rhs == 0
+    # abs split into cases
+    @test solve(6x ~ abs(1 + 3x), x).rhs == 1//3
+    @test map(last, solve(abs(2x - 3) ~ 4 - x, x)) == (-1, 7//3)
+    @test map(last, solve(abs(x/2 + 4) ~ abs(4x - 6), x)) == (4//9, 20//7)
+    # common polynomial factor
+    s1, s2 = solve(2x - x*exp(6x - 1) ~ 0, x)
+    @test s1.rhs == 0 && s2.rhs() ≈ (1 + log(2))/6
+    @test length(solve(4x + 1 ~ (12x + 3)*exp(x^2 - 2), x)) == 3
+    # exponentials of one sign; a⋅cos + b⋅sin
+    @test solve(14exp(6 - x) + exp(12x - 7) ~ 0, x) == ()
+    @test solve(9cos(4x/9) + 21sin(4x/9) ~ 0, x).rhs() ≈ 9atan(-3/7)/4
+    # x^(1//3) is undefined for negative x in Julia; use cbrt
+    @test solve(4x^(2//3) + 21x^(1//3) + 27 ~ 0, x) == ()
+    @test map(last, solve(4cbrt(x)^2 + 21cbrt(x) + 27 ~ 0, x)) == (-27, -729//64)
+
+    # parameters: never-valid solutions dropped; conditions on request
+    @test solve(log(x) + log(x + 1) ~ p, x).lhs == x # only one root
+    @test solve(sqrt(x - 1) ~ p - x, x).lhs == x
+    @test solve((x^2 - p^2)/(x - p) ~ 0, x).rhs == -p
+    @test solve(log(x) ~ log(p), x).rhs == p
+    eq, cs = solve(sqrt(x) ~ p, x; conditions=true)
+    @test eq.rhs == p^2 && length(cs) == 1 && string(only(cs)) == "p >= 0"
+    (e1, c1), (e2, c2) = solve(abs(x - p) ~ 2x, x; conditions=true)
+    @test string.((c1..., c2...)) == ("p <= 0", "p >= 0")
+    @test string(only(last(solve(log(x - p) ~ log(2x), x; conditions=true)))) == "p < 0"
+    @test string(only(last(solve(x/(x + 1) ~ p, x; conditions=true)))) == "p != 1"
+    @test string(only(last(solve(sqrt(x - 1) ~ p - x, x; conditions=true)))) == "p >= 3//4"
+    @test last(solve(x^2 - 5x + 6 ~ 0, x; conditions=true)[1]) == ()
+    # expanded discriminant
+    @test contains(string(solve(sqrt(x - 1) ~ p - x, x).rhs), "sqrt(-3 + (4 * p))")
+
+    # no infinite recursion when g(x) can't be isolated
+    @test solve(x^x ~ 4, x).rhs == 2 # Lambert W
+    @test solve(floor(x) ~ 2, x).lhs != x
+    # a branch where x cancels is dropped
+    @test map(last, solve(abs(x) + abs(x - 2) ~ 4, x)) == (-1, 3)
+    # exp(log(2)) = 2
+    @test solve(log(x + 1) - log(x) ~ log(S(2)), x).rhs == 1
+    # powers of a common base
+    @test map(last, solve(4^x - 3*2^x + 2 ~ 0, x)) == (0, 1)
+    @test map(last, solve(9^x - 4*3^x + 3 ~ 0, x)) == (0, 1)
+    # a⋅cos + b⋅sin ~ c
+    @test solve(3cos(x) + 4sin(x) ~ 5, x).rhs == atan(S(4//3))
+    v = solve(cos(x) + sin(x) ~ 1, x).rhs() # π/2; principal branch
+    @test cos(v) + sin(v) ≈ 1
+    # cube roots
+    @test solve(cbrt(x + 6) ~ x, x).rhs == 2
+    @test solve(cbrt(x) ~ x - 6, x).rhs == 8
+    # radical in a denominator
+    @test solve(x/sqrt(x^2 + 1) ~ 1//2, x).rhs == sqrt(S(3))/3
+    # three square roots
+    @test solve(sqrt(x + 1) + sqrt(x + 4) + sqrt(x + 9) ~ 6, x).rhs == 0
+    @test map(last, solve(sqrt(2x + 1) - sqrt(x) ~ 1, x)) == (0, 4)
+
+    # cubics and quartics without rational roots
+    resid(eq, sols) = maximum(s -> abs(eq(s.rhs())), sols isa Tuple ? sols : (sols,))
+    for eq ∈ (x^3 + x ~ 1, x^3 - 3x + 1 ~ 0, 2x^3 + 3x^2 - x + 5 ~ 0,
+              x^4 + x - 2 ~ 0, x^4 - 10x^2 + 1 ~ 0, x^4 + 4x - 1 ~ 0, x^4 + 1 ~ 3x)
+        sols = solve(eq, x)
+        @test all(s -> isequal(s.lhs, x), sols isa Tuple ? sols : (sols,))
+        @test resid(eq, sols) < 1e-12
+    end
+    @test length(solve(x^3 - 3x + 1 ~ 0, x)) == 3        # three real roots, trig form
+    @test solve(x^3 - 2 ~ 0, x).rhs == cbrt(S(2))
+    @test map(last, solve(x^3 - 6x - 4 ~ 0, x)) == (1 - sqrt(S(3)), -2, 1 + sqrt(S(3)))[[2, 1, 3]]
+    @test length(solve(x^4 - 10x^2 + 1 ~ 0, x)) == 4
+
+    # trig identities: rewritten as polynomials in sin(u), cos(u)
+    π′ = S(π)
+    @test map(last, solve(sin(2x) ~ cos(x), x)) == (π′/6, π′/2)
+    @test map(last, solve(sin(x)^2 + cos(x) ~ 1, x)) == (0, π′/2)
+    @test map(last, solve(cos(2x) + cos(x) ~ 0, x)) == (π′/3, π′)
+    @test map(last, solve(2cos(x)^2 + 3sin(x) ~ 3, x)) == (π′/6, π′/2)
+    @test map(last, solve(tan(x) ~ 2sin(x), x)) == (0, π′/3)
+    @test map(last, solve(cos(2x) ~ sin(x), x)) == (-π′/2, π′/6)
+    @test map(last, solve(sec(x)^2 - 2tan(x) ~ 0, x)) == (-3π′/4, π′/4)
+    @test map(last, solve(sin(3x) ~ sin(x), x)) == (-π′/4, 0, π′/4)
+    @test map(last, solve(sin(4x) ~ cos(2x), x)) == (π′/12, π′/4)
+    @test map(last, solve(sin(x)*cos(x) ~ 1//4, x)) == (-11π′/12, -7π′/12, π′/12, 5π′/12)
+    @test solve(3sin(x) + 2cos(x)^2 ~ 0, x).rhs == -π′/6
+    eq = cos(x) - sin(x) ~ sqrt(S(2))*sin(x)*cos(x)
+    @test all(s -> abs(eq(s.rhs())) < 1e-12, solve(eq, x))
+
+    # all solutions in a closed interval
+    @test map(last, solve(4sin(3x) ~ 2, x; interval = (0, 4π′/3))) ==
+        (π′/18, 5π′/18, 13π′/18, 17π′/18)
+    @test map(last, solve(sin(2x) ~ cos(x), x; interval = (0, 2π′))) ==
+        (π′/6, π′/2, 5π′/6, 3π′/2)
+    @test map(last, solve(sin(x) ~ 0, x; interval = (0, 2π′))) == (0, π′, 2π′) # closed
+    @test map(last, solve(tan(x) ~ 1, x; interval = (0, 2π′))) == (π′/4, 5π′/4)
+    @test map(last, solve(sind(x) ~ 1//2, x; interval = (0, 360))) == (30, 150)
+    @test solve(cos(x) ~ 2, x; interval = (0, 10)) == ()
+    @test length(solve(sin(x^2) ~ 1//2, x; interval = (0, 4))) == 6
+    @test solve(x^2 - 5x + 6 ~ 0, x; interval = (0, 2.5)).rhs == 2 # filters
+    @test solve(sin(x) ~ 1, x; interval = (0, 1)) == ()
+    @test last(solve(sin(x) ~ 1//2, x; interval = (0, π′), conditions = true)[1]) == ()
+    @test_throws ArgumentError solve(sin(x) ~ p, x; interval = (0, 1))
+    @test_throws ArgumentError solve(sin(x) ~ 1//2, x; interval = (1, 0))
+
+    # Lambert W
+    W = SimpleExpressions.lambertw
+    @test solve(x*exp(x) ~ 1, x).rhs == W(S(1))
+    @test solve(exp(-x) ~ x, x).rhs == W(S(1))
+    @test map(last, solve(x*exp(x) ~ -1//4, x)) == (W(S(-1//4), -1), W(S(-1//4)))
+    @test solve(x*exp(x) ~ -1, x) == () # below -1/e
+    @test solve(x^x ~ 4, x).rhs == 2
+    @test solve(x^x ~ 27, x).rhs == 3
+    @test map(last, solve(2^x ~ x + 1, x)) == (0, 1)
+    @test solve(x + exp(x) ~ 1, x).rhs == 0
+    @test solve(x + exp(x) ~ 2, x).rhs == 2 - W(exp(S(2)))
+    @test solve(x + log(x) ~ 1, x).rhs == 1
+    @test solve(x*log(x) ~ 2log(S(2)), x).rhs == 2
+    @test solve(x*2^x ~ 8, x).rhs == 2
+    @test solve((x + 1)*exp(x) ~ 1, x).rhs == 0
+    for eq ∈ (x*log(x) ~ 1, 3^x ~ 3x, x - log10(x) ~ 2, 4x - exp(x) ~ 0, x^x ~ 0.8, x*exp(x) ~ 2.5)
+        sols = solve(eq, x)
+        @test all(s -> abs(eq(s.rhs())) < 1e-12, sols isa Tuple ? sols : (sols,))
+    end
+    (e₀, c₀), (e₁, c₁) = solve(x*exp(x) ~ p, x; conditions = true)
+    @test e₀.rhs == W(p) && length(c₀) == 1 && length(c₁) == 2
+    @test string(W(x)) == "lambertw(x)" && string(W(x, -1)) == "lambertw(x, -1)"
+    @test W(x)(1.0) ≈ 0.5671432904097838
+
+    # rational coefficients written with //
+    @test map(last, solve(x^3/2 - x//4 ~ 0, x)) == (-sqrt(S(2))/2, 0, sqrt(S(2))/2)
+
+    # dividing by an expression with π, stored as π^-1, can be evaluated
+    @symbolic L; @symbolic T; @symbolic g
+    @test (1/S(π))() ≈ 1/π
+    @test (T/S(π))(2) ≈ 2/π
+    @test (S(π)^-2)() ≈ 1/π^2
+    u = solve(T ~ 1/(2*one(x)*pi)*sqrt(L/g), L) # pendulum
+    @test u.lhs == L
+    @test u.rhs(T => 2, g => 9.8)() ≈ 9.8 * (2π * 2)^2 # L = g(2πT)²
 end
 
 @testset "polynomial_coefficients" begin
@@ -457,6 +701,7 @@ end
     @test length(polynomial_coefficients(x^2*(x+1)*(x+p) ~ 0, x)) == 4 + 1
     @test isnothing(polynomial_coefficients(x + 1/x ~ 1, x))
     @test isnothing(polynomial_coefficients(x + sin(x)*x^2 ~ 1, x))
+    @test length(polynomial_coefficients(x^2/2 + x//4 ~ 1, x)) == 3 # // as /
 end
 
 @testset "sympify" begin

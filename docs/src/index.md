@@ -170,7 +170,7 @@ The `solve` interface (loaded with `Roots`) is also available for symbolic equat
 solve(cos(x) ~ p*x, (0, pi/2), p=3)
 ```
 
-*Linear* symbolic equations can be solved symbolically through this package (though the lack of simplification is annoying). Instead of specifying an interval, a variable to solve for is given.
+*Simple* symbolic equations -- linear and quadratic equations, along with those that can be solved by applying inverse functions -- can be solved symbolically through this package. Instead of specifying an interval, a variable to solve for is given. When there is more than one solution, a tuple of equations is returned.
 
 ```@example expressions
 @symbolic a A
@@ -178,7 +178,11 @@ solve(cos(x) ~ p*x, (0, pi/2), p=3)
 solve(sin(A)/a ~ sin(B)/b, A)  # solve not exported, but is imported with Roots above
 ```
 
-This example shows "inverse" functions are applied (without concern for domain/range restrictions) when possible.
+```@example expressions
+solve(x^2 - 5x + 6 ~ 0, x)
+```
+
+These examples show "inverse" functions are applied (without concern for domain/range restrictions, so only principal values are found) when possible.
 
 ### Plotting
 

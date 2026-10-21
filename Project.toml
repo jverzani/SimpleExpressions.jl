@@ -1,12 +1,13 @@
 name = "SimpleExpressions"
 uuid = "deba94f7-f32a-40ad-b45e-be020a5ded2f"
-version = "1.4.0"
+version = "1.5.0"
 authors = ["jverzani <jverzani@gmail.com> and contributors"]
 
 [deps]
 AssociativeCommutativePatternMatching = "1750cefb-754d-4383-8ab7-d9c1d1688458"
 CommonEq = "3709ef60-1bee-4518-9f2f-acd86f176c50"
 CommonSolve = "38540f10-b2f7-11e9-35d8-d573e4eb0ff2"
+LambertW = "984bce1d-4616-540c-a9ee-88d1112d94c9"
 PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
 TermInterface = "8ea1fca8-c5ef-4a55-8b96-4e9afe9c9a3c"
 TupleTools = "9d95972d-f1c8-5527-a6e0-b4b365fa01f6"
@@ -36,6 +37,7 @@ AssociativeCommutativePatternMatching = "1.1"
 CommonEq = "0.2.1"
 CommonSolve = "0.2.4"
 HypergeometricFunctions = "0.3"
+LambertW = "1"
 Latexify = "0.16, 1"
 PolyLog = "2.6"
 PrecompileTools = "1"
