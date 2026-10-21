@@ -163,9 +163,9 @@ function _isolate(u, r, x)
     if !isnothing(nd)
         num, den = nd
         length(num) == 1 && return nothing # x cancels
-        sols = _poly_roots(num, x)
-        isnothing(sols) && return (_Sol(u, r),)
-        return Tuple(s for s ∈ sols if !_vanishes(den, s.rhs))
+        ρs = _poly_roots(num)
+        isnothing(ρs) && return (_Sol(u, r),)
+        return Tuple(_Sol(x, ρ) for ρ ∈ ρs if !_vanishes(den, ρ))
     end
     ex = u - r
     for f ∈ (_common_factor, _split_abs, _square_radical, _substitute, _lambert, _trig_identity)
@@ -174,8 +174,6 @@ function _isolate(u, r, x)
     end
     (_Sol(u, r),)
 end
-
-
 
 # Check solutions against l ~ r, returning (equation, conditions) pairs.
 # Without parameters numeric solutions are checked directly. With parameters
@@ -277,8 +275,6 @@ function _valid_somewhere(l, r, x, ρ, cs, ps)
     end
     false
 end
-
-
 
 ## ---- all solutions in an interval
 # In interval mode inverting a periodic function gives families of solutions
@@ -426,7 +422,6 @@ end
 _inverse(::typeof(acosh)) = cosh
 _inverse(::typeof(sqrt)) = r -> _pow_int(r, 2)
 
-
 _sum_terms(ex) = iscall(ex) && operation(ex) == (+) ? arguments(ex) : (ex,)
 _prod_factors(ex) = iscall(ex) && operation(ex) == (*) ? arguments(ex) : (ex,)
 
@@ -466,45 +461,6 @@ function _neg(t)
     -t
 end
 
-# k⋅log_b(u) ↦ (k, u, b), for log, log10, log2 and log(b, u) = log(u)/log(b);
-# else `nothing`
-_log_base(::typeof(log)) = ℯ
-_log_base(::typeof(log10)) = 10
-_log_base(::typeof(log2)) = 2
-_log_base(::Any) = nothing
-function _log_term(t; numeric = false)
-    iscall(t) || return nothing
-    !numeric && _isnumeric(t) && return nothing
-    b = _log_base(operation(t))
-    !isnothing(b) && return (_fold(1), only(arguments(t)), b)
-    operation(t) == (*) || return nothing
-    k, u, b = 1, nothing, ℯ
-    for f ∈ arguments(t)
-        if (numeric || !_isnumeric(f)) && iscall(f) && !isnothing(_log_base(operation(f)))
-            isnothing(u) || return nothing
-            u, b′ = only(arguments(f)), _log_base(operation(f))
-            b′ == ℯ || (b == ℯ ? (b = b′) : return nothing)
-        elseif _isnumeric(f) && iscall(f) && operation(f) == (^) && _value(last(arguments(f))) == -1 &&
-               iscall(first(arguments(f))) && operation(first(arguments(f))) == log # 1/log(b)
-            b == ℯ || return nothing
-            b = _value(only(arguments(first(arguments(f)))))
-        elseif _isnumeric(f)
-            k = k * f
-        else
-            return nothing
-        end
-    end
-    isnothing(u) ? nothing : (_fold(k), u, b)
-end
-
-# bˢ, exact when possible
-function _exp_base(b, s)
-    b == ℯ && return _apply(exp, s)
-    v = _value(s)
-    _isexact(v) && return isinteger(v) ? _fold(Rational(b)^Int(v)) : _rpow(b, v)
-    _fold(_fold(b)^s)
-end
-
 # sign of a product of constants and exponentials; `nothing` if unknown
 function _exp_sign(t, x)
     sgn = 1
@@ -524,18 +480,6 @@ function _exp_sign(t, x)
     end
     sgn
 end
-
-# log(r) / log(a), an integer when r is a power of a
-function _log_ratio(r, a)
-    a == ℯ && return _apply(log, r)
-    v, w = _value(r), _value(a)
-    if _isexact(v) && _isexact(w) && v > 0 && w > 0 && !isone(w)
-        k = round(Int, log(v) / log(w))
-        Rational{BigInt}(w)^k == v && return _fold(k)
-    end
-    _fold(_apply(log, r) / _apply(log, a))
-end
-
 
 ## ------- Trig functions
 # a⋅cos(w) + b⋅sin(w) ~ c, numeric a, b: R⋅cos(w - φ) ~ c with
@@ -560,25 +504,6 @@ function _trig_term(t)
     all(_isnumeric(fs[j]) for j ∈ eachindex(fs) if j != i) || return nothing
     c = _fold(prod((fs[j] for j ∈ eachindex(fs) if j != i); init = 1))
     (c, operation(fs[i]), only(arguments(fs[i])))
-end
-
-
-# asin, acos, atan at the standard values, as a multiple of π: angles
-# k⋅π/12 and k⋅π/8 in [0, π/2]
-const _std_angles = (0//1, 1//12, 1//8, 1//6, 1//4, 1//3, 3//8, 5//12, 1//2)
-const _sin_tbl = Tuple((sin(k * π), k) for k ∈ _std_angles)
-const _tan_tbl = Tuple((tan(k * π), k) for k ∈ _std_angles if k < 1//2)
-function _special_angle(f, v)
-    f ∈ (asin, acos, atan) && isreal(v) || return nothing
-    tbl = f == atan ? _tan_tbl : _sin_tbl
-    i = findfirst(t -> isapprox(first(t), abs(v); atol = 1e-14), tbl)
-    isnothing(i) && return nothing
-    k = last(tbl[i])
-    if f == acos # acos(v) = π/2 - asin(v)
-        k = 1//2 - k
-        return v < 0 ? 1 - k : k
-    end
-    v < 0 ? -k : k
 end
 
 ## ---- Lambert W
@@ -754,12 +679,10 @@ function _trig_identity(ex, x)
     z(A₂) && return _branches((_isolate(sin(u), 0, x), _trig_roots(B₂, cos(u), x)))
     # A + C⋅B = 0 ⟹ A² - (1 - S²)⋅B² = 0
     Q = _poly_add(_poly_mul(A₁, A₁), _poly_mul(Any[-1, 0, 1], _poly_mul(B₁, B₁)))
-    σs = _poly_roots(_trim(Q), _𝓎)
+    σs = _poly_roots(_trim(Q))
     isnothing(σs) && return nothing
     out = Any[]
-    for sol ∈ σs
-        isequal(sol.lhs, _𝓎) || return nothing
-        σ = sol.rhs
+    for σ ∈ σs
         σv, Av, Bv = _value(σ), _value(_horner(A₁, σ)), _value(_horner(B₁, σ))
         if isnothing(σv) || isnothing(Av) || isnothing(Bv) || abs(Bv) < 1e-12
             push!(out, _isolate(sin(u), σ, x))
@@ -778,11 +701,10 @@ end
 function _trig_roots(cs, f, x)
     cs = _trim(cs)
     length(cs) == 1 && return _iszero(only(cs)) ? nothing : ()
-    ts = _poly_roots(cs, _𝓎)
-    (isnothing(ts) || !all(t -> isequal(t.lhs, _𝓎), ts)) && return nothing
-    _branches((_isolate(f, t.rhs, x) for t ∈ ts))
+    ts = _poly_roots(cs)
+    isnothing(ts) && return nothing
+    _branches((_isolate(f, t, x) for t ∈ ts))
 end
-
 
 # sin(m⋅u), cos(m⋅u) as polynomials in S, C
 function _sin_cos(m)
@@ -805,23 +727,6 @@ function _reduce_sc(P, t)
     end
     (A, B)
 end
-
-
-## ------- powers
-
-# rⁿ, undoing a square or cube root
-function _pow_int(r, n)
-    if iscall(r)
-        op, args = operation(r), arguments(r)
-        op == sqrt && iseven(n) && return _fold(only(args)^(n ÷ 2))
-        op == cbrt && iszero(n % 3) && return _fold(only(args)^(n ÷ 3))
-        if op == (*) && length(args) == 2 && _isnumeric(first(args))
-            return _fold(_pow_int(first(args), n) * _pow_int(last(args), n))
-        end
-    end
-    _fold(_fold(r)^n)
-end
-
 
 ## ---- absolute value
 
@@ -1069,15 +974,6 @@ function _split_int(t)
     (1, t)
 end
 
-# replace atoms by their substitutes
-function _subst(ex, atoms, subs, x)
-    _has(ex, x) || return ex
-    i = findfirst(a -> isequal(a, ex), atoms)
-    !isnothing(i) && return subs[i]
-    iscall(ex) || return ex
-    _rebuild(ex, operation(ex), map(a -> _subst(a, atoms, subs, x), arguments(ex)))
-end
-
 # solve u ~ ±ρ
 function _isolate_pm(u, ρ, x)
     iszero(ρ) && return _isolate(u, ρ, x)
@@ -1121,241 +1017,6 @@ function _branches(itr)
     out
 end
 
-# solve a₀ + a₁⋅x + ⋯ + aₙ⋅xⁿ ~ 0, n ≥ 1; `nothing` if not possible
-function _poly_roots(cs, x)
-    cs = map(_fold, cs)
-    # factor out xᵏ
-    k = findfirst(!_iszero, cs) - 1
-    k > 0 && return _branches(((_Sol(x, 0),), _poly_roots(cs[k+1:end], x)))
-
-    n = length(cs) - 1
-    n == 0 && return ()
-    if n == 1
-        a₀, a₁ = cs
-        return (_Sol(x, _expand_poly(_fold(-a₀ / a₁))),)
-    end
-    sols = _rational_roots(cs, x)
-    !isnothing(sols) && return sols
-    n == 2 && return _quadratic_roots(cs, x)
-
-    # polynomial in xᵍ
-    g = gcd([i - 1 for i ∈ eachindex(cs) if !_iszero(cs[i])])
-    if g > 1
-        ys = _poly_roots(cs[1:g:end], x)
-        isnothing(ys) && return nothing
-        all(s -> s.lhs == x, ys) || return nothing
-        return _branches((_isolate_power(x, g, s.rhs, x) for s ∈ ys))
-    end
-
-    n == 3 && return _cubic_roots(cs, x)
-    n == 4 && return _quartic_roots(cs, x)
-    nothing
-end
-
-# numeric coefficients, as exact rationals when possible
-function _num_coeffs(cs)
-    vs = map(_value, cs)
-    all(v -> !isnothing(v) && isreal(v), vs) || return nothing
-    all(_isexact, vs) ? Rational{BigInt}.(vs) : float.(real.(vs))
-end
-
-# a₀ + a₁x + a₂x² + a₃x³ ~ 0, numeric coefficients. With x = t - a₂/(3a₃),
-# t³ + p⋅t + q = 0: Cardano's formula when there is one real root, the
-# trigonometric form when there are three
-function _cubic_roots(cs, x)
-    vs = _num_coeffs(cs)
-    isnothing(vs) && return nothing
-    a₀, a₁, a₂, a₃ = vs
-    s = a₂ / (3a₃)
-    p = (3a₃ * a₁ - a₂^2) / (3a₃^2)
-    q = (2a₂^3 - 9a₃ * a₂ * a₁ + 27a₃^2 * a₀) / (27a₃^3)
-    Δ = q^2 / 4 + p^3 / 27
-    shift(t) = _Sol(x, _pi_fold(_fold(t - _fold(s))))
-    iszero(p) && iszero(q) && return (shift(0),)
-    if iszero(Δ) # a double root
-        return _branches(((shift(_fold(3q / p)),), (shift(_fold(-3q / (2p))),)))
-    elseif Δ > 0
-        sΔ = _root(_fold(Δ), 2)
-        u, v = _fold(_fold(-q / 2) + sΔ), _fold(_fold(-q / 2) - sΔ)
-        return (shift(_fold(_root(u, 3) + _root(v, 3))),)
-    end
-    m = _fold(2 * _root(_fold(-p / 3), 2))
-    θ = _fold(_apply(acos, _fold(_fold(3q / (2p)) * _root(_fold(-3 / p), 2))) / 3)
-    Tuple(shift(_fold(m * _apply(cos, _pi_fold(_fold(θ - 2k * _constant(π) / 3)))))
-          for k ∈ 0:2)
-end
-
-# a₀ + a₁x + ⋯ + a₄x⁴ ~ 0, numeric coefficients, by Ferrari's method: with
-# x = y - b/4, y⁴ + p⋅y² + q⋅y + r = 0 factors into two quadratics using a
-# positive root m of the resolvent 8m³ + 8p⋅m² + (2p² - 8r)⋅m - q² = 0
-function _quartic_roots(cs, x)
-    vs = _num_coeffs(cs)
-    isnothing(vs) && return nothing
-    e, d, c, b = vs[1:4] ./ vs[5]
-    p = c - 3b^2 / 8
-    q = d - b * c / 2 + b^3 / 8
-    r = e - b * d / 4 + b^2 * c / 16 - 3b^4 / 256
-    shift(sols) = isnothing(sols) ? nothing :
-        Tuple(_Sol(x, _fold(sol.rhs - _fold(b / 4))) for sol ∈ sols if isequal(sol.lhs, _𝓎))
-    iszero(q) && return shift(_poly_roots(Any[_fold(r), 0, _fold(p), 0, 1], _𝓎))
-    ms = _poly_roots(Any[_fold(-q^2), _fold(2p^2 - 8r), _fold(8p), 8], _𝓎)
-    isnothing(ms) && return nothing
-    ms = [sol.rhs for sol ∈ ms if isequal(sol.lhs, _𝓎) && (v = _value(sol.rhs); isreal(v) && real(v) > 0)]
-    isempty(ms) && return nothing
-    m = argmin(m -> length(string(m)), ms) # the simplest
-    s₂ = _root(_fold(2m), 2)
-    _branches((shift(_quadratic_roots(Any[_fold(_fold(p / 2) + m - _fold(q / 2) / s₂), s₂, 1], _𝓎)),
-               shift(_quadratic_roots(Any[_fold(_fold(p / 2) + m + _fold(q / 2) / s₂), _fold(-s₂), 1], _𝓎))))
-end
-
-# c₀ + c₁⋅π for a combination of rationals and π; else u
-const _𝓅 = _fresh(:𝓅)
-function _pi_fold(u)
-    u isa Number && return u
-    (_isnumeric(u) && !_isconstantleaf(u)) || return u
-    π′ = _constant(π)
-    u′ = _subst(u, [π′], [_𝓅], π′)
-    _has(u′, _𝓅) || return u
-    cs = _poly_coeffs(u′, _𝓅)
-    (isnothing(cs) || length(cs) != 2 || !all(_isexact ∘ _value, cs)) && return u
-    _fold(_fold(cs[1]) + _fold(cs[2]) * π′)
-end
-
-function _quadratic_roots(cs, x)
-    a₀, a₁, a₂ = map(_fold, cs)
-    Δ = _fold(_pow_int(a₁, 2) - 4 * a₂ * a₀)
-    v = _value(Δ)
-    if !isnothing(v)
-        v < 0 && return ()
-        iszero(v) && return (_Sol(x, _fold(-a₁ / (2a₂))),)
-    end
-    c = _value(2a₂)
-    if _isexact(v) && _isexact(c) # p ± k⋅√m exactly
-        p = _fold(-a₁ / (2a₂))
-        k, m = _surd(v, 2)
-        isone(m) && return (_Sol(x, _fold(p - k // c)), _Sol(x, _fold(p + k // c)))
-        q = _fold(k // c) * sqrt(_constant(m))
-        iszero(p) && return (_Sol(x, -q), _Sol(x, q))
-        return (_Sol(x, p - q), _Sol(x, p + q))
-    end
-    Δ = _expand_poly(Δ)
-    sΔ = _sqrt_poly(Δ)
-    sΔ = isnothing(sΔ) ? _root(Δ, 2) : sΔ
-    (_Sol(x, _expand_poly(_fold((-a₁ - sΔ) / (2a₂)))),
-     _Sol(x, _expand_poly(_fold((-a₁ + sΔ) / (2a₂)))))
-end
-
-# r^(1/n), kept exact: a rational when possible, else k⋅ⁿ√m
-function _root(r, n)
-    v = _value(r)
-    if _isexact(v)
-        iszero(v) && return 0
-        v < 0 && isodd(n) && return _fold(-_root(-v, n))
-        k, m = _surd(v, n)
-        isone(m) && return _fold(k)
-        rad = _radical(m, n)
-        !isnothing(rad) && return isone(k) ? rad : _fold(k) * rad
-    end
-    if n == 2 && isnothing(v) # used for ±√r, so a polynomial square root will do
-        q = _sqrt_poly(_expand_poly(r))
-        !isnothing(q) && return q
-    end
-    r = _fold(r)
-    _fold(n == 2 ? sqrt(r) : n == 3 ? cbrt(r) : r^(1//n))
-end
-
-# write v ≥ 0 as kⁿ⋅m with k rational, m an integer free of nth powers
-function _surd(v, n)
-    p, q = numerator(v), denominator(v)
-    N = big(p) * big(q)^(n - 1) # v = N / qⁿ
-    k = big(1)
-    d = 2
-    while d^n <= N && d <= 10^5
-        while iszero(N % d^n)
-            N ÷= d^n
-            k *= d
-        end
-        d += 1
-    end
-    (Rational{Int}(k // q), Int(N))
-end
-
-# symbolic ⁿ√m using square and cube roots; `nothing` if not possible
-function _radical(m, n)
-    n == 1 && return _constant(m)
-    iszero(n % 2) && (r = _radical(m, n ÷ 2); return isnothing(r) ? r : sqrt(r))
-    iszero(n % 3) && (r = _radical(m, n ÷ 3); return isnothing(r) ? r : cbrt(r))
-    nothing
-end
-
-# rᵉ for a rational e, exact when possible
-function _rpow(r, e)
-    v = _value(r)
-    p, q = numerator(e), denominator(e)
-    if _isexact(v) && !iszero(v) && (v > 0 || isodd(q))
-        return _root(_fold(Rational{BigInt}(v)^p), q)
-    end
-    _fold(_fold(r)^e)
-end
-
-# rational root theorem for numeric, rational coefficients
-function _rational_roots(cs, x)
-    vs = map(_value, cs)
-    all(v -> v isa Union{Integer, Rational} || (v isa AbstractFloat && isinteger(v)), vs) ||
-        return nothing
-    qs = Rational{BigInt}.(vs)
-    qs = qs .* lcm(denominator.(qs))  # integer coefficients
-    roots = Rational{BigInt}[]
-    while length(qs) > 1
-        iszero(first(qs)) && (push!(roots, 0); qs = qs[2:end]; continue)
-        a₀, aₙ = numerator(first(qs)), numerator(last(qs))
-        max(abs(a₀), abs(aₙ)) > 10^10 && return nothing # too many candidates
-        cands = _candidates(a₀, aₙ)
-        i = findfirst(c -> iszero(_horner(qs, c)), cands)
-        isnothing(i) && break
-        push!(roots, cands[i])
-        qs = _deflate(qs, cands[i])
-    end
-    length(qs) > 5 && return nothing
-    isempty(roots) && return nothing  # leave to the formulas
-    sols = (_Sol(x, _fold(Rational{Int}(c))) for c ∈ sort!(roots))
-    length(qs) < 3 && return _branches((sols,))
-    rest = map(_fold, qs)
-    f = (_quadratic_roots, _cubic_roots, _quartic_roots)[length(qs) - 2]
-    _branches((sols, f(rest, x)))
-end
-
-_horner(qs, c) = foldr((q, acc) -> acc * c + q, qs; init = zero(c))
-
-# divide by (x - c)
-function _deflate(qs, c)
-    n = length(qs) - 1
-    out = similar(qs, n)
-    acc = zero(c)
-    for i ∈ n:-1:1
-        acc = acc * c + qs[i+1]
-        out[i] = acc
-    end
-    out
-end
-
-function _candidates(a₀, aₙ)
-    ps, qs = _divisors(a₀), _divisors(aₙ)
-    unique!([s * p // q for p ∈ ps for q ∈ qs for s ∈ (1, -1)])
-end
-
-function _divisors(n)
-    n = abs(n)
-    ds = BigInt[]
-    for d ∈ 1:isqrt(n)
-        if iszero(n % d)
-            push!(ds, d)
-            d != n ÷ d && push!(ds, n ÷ d)
-        end
-    end
-    ds
-end
-
 # index of only element satisfying pred, or `nothing`
 function _only_index(pred, xs)
     i = nothing
@@ -1367,54 +1028,7 @@ function _only_index(pred, xs)
     i
 end
 
-
 ## ------- Polynomial/rational function specific functions
-
-# coefficients folded, trailing zeros dropped
-function _trim(cs)
-    cs = map(_fold, cs)
-    while length(cs) > 1 && _iszero(last(cs))
-        pop!(cs)
-    end
-    cs
-end
-
-# expand an expression polynomial in its symbols, folding numbers
-function _expand_poly(u)
-    u isa Number && return _fold(u)
-    syms = _symbols(u)
-    isempty(syms) && return _fold(u)
-    s = first(syms)
-    cs = _poly_coeffs(u, s)
-    isnothing(cs) && return u
-    terms = [(isone(i) ? _expand_poly(c) : _expand_poly(c) * s^(i - 1)) for (i, c) ∈ enumerate(cs) if !_iszero(_expand_poly(c))]
-    isempty(terms) && return _fold(0)
-    _fold(sum(terms))
-end
-
-# √u when u is the square of a polynomial in one symbol with rational coefficients
-function _sqrt_poly(u)
-    u isa Number && return nothing
-    syms = _symbols(u)
-    length(syms) == 1 || return nothing
-    s = only(syms)
-    cs = _poly_coeffs(u, s)
-    isnothing(cs) && return nothing
-    P = _exact_coeffs(cs)
-    (isnothing(P) || iseven(length(P))) && return nothing
-    m = (length(P) - 1) ÷ 2
-    k, rest = _surd(P[end], 2)
-    (isone(rest) && P[end] > 0) || return nothing
-    Q = zeros(Rational{BigInt}, m + 1)
-    Q[m+1] = k
-    for j ∈ 1:m # coefficient of s^(m-j)
-        d = 2m - j + 1
-        acc = P[d] - sum(Q[a] * Q[d - a + 1] for a ∈ (m - j + 2):(m + 1) if 1 ≤ d - a + 1 ≤ m + 1 && d - a + 1 > m - j + 1; init = 0)
-        Q[m - j + 1] = acc / (2Q[m+1])
-    end
-    _poly_mul(Any[Q...], Any[Q...]) == Any[P...] || return nothing
-    _expand_poly(_poly_expr(Q, s))
-end
 
 # values of ρ(𝓃) in [a, b] over the integers
 function _enumerate(ρ, a, b, tol)
@@ -1447,7 +1061,6 @@ function _enumerate(ρ, a, b, tol)
     out
 end
 
-
 # ex = Σ Pᵢ(x)⋅Nᵢ ~ 0 with polynomials Pᵢ sharing a factor G(x):
 # solve G ~ 0 and Σ (Pᵢ/G)⋅Nᵢ ~ 0
 function _common_factor(ex, x)
@@ -1468,38 +1081,9 @@ function _common_factor(ex, x)
     length(G) > 1 || return nothing
     Qs = map(q -> first(_poly_divrem(q, G)), qs)
     ex′ = sum(_poly_expr(Q, x) * N for (Q, N) ∈ zip(Qs, Ns))
-    _branches((_poly_roots(map(_fold ∘ Rational{Int}, G), x), _isolate(ex′, zero(x), x)))
+    ρs = _poly_roots(map(_fold, G))
+    _branches((isnothing(ρs) ? nothing : Tuple(_Sol(x, ρ) for ρ ∈ ρs), _isolate(ex′, zero(x), x)))
 end
-
-_exact_coeffs(P) = (vs = map(_value, P); all(_isexact, vs) ? Rational{BigInt}.(vs) : nothing)
-_poly_expr(q, x) = sum(_fold(Rational{Int}(c)) * x^(i - 1) for (i, c) ∈ enumerate(q) if !iszero(c); init = zero(x))
-
-# quotient and remainder of a ÷ b; coefficients in increasing degree
-function _poly_divrem(a, b)
-    a = copy(a)
-    n, m = length(a), length(b)
-    n < m && return ([zero(eltype(a))], a)
-    q = zeros(eltype(a), n - m + 1)
-    for i ∈ (n - m + 1):-1:1
-        c = a[i + m - 1] / b[m]
-        q[i] = c
-        for j ∈ 1:m
-            a[i + j - 1] -= c * b[j]
-        end
-    end
-    r = a[1:m-1]
-    while length(r) > 1 && iszero(last(r)); pop!(r); end
-    (q, isempty(r) ? [zero(eltype(a))] : r)
-end
-
-# monic greatest common divisor
-function _poly_gcd(a, b)
-    while !(length(b) == 1 && iszero(only(b)))
-        a, b = b, last(_poly_divrem(a, b))
-    end
-    a ./ last(a)
-end
-
 
 # (numerator, denominator) of ex as polynomials in S, C (Dicts (i, j) => coeff
 # of SⁱCʲ); trig arguments are k⋅w with g dividing k
@@ -1539,7 +1123,6 @@ _bp_pow(a, n) = n == 0 ? _bp(1) : foldl(_bp_mul, ntuple(_ -> a, n))
 const _bp_algebra = (constant = _bp, add = _bp_add, mul = _bp_mul, pow = _bp_pow,
                      neg = p -> _bp_mul(_bp(-1), p))
 
-
 ## ---- utilities
 # all subexpressions satisfying pred
 function _find_all!(pred, ex, out)
@@ -1557,76 +1140,4 @@ function _find(pred, ex)
         !isnothing(t) && return t
     end
     nothing
-end
-
-## ---- work with symbolic values
-
-# Numbers are kept as exact constants: wrapped, so arithmetic on them stays
-# exact (1/2 is 1//2, never 0.5). _fold wraps a number (reducing rationals,
-# narrowing BigInts); evaluates a numeric expression which already involves
-# floating point values; and keeps exact values such as `sqrt(2)`, `π/6` or
-# `log(2)` symbolic. Numeric decisions use the plain value, `_value(u)`.
-_fold(u::Number) = _constant(_narrow(u))
-function _fold(u)
-    _isnumeric(u) || return u
-    _isconstantleaf(u) && return _fold(_numval(u))
-    _has_float(u) ? _fold(_numval(u)) : u
-end
-_narrow(u::Rational) = isone(denominator(u)) ? _narrow(numerator(u)) :
-    (_fits(numerator(u)) && _fits(denominator(u)) ? Rational{Int}(u) : u)
-_narrow(u::Integer) = _fits(u) ? Int(u) : u
-_narrow(u) = u
-_fits(n) = typemin(Int) ≤ n ≤ typemax(Int)
-_has_float(u) = _isconstantleaf(u) ? _numval(u) isa AbstractFloat :
-    iscall(u) && any(_has_float, arguments(u))
-_isexact(v) = v isa Union{Integer, Rational}
-# value of a number, or of a numeric expression
-_numval(u::Number) = u
-_numval(u) = _evaluate(u)
-_value(u::Number) = u
-_value(u) = _isnumeric(u) ? _numval(u) : nothing
-_iszero(u) = (v = _value(u); !isnothing(v) && iszero(v))
-# can be ruled out as negative?
-_maybe_nonneg(u) = (v = _value(u); isnothing(v) || (isreal(v) && real(v) ≥ 0))
-# can f be applied to u? (false only if u is numeric and outside f's domain)
-function _domain_ok(f, u)
-    v = _value(u)
-    isnothing(v) && return true
-    try
-        f(v); true
-    catch err
-        err isa DomainError || rethrow()
-        false
-    end
-end
-_domain_ok(::typeof(log), u) = (v = _value(u); isnothing(v) || (isreal(v) && real(v) > 0))
-
-# f(r), exact when possible
-function _apply(f, r)
-    r = _fold(r)
-    _has_float(r) && return _fold(f(_value(r)))
-    if f == exp # exp(k⋅log(w)) = wᵏ
-        lt = _log_term(r; numeric = true)
-        if !isnothing(lt) && lt[3] == ℯ && _isexact(_value(lt[1]))
-            k, w = _value(lt[1]), lt[2]
-            isone(k) && return w
-            _isnumeric(w) && return _rpow(w, k)
-            isinteger(k) && return w^Int(k)
-        end
-    end
-    v = _value(r)
-    if !isnothing(v)
-        f == log && (isone(v) || v == ℯ) && return _fold(isone(v) ? 0 : 1)
-        if iszero(v)
-            y = f(0.0)
-            (iszero(y) || isone(y)) && return _fold(Int(y))
-        end
-        k = _special_angle(f, v)
-        !isnothing(k) && return _fold(k * _constant(π))
-        if f ∈ (asind, acosd, atand) # in degrees
-            k = _special_angle(f == asind ? asin : f == acosd ? acos : atan, v)
-            !isnothing(k) && return _fold(180k)
-        end
-    end
-    _fold(f(r))
 end

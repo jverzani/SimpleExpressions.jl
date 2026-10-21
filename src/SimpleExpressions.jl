@@ -37,6 +37,7 @@ include("replace.jl")
 include("simplify.jl")
 include("polynomial-fns.jl")
 include("solve_interface.jl")
+include("exact.jl")
 include("solve.jl")
 include("precompile.jl")
 end
