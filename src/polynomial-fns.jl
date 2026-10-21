@@ -59,11 +59,11 @@ polynomial_coefficients(ex::SymbolicEquation, x) = polynomial_coefficients(ex.lh
 
 function _poly_coeffs(ex, x)
     isvariable(x) || return nothing
-    nd = _ratfun(ex, e -> is_number(e) || !contains(e, x),
+    frac = _ratfun(ex, e -> is_number(e) || !contains(e, x),
                  e -> isequal(e, x) ? (Any[zero(e), one(e)], Any[1]) : nothing,
                  _dense_algebra)
-    isnothing(nd) && return nothing
-    n, d = nd
+    isnothing(frac) && return nothing
+    n, d = frac
     length(d) == 1 || return nothing # x in a denominator
     isone(only(d)) ? n : _poly_div_by_const(n, only(d))
 end
@@ -78,19 +78,19 @@ end
 _ratfun(ex, isconst, atom, A) = _ratfun(ex, isconst, atom, A, A.constant(1))
 function _ratfun(ex, isconst, atom, A, 𝟙)
     isconst(ex) && return (A.constant(ex), 𝟙)
-    nd = atom(ex)
-    isnothing(nd) || return nd
+    frac = atom(ex)
+    isnothing(frac) || return frac
     iscall(ex) || return nothing
     op, args = operation(ex), arguments(ex)
     if op == (-) && length(args) == 1
-        nd = _ratfun(only(args), isconst, atom, A, 𝟙)
-        return isnothing(nd) ? nothing : (A.neg(first(nd)), last(nd))
+        frac = _ratfun(only(args), isconst, atom, A, 𝟙)
+        return isnothing(frac) ? nothing : (A.neg(first(frac)), last(frac))
     elseif op ∈ (+, *, -)
         n, d = A.constant(op == (*) ? 1 : 0), 𝟙
         for (i, a) ∈ enumerate(args)
-            nd = _ratfun(a, isconst, atom, A, 𝟙)
-            isnothing(nd) && return nothing
-            n′, d′ = nd
+            frac = _ratfun(a, isconst, atom, A, 𝟙)
+            isnothing(frac) && return nothing
+            n′, d′ = frac
             op == (-) && i > 1 && (n′ = A.neg(n′))
             if op == (*)
                 n, d = A.mul(n, n′), _rf_mul(A, 𝟙, d, d′)
@@ -102,19 +102,19 @@ function _ratfun(ex, isconst, atom, A, 𝟙)
         end
         return (n, d)
     elseif op ∈ (/, //) && length(args) == 2
-        nd = _ratfun(args[1], isconst, atom, A, 𝟙)
-        nd′ = _ratfun(args[2], isconst, atom, A, 𝟙)
-        (isnothing(nd) || isnothing(nd′)) && return nothing
-        return (_rf_mul(A, 𝟙, first(nd), last(nd′)), _rf_mul(A, 𝟙, last(nd), first(nd′)))
+        frac = _ratfun(args[1], isconst, atom, A, 𝟙)
+        frac′ = _ratfun(args[2], isconst, atom, A, 𝟙)
+        (isnothing(frac) || isnothing(frac′)) && return nothing
+        return (_rf_mul(A, 𝟙, first(frac), last(frac′)), _rf_mul(A, 𝟙, last(frac), first(frac′)))
     elseif op == (^) && length(args) == 2
         a, b = args
         is_number(b) || return nothing
         k = unwrap_const(b)
         (k isa Real && isinteger(k)) || return nothing
         k = Int(k)
-        nd = _ratfun(a, isconst, atom, A, 𝟙)
-        isnothing(nd) && return nothing
-        n, d = k ≥ 0 ? nd : reverse(nd)
+        frac = _ratfun(a, isconst, atom, A, 𝟙)
+        isnothing(frac) && return nothing
+        n, d = k ≥ 0 ? frac : reverse(frac)
         return (A.pow(n, abs(k)), isequal(d, 𝟙) ? d : A.pow(d, abs(k)))
     end
     nothing

@@ -159,9 +159,9 @@ function _isolate(u, r, x)
     end
 
     # stuck; try a rational function, then a substitution
-    nd = _rat_coeffs(u - r, x)
-    if !isnothing(nd)
-        num, den = nd
+    frac = _rat_coeffs(u - r, x)
+    if !isnothing(frac)
+        num, den = frac
         length(num) == 1 && return nothing # x cancels
         ρs = _poly_roots(num)
         isnothing(ρs) && return (_Sol(u, r),)
@@ -667,9 +667,9 @@ function _trig_identity(ex, x)
     all(kw -> isequal(last(kw), w), kws) || return nothing
     g = reduce(gcd, first.(kws))
     u = isone(g) ? w : g * w
-    nd = _sc(ex, x, w, g)
-    isnothing(nd) && return nothing
-    P = first(nd)
+    frac = _sc(ex, x, w, g)
+    isnothing(frac) && return nothing
+    P = first(frac)
     A₁, B₁ = _reduce_sc(P, 1) # A(S) + C⋅B(S)
     A₂, B₂ = _reduce_sc(P, 2) # A(C) + S⋅B(C)
     z(cs) = all(_iszero, cs)
